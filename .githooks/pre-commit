@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# strypt — pre-commit gate.
+#
+# Catches edits made outside Claude Code (vim, sed, git apply, any contributor not using it),
+# which the .claude/ hooks structurally cannot see. Enable with:
+#     git config core.hooksPath .githooks
+#
+# CI remains authoritative. This is a fast local approximation, not a substitute.
+
+set -uo pipefail
+fail=0
+
+staged() { git diff --cached --name-only --diff-filter=ACM; }
+added_lines() { git diff --cached -U0 -- "$1" | grep '^+' | grep -v '^+++' || true; }
+
+# --- ADR-0004: no networking dependencies -----------------------------------------------
+for f in $(staged | grep -E 'Cargo\.toml$' || true); do
+  if added_lines "$f" | grep -Eq '(^|[^a-zA-Z0-9_-])(reqwest|hyper|ureq|curl|isahc|surf|awc|native-tls|rustls|openssl|socket2|tungstenite|quinn|axum|warp|rocket)([^a-zA-Z0-9_-]|$)'; then
+    echo "✗ ADR-0004: $f appears to add a networking dependency."
+    echo "  strypt makes no network calls in any code path. See docs/DECISIONS.md ADR-0004."
+    fail=1
+  fi
+done
+
+# --- ADR-0007: unsafe requires a same-commit ADR -----------------------------------------
+unsafe_files=""
+for f in $(staged | grep -E '\.rs$' || true); do
+  if added_lines "$f" | grep -Eq '(^|[^a-zA-Z0-9_])unsafe[[:space:]]*(\{|fn |impl |trait |extern)'; then
+    unsafe_files="$unsafe_files $f"
+  fi
+done
+
+if [ -n "$unsafe_files" ]; then
+  # Unlike the PreToolUse hook, this CAN verify the same-commit requirement: the ADR must be
+  # staged in this very commit.
+  if ! staged | grep -q '^docs/DECISIONS\.md$'; then
+    echo "✗ ADR-0007: new \`unsafe\` in:$unsafe_files"
+    echo "  but docs/DECISIONS.md is not staged in this commit."
+    echo "  Introducing unsafe requires a // SAFETY: comment AND an ADR in the SAME commit."
+    fail=1
+  elif ! git diff --cached -- docs/DECISIONS.md | grep -q '^+## ADR-'; then
+    echo "✗ ADR-0007: new \`unsafe\` in:$unsafe_files"
+    echo "  docs/DECISIONS.md is staged but adds no new ADR heading."
+    fail=1
+  fi
+fi
+
+# --- Never commit real personal data in fixtures ------------------------------------------
+if staged | grep -qE '^corpus/.*\.(jpe?g|png|webp|pdf)$'; then
+  echo "ℹ  Test fixtures staged. Confirm they contain NO real personal data (CONTRIBUTING.md)."
+fi
+
+# --- Formatting ---------------------------------------------------------------------------
+if command -v cargo >/dev/null 2>&1 && [ -f Cargo.toml ]; then
+  if ! cargo fmt --check >/dev/null 2>&1; then
+    echo "✗ cargo fmt --check failed. Run: cargo fmt"
+    fail=1
+  fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo
+  echo "Commit blocked. To bypass in a genuine emergency: git commit --no-verify"
+  echo "(CI will still catch it — see .claude/HOOKS.md on why CI is the real gate.)"
+  exit 1
+fi
+exit 0

@@ -1,0 +1,16 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# Fuzzing artefacts. Seed corpora ARE committed (docs/TESTING_STRATEGY.md §3); crash
+# artefacts are not — a crash gets a regression test and a sanitised corpus entry instead.
+fuzz/target
+fuzz/artifacts
+fuzz/coverage
+
+# Never commit real user files. Test fixtures must contain no real personal data
+# (CONTRIBUTING.md); scratch files must not leak into history.
+/scratch
+*.local
+
+.DS_Store

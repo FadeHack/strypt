@@ -1,0 +1,12 @@
+# Pinned toolchain — see docs/ROADMAP.md Phase 0 and .github/workflows/README.md.
+#
+# CI and local builds use THIS version, never a floating `stable`. For a tool whose parsers
+# process hostile input, the compiler is part of the trusted computing base: Rust 1.97.1 was
+# itself a point release fixing an LLVM miscompilation, and a release binary must never
+# depend on which toolchain happened to be installed on the machine that produced it.
+#
+# Bumping this is a deliberate act with a CHANGELOG.md entry. Verified 2026-08-19 as the
+# then-current stable (released 2026-07-16).
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]

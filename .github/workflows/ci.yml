@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# No workflow needs write access. A compromised action should not be able to push.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Fail on warnings everywhere, not only in the clippy job.
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      # No toolchain is installed here on purpose: rust-toolchain.toml pins the version and
+      # rustup honours it automatically. Installing one would silently override the pin.
+      - name: Show pinned toolchain
+        run: |
+          rustc --version
+          cargo --version
+      - run: cargo build --all-targets
+      - run: cargo test --all-features
+
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+
+  msrv:
+    name: MSRV (ADR-0013)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The deliberate exception to the toolchain pin: this job must build against the
+      # declared MSRV, which is the point of having one. Keep in sync with `rust-version`
+      # in Cargo.toml — currently 1.95 (current stable minus two).
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95"
+      - run: cargo build --all-features

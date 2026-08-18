@@ -1,0 +1,20 @@
+[package]
+name = "strypt-cli"
+description = "Strip hidden identifying metadata from files so they are safer to share"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "strypt"
+path = "src/main.rs"
+
+[dependencies]
+strypt-core = { path = "../strypt-core" }
+# CLI dependencies (clap, etc.) arrive in Phase 1. See docs/ARCHITECTURE.md §4.
+
+[lints]
+workspace = true

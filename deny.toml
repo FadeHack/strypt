@@ -1,0 +1,54 @@
+# cargo-deny configuration — see docs/ARCHITECTURE.md §6 and ADR-0008.
+#
+# Advisory until Phase 3, a hard merge gate from Phase 3 onward (docs/ROADMAP.md).
+# Verify the current schema at phase start; cargo-deny's config format has changed before.
+
+[advisories]
+# Security advisories from the RustSec database. Any `ignore` entry needs a comment
+# explaining why the advisory does not apply and when it will be revisited.
+ignore = []
+
+[licenses]
+# ADR-0002: strypt is MIT OR Apache-2.0 and must stay embeddable. Copyleft licences
+# (including LGPL, which is mat2's licence) are incompatible with static linking into
+# permissively-licensed binaries and must not enter the tree.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",   # kamadak-exif, if adopted — see docs/ARCHITECTURE.md §4
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.93
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+# ADR-0004 expressed as policy. NOTE: this list is the *explanatory* layer — the
+# authoritative gate is scripts/check-no-network.sh, which walks the resolved graph and
+# is not limited to names enumerated here. Keep the two in rough sync.
+deny = [
+    { name = "reqwest",  reason = "ADR-0004: strypt makes no network calls, ever" },
+    { name = "hyper",    reason = "ADR-0004: HTTP stack" },
+    { name = "ureq",     reason = "ADR-0004: HTTP client" },
+    { name = "curl",     reason = "ADR-0004: HTTP client" },
+    { name = "isahc",    reason = "ADR-0004: HTTP client" },
+    { name = "surf",     reason = "ADR-0004: HTTP client" },
+    { name = "rustls",   reason = "ADR-0004: TLS implies network I/O" },
+    { name = "native-tls", reason = "ADR-0004: TLS implies network I/O" },
+    { name = "openssl",  reason = "ADR-0004: TLS implies network I/O" },
+    { name = "socket2",  reason = "ADR-0004: raw sockets" },
+    { name = "quinn",    reason = "ADR-0004: QUIC transport" },
+    { name = "tungstenite", reason = "ADR-0004: WebSocket" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# Only crates.io. A git dependency bypasses crates.io's (limited) scrutiny entirely and
+# would be a meaningful supply-chain regression for this project.
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

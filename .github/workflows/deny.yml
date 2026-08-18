@@ -1,0 +1,30 @@
+# Supply-chain policy (ADR-0008): advisories, licences, banned crates, and sources.
+#
+# ADVISORY until Phase 3, then a hard merge gate (docs/ROADMAP.md Phase 3). It is expected
+# that this job will occasionally break on a newly-published RustSec advisory affecting a
+# transitive dependency — that is the gate working, not a nuisance to be silenced.
+
+name: cargo-deny
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Advisories appear independently of commits, so check on a schedule too.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    # TODO(Phase 3): remove this line to make the gate hard.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses bans sources

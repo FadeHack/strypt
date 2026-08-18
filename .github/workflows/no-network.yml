@@ -1,0 +1,29 @@
+# ADR-0004 — the project's most important CI gate.
+#
+# strypt's entire trust model rests on it never making a network call. This job walks the
+# FULLY RESOLVED dependency graph (all targets, all features) and fails on any networking
+# crate, including transitive ones. It is the only enforcement layer that cannot be bypassed
+# by a contributor who has not read the project's documentation — see .claude/HOOKS.md.
+#
+# This gate is HARD from Phase 0. It must never be downgraded to advisory.
+
+name: no-network
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  no-network:
+    name: no networking crates in dependency graph
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show pinned toolchain
+        run: rustc --version
+      - name: Check resolved dependency graph
+        run: ./scripts/check-no-network.sh

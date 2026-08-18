@@ -1,0 +1,37 @@
+[workspace]
+resolver = "3"
+members = ["crates/strypt-core", "crates/strypt-cli"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+# MSRV policy: current stable minus two releases. House policy, NOT an industry norm —
+# see docs/DECISIONS.md ADR-0013 before citing it anywhere.
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/FadeHack/strypt"
+authors = ["The strypt Contributors"]
+
+[workspace.dependencies]
+# Deliberately empty in Phase 0. Every dependency requires an ADR (ADR-0008); the vetted
+# candidates for Phase 1 are recorded in docs/ARCHITECTURE.md §4 and must be re-verified
+# before use.
+
+# Lints applied across the workspace. The panic-capable lints are denied in strypt-core
+# only (ADR-0006) — see that crate's manifest.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+[profile.release]
+# Keep debug assertions off but overflow checks ON in release: an integer overflow while
+# parsing an attacker-controlled length field should abort, not silently wrap into a
+# nonsensical offset. Costs a little speed, removes a bug class (ADR-0006).
+overflow-checks = true
+lto = true
+codegen-units = 1
+strip = true

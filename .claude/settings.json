@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo metadata:*)",
+      "Bash(cargo deny check:*)",
+      "Bash(cargo run -p strypt-cli:*)",
+      "Bash(rustc --version)",
+      "Bash(rustup show)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "ask": [
+      "Bash(cargo add:*)",
+      "Bash(cargo remove:*)",
+      "Bash(cargo publish:*)",
+      "Bash(cargo install:*)",
+      "Edit(Cargo.toml)",
+      "Edit(deny.toml)",
+      "Edit(Cargo.lock)"
+    ],
+    "deny": [
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(nc:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/no-network.sh",
+            "statusMessage": "Checking ADR-0004 (no network access)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/unsafe-needs-adr.sh",
+            "statusMessage": "Checking ADR-0007 (unsafe requires an ADR)"
+          }
+        ]
+      }
+    ]
+  }
+}
