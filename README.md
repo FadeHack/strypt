@@ -1,5 +1,52 @@
 # strypt
 
+> ## Status: Phase 0 (Foundation) complete — Phase 1 not started
+>
+> **Do not use strypt to protect anything that matters. It cannot yet: no file format is
+> implemented.** `strypt strip` is a stub that prints a notice and exits 2.
+>
+> What exists today is the foundation: design documents, threat model, decision log, a Cargo
+> workspace, and the enforcement gates described below. What does not exist is the part that
+> removes metadata.
+>
+> Phases are defined in [`docs/ROADMAP.md`](docs/ROADMAP.md), with exit criteria per phase.
+> This table tracks against those definitions:
+>
+> | Phase | Status |
+> |---|---|
+> | 0 — Foundation: docs, workspace, CI gates | ✅ Complete, all exit criteria met |
+> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ⬜ Not started |
+> | 2 — Expanded formats (Office, audio/video) | ⬜ Not started |
+> | 3 — Hardening: sustained fuzzing, live-OS validation | ⬜ Not started |
+> | 4 — Distribution: binaries, checksums, packaging | ⬜ Not started |
+> | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
+>
+> **Specifically, as of Phase 0:**
+>
+> - **Built and verified:** a two-crate workspace; `unsafe` forbidden crate-wide and enforced
+>   by the compiler; panic-capable lints denied in the parsing crate; CI on Linux, macOS, and
+>   Windows; a dependency-graph gate that fails the build on any networking crate, including
+>   transitive ones, tested by deliberate violation; `cargo-deny` bans/licenses/sources as
+>   hard gates.
+> - **Not built:** every format handler, metadata detection, the CLI itself.
+> - **Not fuzzed:** nothing. There is no parser to fuzz. Fuzzing is Phase 1 (per-handler
+>   harnesses) and Phase 3 (sustained budgets).
+> - **Not audited:** no external security review has taken place, and none is scheduled. The
+>   threat model in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) is self-assessed.
+> - **Not validated on Tails or Qubes-Whonix.** Compatibility is an explicit assumption
+>   throughout the docs, converted to fact in Phase 3.
+>
+> **If you need to strip metadata today, use [mat2](https://github.com/jvoisin/mat2) or
+> [ExifTool](https://exiftool.org/).** Both are mature and actively maintained; mat2 supports
+> roughly six times as many formats and is already packaged in most Linux distributions.
+> [`docs/PRD.md`](docs/PRD.md) §4 sets out where strypt intends to differ, and §0 records a
+> correction to this project's own founding premise.
+>
+> Development uses an AI coding agent under a defined process — see
+> [Development process](CONTRIBUTING.md#development-process-ai-assisted-under-constraints).
+
+---
+
 **Remove hidden metadata from files before you share them.**
 
 Photos carry GPS coordinates and camera serial numbers. PDFs carry author names, organisation
@@ -7,19 +54,6 @@ names, and editing timestamps. None of it is visible in a normal viewer, and all
 survives to publication. strypt finds it and strips it out.
 
 A single self-contained binary. Memory-safe Rust. **No network access in any code path.**
-
----
-
-> ### ⚠️ Status: Phase 0 — Foundation
->
-> **strypt is not usable yet.** There is no code — this repository currently contains the
-> design documents, the threat model, and the decision log that Phase 1 will be built
-> against. There is nothing to install.
->
-> **If you need to strip metadata today, use [mat2](https://github.com/jvoisin/mat2)** or
-> [ExifTool](https://exiftool.org/). mat2 is actively maintained, supports far more formats,
-> and is already packaged in most Linux distributions. See [`docs/PRD.md`](docs/PRD.md) §4
-> for an honest account of where strypt intends to differ.
 
 <!-- Badge placeholders — activate in Phase 4 -->
 <!-- [![CI](…)](…) [![crates.io](…)](…) [![License](…)](…) -->

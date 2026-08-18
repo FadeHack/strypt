@@ -39,6 +39,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   cargo-deny) and a `.githooks/pre-commit` gate covering edits made outside Claude Code.
 - `deny.toml` supply-chain policy: allowed licences, banned networking crates, crates.io as
   the only permitted source.
+- README status banner stating exactly what is built, fuzzed, and audited versus what is
+  not, tracked against the phase definitions in `docs/ROADMAP.md`.
+- CONTRIBUTING.md disclosure that development uses an AI coding agent under defined
+  constraints, including a direct statement of what those safeguards do *not* establish.
 
 ### Fixed
 

@@ -3,12 +3,78 @@
 Thanks for considering it. Please read this first — strypt has a few expectations that differ
 from a typical Rust CLI project, because of who relies on it.
 
-**Current status: Phase 0.** There is no code yet. The most valuable contributions right now
-are review of the design documents in [`docs/`](docs/) — particularly
-[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) and [`docs/PRD.md`](docs/PRD.md) §0, which
-questions the project's own founding premise.
+**Current status: Phase 0 complete, Phase 1 not started.** The workspace and CI gates exist;
+no format handler does. The most valuable contributions right now are review of the design
+documents in [`docs/`](docs/) — particularly [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md)
+and [`docs/PRD.md`](docs/PRD.md) §0, which questions the project's own founding premise.
 
 ---
+
+## Development process: AI-assisted, under constraints
+
+**strypt is developed with substantial use of Claude Code, an AI coding agent.** This is
+deliberate and disclosed rather than incidental, because a tool asking at-risk people to
+trust its output should not be quiet about how it is built.
+
+For a security tool, that fact deserves scrutiny. AI agents produce plausible-looking code
+confidently, are prone to inventing API details, and will happily assert a version number or
+a library's behaviour from stale training data. In a metadata scrubber, a plausible-looking
+parser that misses a field is exactly the failure mode that gets someone hurt — the tool
+reports success, the user publishes, and the leak is already in the world.
+
+The project's response is to constrain the process rather than trust the output. What is
+actually in place, all of it verifiable in this repository:
+
+- **Hard invariants in [`CLAUDE.md`](CLAUDE.md)** that apply to every session: no network
+  access in any code path, no `unsafe`, no panics in parsing, fail-closed behaviour, and a
+  ban on overclaiming in user-facing text.
+- **A standing verification requirement.** Any dependency, version, or claim about an
+  external project must be checked against a primary source before it is written down, not
+  recalled. This has already caught real errors: the project's founding premise about mat2
+  being unmaintained was wrong ([`docs/PRD.md`](docs/PRD.md) §0), and a widely-cited
+  third-party source reported a stale Rust stable version that would have set the MSRV
+  incorrectly.
+- **Enforcement that does not depend on an agent behaving well.** The no-network rule is a CI
+  gate that walks the fully resolved dependency graph and has been proven to fail by
+  deliberate violation. `unsafe` is rejected by the compiler via `forbid(unsafe_code)`, by a
+  pre-commit hook, and by requiring a decision record. [`.claude/HOOKS.md`](.claude/HOOKS.md)
+  states plainly what the editor-level hooks *cannot* catch and why CI is authoritative.
+- **[`docs/DECISIONS.md`](docs/DECISIONS.md)** records why each choice was made, not just
+  what was chosen — so a reviewer can audit the reasoning, including where it was wrong.
+  ADR-0015 and ADR-0016 exist because two CI gates were found to be passing while testing
+  nothing.
+- **No `unsafe` merges without an ADR in the same commit**, enforced at pre-commit and in
+  review.
+- **Fuzzing and dependency-audit gates** defined in [`docs/ROADMAP.md`](docs/ROADMAP.md)
+  Phase 3: per-handler fuzzing budgets with crash, hang, and OOM findings triaged to zero,
+  and `cargo-deny` as a hard merge gate.
+
+### What this does not establish
+
+**None of the above makes AI-written code trustworthy, and this section is not an argument
+that it does.** These are process safeguards. They constrain what can be committed and make
+reasoning auditable; they do not verify that a parser correctly handles a malformed
+JPEG APP1 segment. Constraints catch categories of error, not individual bugs.
+
+What the project still needs, and does not yet have:
+
+- **Human review of every line of parsing logic.** Phase 1 has not started; no parser has
+  been written, let alone reviewed.
+- **The Phase 3 fuzzing work actually performed**, not merely specified. A budget written in
+  a roadmap has found nothing.
+- **External security audit.** None has taken place and none is scheduled. The threat model
+  is self-assessed, which is the weakest form of threat model.
+- **Differential validation against mat2 and ExifTool** on a real corpus, which is the
+  strongest correctness signal available and is Phase 1 work.
+
+Until those exist, the honest position is the one in the README: do not rely on strypt for
+anything that matters. If you are evaluating this project and the AI involvement is
+disqualifying for your use, that is a reasonable conclusion and we would rather you reach it
+from a clear statement than discover it later.
+
+Contributions from humans and from AI-assisted humans are equally welcome, and are held to
+exactly the same standard: parsing changes get extra scrutiny (see above), and "an agent
+wrote it and the tests pass" is not a review.
 
 ## Before you start
 
