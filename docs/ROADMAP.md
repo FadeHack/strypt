@@ -42,25 +42,26 @@ it exists, how it is built, what phase it is in, and what to do next, without as
 - `scripts/check-no-network.sh` — the authoritative ADR-0004 gate, walking the fully
   resolved graph across all features. ✅
 - `deny.toml` and a `.githooks/pre-commit` gate for non-Claude edits. ✅
-- **Remaining:** run the CI workflows on a real push. They are written and the scripts they
-  invoke are locally verified, but no workflow has executed on GitHub yet — the repository
-  has no remote. Exit criteria 2, 3, and 6 are only provisionally met until it has.
+- CI verified green on real pushes to `github.com/FadeHack/strypt` (2026-08-19): build and
+  test on Linux, macOS, and Windows; fmt; clippy; MSRV; no-network; cargo-deny. ✅
 
 **Exit criteria.**
 1. ✅ **Met 2026-08-19.** `cargo build`, `cargo test`, `cargo clippy -- -D warnings`, and
    `cargo fmt --check` all pass on the scaffolded workspace.
-2. CI runs those four gates plus `cargo-deny` and the no-network check on every push, on
-   Linux, macOS, and Windows.
+2. ✅ **Met 2026-08-19.** CI runs those four gates plus `cargo-deny` and the no-network
+   check on every push, on Linux, macOS, and Windows — all green on a real push.
 3. The no-network gate is **proven to work** by a deliberate test. ✅ **Locally verified
    2026-08-19:** adding `ureq` to `strypt-core` made the gate exit 1, flagging `ureq`, its
    declaration, *and* `rustls` pulled in transitively — the transitive case being precisely
    what the Claude Code hooks structurally cannot see. Change reverted; gate re-verified
-   clean. Still to be confirmed running in GitHub Actions once a remote exists.
+   clean. Confirmed running green in GitHub Actions 2026-08-19.
 4. `INSTRUCTIONS.md` contains real, copy-pasteable commands that actually run.
 5. ✅ **Met 2026-08-19.** The owner reviewed `docs/PRD.md` §0 and confirmed the project
    proceeds on the corrected footing recorded in ADR-0012.
-6. `rust-toolchain.toml` exists, pins an explicit version, and CI demonstrably uses it —
-   verified by confirming the CI log reports the pinned version, not a floating `stable`.
+6. ✅ **Met 2026-08-19.** `rust-toolchain.toml` pins an explicit version and CI demonstrably
+   uses it. Confirmed against real CI logs, including the MSRV job — which was silently
+   building with the pinned toolchain instead of the MSRV until ADR-0015 fixed it, and now
+   logs `rustc 1.95.0` as proof.
 
 **Risks.**
 - *Documentation drifting from reality the moment code appears.* Mitigation: `INSTRUCTIONS.md`

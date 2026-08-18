@@ -452,3 +452,40 @@ intended toolchain is actually in use.
 - Generalises beyond MSRV: any future job needing a different toolchain (nightly for
   `cargo-fuzz`, for instance) faces the same trap and must use the same explicit mechanism.
   Phase 1 will hit this with the fuzzing jobs.
+
+---
+
+## ADR-0016 — Split supply-chain gates by determinism
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** `cargo-deny` was wired as a single advisory (`continue-on-error`) job, to be
+made hard in Phase 3, on the reasoning that a newly-published RustSec advisory can break the
+build with no change to this repository — which is disruptive before the project has capacity
+to service it.
+
+On the very first CI run, that advisory-only setting **hid a genuine failure**: `bans FAILED`,
+because `strypt-cli` declared `strypt-core` by path with no version, which `cargo-deny`
+correctly reports as a wildcard dependency. The job showed green. Nothing was broken by it,
+but the mechanism that was supposed to report it stayed silent — precisely the "confidence
+without protection" failure this project warns about elsewhere.
+
+**Decision.** Split the checks by whether they can fail for reasons outside this repository:
+
+- **`bans`, `licenses`, `sources` — hard gates, from now.** These depend only on this
+  repository's contents. They can only fail because someone changed something here, so
+  failing the build is correct and actionable immediately.
+- **`advisories` — advisory until Phase 3**, then hard. This depends on the RustSec database
+  and can begin failing with no commit at all. Keeping it non-blocking for now is a capacity
+  decision, not a statement that advisories matter less.
+
+**Consequences.**
+
+- The wildcard was fixed by giving the path dependency an explicit `version`, which is also
+  required for the Phase 4 crates.io publish — a bare path dependency cannot be published.
+- The general rule this establishes: **prefer a narrow hard gate to a broad advisory one.**
+  An advisory gate reports into a log nobody reads. Where a check is deterministic and under
+  our control, it should block.
+- The `cargo-deny` action runs in a musl container that could not resolve the pinned
+  toolchain, emitting a rustup error into the log. Its `rust-version` input is now pinned to
+  match `rust-toolchain.toml`, because log noise is how real failures get overlooked.

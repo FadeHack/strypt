@@ -22,7 +22,7 @@ jobs:
     name: no networking crates in dependency graph
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Show pinned toolchain
         run: rustc --version
       - name: Check resolved dependency graph

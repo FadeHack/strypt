@@ -1,8 +1,12 @@
-# Supply-chain policy (ADR-0008): advisories, licences, banned crates, and sources.
+# Supply-chain policy (ADR-0008), split by determinism — see ADR-0016.
 #
-# ADVISORY until Phase 3, then a hard merge gate (docs/ROADMAP.md Phase 3). It is expected
-# that this job will occasionally break on a newly-published RustSec advisory affecting a
-# transitive dependency — that is the gate working, not a nuisance to be silenced.
+# `bans`, `licenses`, and `sources` are HARD now: they depend only on what is in this
+# repository, so they can only fail because someone changed something here. Running them
+# advisory-only hid a genuine `bans` failure on the very first CI run.
+#
+# `advisories` stays advisory until Phase 3, because it depends on the RustSec database and
+# can start failing with no change to this repository. When it does fail, that is the gate
+# working, not a nuisance to be silenced.
 
 name: cargo-deny
 
@@ -18,13 +22,27 @@ permissions:
   contents: read
 
 jobs:
-  deny:
-    name: cargo-deny
+  policy:
+    name: bans, licenses, sources (hard gate)
     runs-on: ubuntu-latest
-    # TODO(Phase 3): remove this line to make the gate hard.
-    continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          command: check advisories licenses bans sources
+          # Pinned to match rust-toolchain.toml. The action runs in a musl container that
+          # cannot resolve the pinned toolchain otherwise, which emits a rustup error into
+          # the log — noise that would help hide a real failure.
+          rust-version: "1.97.1"
+          command: check bans licenses sources
+
+  advisories:
+    name: advisories (advisory until Phase 3)
+    runs-on: ubuntu-latest
+    # TODO(Phase 3): remove this line to make advisories a hard gate too.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          rust-version: "1.97.1"
+          command: check advisories

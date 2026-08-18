@@ -46,6 +46,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   because `rust-toolchain.toml` outranks a default-setting toolchain action in rustup's
   precedence order. It now sets `RUSTUP_TOOLCHAIN` explicitly and asserts the version in use.
   Recorded as ADR-0015.
+- `cargo-deny` reported success while its `bans` check was failing, because the job was
+  advisory-only. The deterministic checks (`bans`, `licenses`, `sources`) are now hard gates;
+  `advisories` stays advisory until Phase 3. Recorded as ADR-0016.
+- `strypt-cli` declared `strypt-core` by path with no version — a wildcard dependency, and
+  unpublishable to crates.io. Now versioned explicitly.
+- Bumped `actions/checkout` to v5; v4 targets a deprecated Node runtime.
 
 ### Notes
 

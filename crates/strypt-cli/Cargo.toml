@@ -13,7 +13,9 @@ name = "strypt"
 path = "src/main.rs"
 
 [dependencies]
-strypt-core = { path = "../strypt-core" }
+# `version` is required alongside `path`: a bare path dependency is a wildcard
+# (deny.toml `wildcards = "deny"`) and cannot be published to crates.io in Phase 4.
+strypt-core = { path = "../strypt-core", version = "0.0.0" }
 # CLI dependencies (clap, etc.) arrive in Phase 1. See docs/ARCHITECTURE.md §4.
 
 [lints]
