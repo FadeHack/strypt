@@ -413,3 +413,42 @@ Whoever runs Phase 3 should treat this ADR as a hypothesis to test.
   `docs/TESTING_STRATEGY.md` §2.4. A budget met while ignoring hangs has not been met.
 - Supersede this ADR with the measured policy at the end of Phase 3; do not silently edit
   the numbers here.
+
+---
+
+## ADR-0015 — Toolchain pinning, and why the MSRV job must override it explicitly
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** `rust-toolchain.toml` pins the compiler to an exact version so that a release
+binary never depends on whichever toolchain happened to be installed on the building machine.
+The compiler is part of this tool's trusted computing base: Rust 1.97.1 was itself a point
+release fixing an LLVM miscompilation, and a miscompiled parser handling hostile input is
+exactly the failure this project cannot afford.
+
+The pin creates a trap for the MSRV job, which must build against a *different* version by
+design. Measured locally on 2026-08-19, rustup's precedence is:
+
+```
++toolchain  >  RUSTUP_TOOLCHAIN  >  directory override  >  rust-toolchain.toml  >  default
+```
+
+A CI action that installs a toolchain and sets it as the **default** is therefore outranked
+by `rust-toolchain.toml`. The MSRV job as first written used exactly such an action, so it
+would have built with the pinned 1.97.1 while reporting success — testing nothing, while
+looking like a passing gate. This is the failure mode `docs/ROADMAP.md` warns about
+generally: a gate that provides confidence without protection.
+
+**Decision.** `rust-toolchain.toml` pins the build toolchain. Any job that must deviate sets
+`RUSTUP_TOOLCHAIN` explicitly (or uses `cargo +version`), never a default-setting action.
+Every such job includes a `rustc --version` step whose output must be checked to confirm the
+intended toolchain is actually in use.
+
+**Consequences.**
+
+- Verified 2026-08-19: the workspace builds cleanly on the MSRV, 1.95.0.
+- Bumping the pin or the MSRV is a deliberate act with a `CHANGELOG.md` entry, and the two
+  move independently — the pin tracks current stable, the MSRV follows ADR-0013.
+- Generalises beyond MSRV: any future job needing a different toolchain (nightly for
+  `cargo-fuzz`, for instance) faces the same trap and must use the same explicit mechanism.
+  Phase 1 will hit this with the fuzzing jobs.

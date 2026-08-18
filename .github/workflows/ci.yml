@@ -54,8 +54,18 @@ jobs:
       - uses: actions/checkout@v4
       # The deliberate exception to the toolchain pin: this job must build against the
       # declared MSRV, which is the point of having one. Keep in sync with `rust-version`
-      # in Cargo.toml — currently 1.95 (current stable minus two).
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.95"
+      # in Cargo.toml — currently 1.95 (current stable minus two, ADR-0013).
+      #
+      # RUSTUP_TOOLCHAIN is required here, not optional. rustup precedence is:
+      #   +toolchain  >  RUSTUP_TOOLCHAIN  >  directory override  >  rust-toolchain.toml
+      #     >  rustup default
+      # An action that merely sets the *default* toolchain is outranked by
+      # rust-toolchain.toml, so this job would silently build with the pinned 1.97.1 and
+      # test nothing. Verified locally 2026-08-19. If you change this, re-verify that the
+      # job's `rustc --version` step actually reports the MSRV.
+      - run: rustup toolchain install 1.95 --profile minimal --no-self-update
+      - name: Confirm the MSRV toolchain is actually in use
+        run: rustc --version   # must report 1.95.x, not the pinned release
       - run: cargo build --all-features
+    env:
+      RUSTUP_TOOLCHAIN: "1.95"

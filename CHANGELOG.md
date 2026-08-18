@@ -40,6 +40,13 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - `deny.toml` supply-chain policy: allowed licences, banned networking crates, crates.io as
   the only permitted source.
 
+### Fixed
+
+- The MSRV CI job would have silently built with the pinned toolchain rather than the MSRV,
+  because `rust-toolchain.toml` outranks a default-setting toolchain action in rustup's
+  precedence order. It now sets `RUSTUP_TOOLCHAIN` explicitly and asserts the version in use.
+  Recorded as ADR-0015.
+
 ### Notes
 
 - No software has been released. There is nothing installable yet, and no version has been
