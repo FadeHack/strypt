@@ -9,6 +9,7 @@
 
 use crate::detect::Format;
 use crate::formats::MetadataHandler;
+use crate::formats::jpeg::JpegHandler;
 use crate::formats::pdf::PdfHandler;
 
 /// The handler for `format`, or [`None`] if this release has none.
@@ -20,10 +21,11 @@ use crate::formats::pdf::PdfHandler;
 #[must_use]
 pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
     match format {
+        Format::Jpeg => Some(&JpegHandler),
         Format::Pdf => Some(&PdfHandler),
-        // JPEG, PNG, and WebP are landing in this phase, each with its own fuzz target and
-        // seed corpus. Until each arrives, its format is reported as unsupported.
-        Format::Jpeg | Format::Png | Format::Webp => None,
+        // PNG and WebP are landing in this phase, each with its own fuzz target and seed
+        // corpus. Until each arrives, its format is reported as unsupported.
+        Format::Png | Format::Webp => None,
     }
 }
 

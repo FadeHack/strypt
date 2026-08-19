@@ -3,8 +3,8 @@
 //! # Status
 //!
 //! **Phase 1 — in progress.** Format detection, the report types, and the typed error set
-//! exist. Handlers for JPEG, PNG, WebP, and PDF are landing one at a time, each with its own
-//! fuzz target and seed corpus (scope locked by ADR-0005). A format with no handler is
+//! exist, along with the PDF and JPEG handlers. PNG and WebP are still to land, each with its
+//! own fuzz target and seed corpus (scope locked by ADR-0005). A format with no handler is
 //! reported as unsupported and is never passed through untouched.
 //!
 //! # Invariants

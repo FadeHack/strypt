@@ -16,3 +16,7 @@ corpus/pdf/*.pdf binary
 crates/strypt-core/fuzz/seeds/pdf/*.pdf binary
 # The detection seeds have no extensions and are raw magic-number fragments.
 crates/strypt-core/fuzz/seeds/detect/* binary
+# JPEG fixtures. Git detects these as binary on content already; marked explicitly so the
+# guarantee does not depend on that detection, for the same reason the PDFs are.
+corpus/jpeg/**/*.jpg binary
+crates/strypt-core/fuzz/seeds/jpeg/*.jpg binary

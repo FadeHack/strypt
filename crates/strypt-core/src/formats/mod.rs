@@ -27,7 +27,10 @@ use crate::detect::Format;
 use crate::error::Result;
 use crate::report::{InspectOptions, MetadataReport, StripReport};
 
+mod exif;
+pub mod jpeg;
 pub mod pdf;
+mod xmp;
 
 /// Sanitised bytes and an account of what was done to produce them.
 #[derive(Debug, Clone)]

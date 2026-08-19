@@ -241,6 +241,61 @@ fuzz target exists, and it is a specific input to Phase 3's sandboxing decision 
 compromised or merely fragile dependency is one of the few things sandboxing genuinely buys a
 safe-Rust parser.
 
+### 7.2 JPEG (Phase 1)
+
+**What strypt removes.** Every `APPn` segment except the two named below, and every `COM`
+comment. That covers Exif — including the GPS directory, the maker note, and the thumbnail
+directory — XMP packets and their extension segments, Photoshop image resources and the IPTC
+block inside them, ICC colour profiles, the FlashPix and multi-picture segments, and the
+vendor blocks several camera makers put in `APP12`. Exif is reported tag by tag rather than as
+one lump, because "GPSLatitude, BodySerialNumber, DateTimeOriginal" is what lets someone judge
+a file they already published.
+
+**Data after the end-of-image marker is the finding worth knowing about.** A JPEG ends at its
+`EOI` marker and nothing stops a file continuing past it. In practice that is where a phone's
+multi-picture extension keeps a second, full-resolution frame: a viewer shows the picture that
+was cropped, and the file contains the one that was not. strypt drops everything after `EOI`
+and reports it. It is worth checking what a tool you rely on does with those bytes.
+
+**A body serial number is the tag with the longest reach.** It links every photograph a camera
+ever took. One image published with it intact retroactively attributes an entire archive that
+was otherwise clean — which is why the report names it rather than counting it.
+
+**What remains, and why.**
+
+- **`APP0` (JFIF) and `APP14` (Adobe).** Both are kept deliberately and both appear in the
+  strip report's `retained` list, so a reader sees them rather than discovers them. `APP0`
+  carries the pixel aspect ratio; `APP14` declares the colour transform, and a CMYK or YCCK
+  file without it renders with wrong colours. Neither names a person, a place, or a device.
+  Keeping `APP14` is a **documented gap against mat2**, which removes it (ADR-0021).
+- **The encoder's fingerprint.** Quantisation tables, Huffman tables, chroma subsampling, and
+  scan structure all survive, and together they identify the software and often the device
+  that produced the file. This is §4.7, it is not addressed, and it cannot be addressed
+  without re-encoding — which would destroy the picture to hide the camera. A tool that
+  re-encodes replaces the camera's fingerprint with its own rather than removing the notion of
+  one (assumption 6.5).
+- **The picture itself.** strypt never decodes or re-encodes an image, so anything visible in
+  the frame — a face, a street sign, a screen — is exactly as it was. §4.3 applies: visual
+  content is the user's to redact, and metadata removal is not redaction.
+
+**What strypt refuses.** A file that ends without an `EOI` marker, or whose segment lengths do
+not agree with its size. Completing a damaged file would hand the user something that is not
+what they gave us, presented as a clean version of it.
+
+**What is removed even though it changes how the file renders.** Exif `Orientation` and the
+ICC profile. An image that relied on `Orientation` may afterwards display rotated, and a
+wide-gamut image is interpreted as sRGB. Both are identifying — a per-device ICC profile is a
+fingerprint and its description tag routinely names the vendor — so both go, and the
+consequence is documented rather than hidden.
+
+**New attack surface this handler introduces.** None from dependencies: the JPEG segment
+walker and the Exif reader are written in this repository, under the crate's panic-freedom
+lints, over the shared checked-reading primitive. The residual risks are the ones safe Rust
+still has — a hang or unbounded allocation on a hostile file — which is what the `jpeg` fuzz
+target exists to find. A five-minute run over the seed corpus on 2026-08-19 executed 6.8
+million inputs with no crash, hang, or timeout; that is a smoke test, not the Phase 3 budget
+(ADR-0014).
+
 ---
 
 ## 8. Review triggers

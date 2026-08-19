@@ -22,6 +22,7 @@ commit as any change to the build, test, or lint workflow.**
 | `cargo-deny` | supply-chain gate | `cargo install cargo-deny` |
 | ExifTool, mat2 | differential testing | Optional locally, required for release verification. **Never runtime dependencies.** Verified working 2026-08-19 with ExifTool 13.55 and mat2 0.15.0. |
 | `qpdf` | fixture validation | Optional. `qpdf --check` confirms a generated PDF fixture is structurally sound. |
+| ImageMagick | fixture validation | Optional. `magick identify` confirms a JPEG fixture still decodes; `magick compare -metric AE` confirms stripping changed no pixels. |
 | Python 3 | fixture generation | Optional. Only needed to regenerate `corpus/`. |
 
 Check your toolchain:
@@ -120,10 +121,11 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/detect               # libFuzzer's working corpus; git-ignored
-cargo +nightly fuzz list                                          # pdf, detect
+mkdir -p corpus/pdf corpus/jpeg corpus/detect   # libFuzzer's working corpus; git-ignored
+cargo +nightly fuzz list                                          # pdf, jpeg, detect
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
+cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz cmin pdf corpus/pdf                           # minimise the corpus
 ```
@@ -133,7 +135,8 @@ Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is 
 machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
 directory given and reads the rest.
 
-The PDF seeds are copies of `corpus/pdf/`; refresh them after regenerating the fixtures.
+The PDF and JPEG seeds are copies of `corpus/pdf/` and `corpus/jpeg/` (including
+`corpus/jpeg/malformed/`); refresh them after regenerating the fixtures.
 
 A crash writes its input to `crates/strypt-core/fuzz/artifacts/<target>/`. Reproduce with:
 
@@ -145,7 +148,10 @@ cargo +nightly fuzz run pdf artifacts/pdf/crash-<hash>
 
 ```sh
 python3 corpus/tools/make_pdf_fixtures.py        # regenerate; deterministic
+python3 corpus/tools/make_jpeg_fixtures.py       # regenerate; deterministic
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
+magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still decodes
+exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
 ```
 
 Fixtures are generated rather than collected so that the "no real personal data" rule in

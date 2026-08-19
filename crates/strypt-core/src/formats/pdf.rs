@@ -28,7 +28,8 @@ use lopdf::{Dictionary, Document, Object, ObjectId};
 
 use crate::detect::Format;
 use crate::error::{MalformedDetail, ResourceLimit, Result, StryptError};
-use crate::formats::{MetadataHandler, ParseLimits, StripOptions, Stripped};
+use crate::formats::xmp::name_of;
+use crate::formats::{MetadataHandler, ParseLimits, StripOptions, Stripped, xmp};
 use crate::report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, MetadataValue, Note, StripReport,
 };
@@ -228,34 +229,6 @@ const MARKUP_ANNOTATION_SUBTYPES: &[&[u8]] = &[
     b"Sound",
     b"Movie",
     b"Redact",
-];
-
-/// XMP property prefixes worth naming individually in a report.
-///
-/// XMP is an RDF document embedded in the PDF, and it routinely carries a fuller record than
-/// the Info dictionary does — including, in `xmpMM:History`, a log of every save with the
-/// tool and timestamp for each.
-const XMP_PROPERTIES: &[(&[u8], MetadataKind)] = &[
-    (b"dc:creator", MetadataKind::PersonalIdentity),
-    (b"dc:title", MetadataKind::Comment),
-    (b"dc:description", MetadataKind::Comment),
-    (b"dc:subject", MetadataKind::Comment),
-    (b"xmp:CreatorTool", MetadataKind::SoftwareFingerprint),
-    (b"xmp:CreateDate", MetadataKind::Timestamp),
-    (b"xmp:ModifyDate", MetadataKind::Timestamp),
-    (b"xmp:MetadataDate", MetadataKind::Timestamp),
-    (b"xmpMM:DocumentID", MetadataKind::DocumentIdentifier),
-    (b"xmpMM:InstanceID", MetadataKind::DocumentIdentifier),
-    (
-        b"xmpMM:OriginalDocumentID",
-        MetadataKind::DocumentIdentifier,
-    ),
-    (b"xmpMM:History", MetadataKind::EditingHistory),
-    (b"pdf:Producer", MetadataKind::SoftwareFingerprint),
-    (b"photoshop:", MetadataKind::SoftwareFingerprint),
-    (b"exif:GPS", MetadataKind::Location),
-    (b"tiff:Make", MetadataKind::DeviceIdentity),
-    (b"tiff:Model", MetadataKind::DeviceIdentity),
 ];
 
 /// Walk the document, recording what is there and removing it.
@@ -474,29 +447,18 @@ fn examine_dictionary(
 /// handing an attacker a decompression bomb in exchange for a slightly more detailed report —
 /// the packet is still found, still reported, and still removed either way.
 fn examine_xmp(stream: &lopdf::Stream, options: &InspectOptions, out: &mut Vec<Finding>) {
-    let size = as_u64(stream.content.len());
     if stream.dict.has(b"Filter") {
         out.push(
-            Finding::new(MetadataKind::Other, "XMP packet", size).with_field("Metadata (encoded)"),
+            Finding::new(
+                MetadataKind::Other,
+                "XMP packet",
+                as_u64(stream.content.len()),
+            )
+            .with_field("Metadata (encoded)"),
         );
         return;
     }
-    let mut named = false;
-    for (property, kind) in XMP_PROPERTIES {
-        if contains(&stream.content, property) {
-            named = true;
-            out.push(
-                Finding::new(*kind, "XMP packet", 0)
-                    .with_field(name_of(property))
-                    .with_value(options, || MetadataValue::Opaque {
-                        bytes: as_u64(property.len()),
-                    }),
-            );
-        }
-    }
-    if !named {
-        out.push(Finding::new(MetadataKind::Other, "XMP packet", size).with_field("Metadata"));
-    }
+    out.extend(xmp::scan(&stream.content, "XMP packet", options));
 }
 
 /// Remove everything [`examine_object`] reports, from one object.
@@ -591,25 +553,6 @@ fn is_embedded_file_holder(object: &Object) -> bool {
         _ => return false,
     };
     dict.has_type(b"Filespec") || dict.has(b"EmbeddedFiles")
-}
-
-/// True when `haystack` contains `needle`.
-fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    if needle.is_empty() || needle.len() > haystack.len() {
-        return false;
-    }
-    haystack.windows(needle.len()).any(|w| w == needle)
-}
-
-/// A PDF name or key as text, with anything non-UTF-8 replaced.
-///
-/// Lossy on purpose: a key name is shown to a user, and a hostile document can put arbitrary
-/// bytes in one. Nothing here should be able to emit a control sequence into a terminal.
-fn name_of(raw: &[u8]) -> String {
-    String::from_utf8_lossy(raw)
-        .chars()
-        .filter(|c| !c.is_control())
-        .collect()
 }
 
 /// The size of a value in bytes, where it has a meaningful one.

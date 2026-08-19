@@ -81,13 +81,19 @@ correct, honest about what it did, and demonstrably does not crash on hostile in
 **Scope is locked** to JPEG, PNG, WebP, PDF by ADR-0005. Expanding it requires a superseding
 ADR, not a judgement call mid-phase.
 
-**Progress so far (2026-08-19).** PDF is done to the per-format bar; the three image
-handlers are not started. Landed: bounded ingest, content-sniffing detection, the handler
-registry and trait, the verification pass, structured reports, typed errors, the atomic write
-path, the full CLI, the PDF handler, fuzz targets for PDF and detection, and a generated
-fixture corpus. Differential testing against ExifTool 13.55 and mat2 0.15.0 over that corpus
-shows nothing surviving in strypt's output. **Remaining: the JPEG, PNG, and WebP handlers,
-real-producer corpus files, and the measured performance numbers.**
+**Progress so far (2026-08-19).** PDF and JPEG are done to the per-format bar; PNG and WebP
+are not started. Landed: bounded ingest, content-sniffing detection, the handler registry and
+trait, the verification pass, structured reports, typed errors, the atomic write path, the
+full CLI, the PDF handler, the JPEG handler with its shared Exif and XMP readers, fuzz targets
+for PDF, JPEG, and detection, and a generated fixture corpus for both formats. Differential
+testing against ExifTool 13.55 and mat2 0.15.0 over that corpus shows nothing surviving in
+strypt's output, with one recorded and deliberate gap: strypt keeps the JPEG `APP14` Adobe
+colour-transform marker, which mat2 removes (ADR-0021). Exit criterion 4 is met for JPEG and
+by a stronger check than it asks for — the entropy-coded data is byte-identical after
+stripping, and ImageMagick reports zero differing pixels where mat2's re-encoding path reports
+some. **Remaining: the PNG and WebP handlers, real-producer corpus files (photographs from
+real cameras, with real maker notes, are the largest gap), and the measured performance
+numbers.**
 
 **Deliverables.**
 - `strypt-core`: bounded ingest, content-sniffing format detection, handler registry, the

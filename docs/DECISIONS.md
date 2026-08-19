@@ -649,3 +649,57 @@ catalogue can no longer reach, and serialise a new file.
   form field's name, which the form's logic and its saved data depend on; removing it would
   break the document. Breaking a user's file to protect them is not a trade this tool makes
   silently.
+
+---
+
+## ADR-0021 — JPEG is edited by segment surgery, and two segments are kept on purpose
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** A JPEG is a list of marker segments wrapped around entropy-coded scan data. All
+of the identifying material — Exif, XMP, IPTC, ICC, comments, thumbnails — is in the `APPn`
+and `COM` segments; none of it is in the scan data. Two implementation strategies exist:
+decode the image and re-encode it without metadata, which is what most tooling does and what
+mat2 does through Pillow, or walk the segment list and copy the scan data through untouched.
+
+**Decision.** Segment surgery. The handler never decodes an image and never re-encodes one.
+Within that, `APP0` (JFIF) and `APP14` (Adobe) are copied through and reported in the strip
+report's `retained` list; Exif `Orientation` and the `APP2` ICC profile are removed despite
+both affecting how the image renders.
+
+**Consequences.**
+
+- **The photograph is bit-identical afterwards.** Verified, not assumed: every fixture in
+  `corpus/jpeg` is the same base image with different metadata around it, and
+  `tests/jpeg.rs` asserts that all of them have byte-identical entropy-coded data after
+  stripping. Measured against mat2 0.15.0 on 2026-08-19, over `corpus/jpeg/exif-gps.jpg`:
+  strypt's output differs from the input by zero pixels (ImageMagick `compare -metric AE`),
+  mat2's by a non-zero amount, because its JPEG path re-encodes. That is a deliberate
+  trade-off on their side and a real one — re-encoding is robust against structures the
+  parser does not understand — but for a photojournalist whose picture is the evidence,
+  generation loss is damage (`docs/PRD.md` §8.1).
+- **`APP0` (JFIF) is kept, minus any thumbnail inside it.** It carries the pixel aspect
+  ratio, and dropping it changes how a non-square-pixel image displays. It is a fixed-shape
+  structure naming no person, place, or device.
+- **`APP14` (Adobe) is kept.** It declares the colour transform; a CMYK or YCCK file whose
+  `APP14` was removed renders with wrong colours in many decoders. This is a **documented gap
+  against mat2**, which removes it: strypt keeps two bytes of "this file is YCCK" and says so
+  in the report rather than silently altering how the image looks.
+- **Exif `Orientation` and the ICC profile go anyway**, and this is the opposite trade to the
+  one above, so the line is worth stating: both are identifying — an ICC profile routinely
+  names the device or vendor it was made for, and a per-device profile is a fingerprint —
+  whereas neither `APP0` nor `APP14` names anything. The cost is that an image that relied on
+  `Orientation` may display rotated, and a wide-gamut image is afterwards interpreted as
+  sRGB. Both are in `CHANGELOG.md` under known limitations.
+- **Everything after the `EOI` marker is removed.** No decoder reads it and few users know it
+  is there; in practice it is where a phone's multi-picture extension keeps a second
+  full-resolution frame — an unredacted copy of the picture, past the end of the picture.
+- **A file that ends without an `EOI` is refused, not completed.** Emitting a repaired copy of
+  a damaged file would hand the user something that is not what they gave us, presented as a
+  clean version of it.
+- **Exif is removed whole, never edited tag by tag.** A TIFF block is a graph of absolute
+  offsets, so removing one tag means rewriting every offset after it, and an error there
+  produces a file that still parses while pointing at the wrong bytes. `formats/exif.rs`
+  therefore only reads — it exists to name what was in the block, because "GPSLatitude,
+  BodySerialNumber, DateTimeOriginal" is what lets someone judge a file they already
+  published, and "a 12 KB Exif block" is not.

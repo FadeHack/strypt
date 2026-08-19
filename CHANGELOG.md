@@ -21,6 +21,21 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **`strypt show` and `strypt strip` now work on JPEG images.** They report and remove Exif
+  — including GPS coordinates, camera make and model, body and lens serial numbers, the
+  maker note, timestamps, and the embedded thumbnail — along with XMP packets, Photoshop and
+  IPTC blocks, ICC colour profiles, the multi-picture and FlashPix segments, vendor blocks in
+  `APP12`, comments, and any data hidden after the file's end-of-image marker. Exif is
+  reported **tag by tag**, so you can see that it was `GPSLatitude` and `BodySerialNumber`
+  that came out, not just that "an Exif block" did.
+- **Your photograph is not re-encoded.** strypt edits the file's metadata segments and copies
+  the image data through byte for byte, so the picture that comes out is bit-identical to the
+  one that went in. Tools that strip a JPEG by decoding and re-saving it lose a little quality
+  every time (ADR-0021).
+- **Two JPEG segments are kept on purpose, and the report says so.** The JFIF header, which
+  carries the pixel aspect ratio, and the Adobe marker, which declares the colour transform —
+  without it, CMYK images render with wrong colours. Neither names a person, a place, or a
+  device. Any thumbnail inside the JFIF header is still removed.
 - **`strypt show` and `strypt strip` now work on PDF files.** They report and remove the
   Document Information Dictionary (including vendor-invented keys), XMP metadata packets,
   the document identifier, private application data in `/PieceInfo`, page modification
@@ -37,9 +52,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   can be identified. They are never copied through or reported as success.
 - CLI: batch processing, `--recursive`, `--in-place`, `--output-dir`, `--force`, `--json`
   with a stable schema, `--show-values`, `--max-bytes`, and documented exit codes.
-- Fuzz targets for the PDF handler and for format detection, with seed corpora. Both assert
-  invariants — that stripped output re-inspects clean and that stripping is idempotent — not
-  merely that nothing crashed.
+- Fuzz targets for the PDF handler, the JPEG handler, and format detection, with seed
+  corpora that include deliberately malformed files. They assert invariants — that stripped
+  output re-inspects clean and that stripping is idempotent — not merely that nothing
+  crashed.
 - Test corpus with a manifest and a deterministic generator (`corpus/tools/`). No fixture
   contains real personal data, by construction.
 
@@ -55,8 +71,22 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 Read these before relying on the tool. They are limitations, not bugs, and each is deliberate:
 
-- **Only PDF is handled so far.** JPEG, PNG, and WebP are in progress; until they land, those
-  files are reported as unsupported rather than processed.
+- **Only PDF and JPEG are handled so far.** PNG and WebP are in progress; until they land,
+  those files are reported as unsupported rather than processed.
+- **Stripping a JPEG can change how it displays.** Two of the things removed affect
+  rendering: Exif `Orientation`, so an image that relied on it may appear rotated, and the ICC
+  colour profile, so a wide-gamut image is afterwards interpreted as sRGB. Both are also
+  identifying — a per-device colour profile is a fingerprint, and its description usually
+  names the vendor — so both are removed and the consequence is stated here rather than
+  hidden. Check a stripped image before publishing it.
+- **A JPEG that ends without its end-of-image marker is refused.** strypt will not repair a
+  damaged file and hand it back as a clean one.
+- **The Adobe `APP14` marker is kept, where mat2 removes it.** It is two bytes of colour-space
+  declaration and it names nothing; removing it would change how CMYK files look. This is a
+  deliberate, documented difference (ADR-0021).
+- **A JPEG's encoder fingerprint survives.** Quantisation tables, Huffman tables, and chroma
+  subsampling identify the software and often the device that produced a file. Removing them
+  would mean re-encoding the picture, which strypt will not do.
 - **Encrypted PDFs are refused.** strypt will not emit a decrypted copy of your document, so
   a password-protected file cannot be stripped at present.
 - **Annotation contents are preserved.** strypt removes the annotator's name and dates, not
