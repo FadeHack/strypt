@@ -192,7 +192,7 @@ network functionality — permanently out of scope.
 |---|---|
 | JPEG | EXIF (incl. GPS IFD, MakerNote), XMP, IPTC/IIM, ICC profile, JFIF/COM comment segments, embedded thumbnails |
 | PNG | Textual chunks (`tEXt`, `zTXt`, `iTXt`), timestamp (`tIME`), ICC profile (`iCCP`), EXIF (`eXIf`), other non-critical ancillary chunks |
-| WebP | RIFF `EXIF`, `XMP `, and `ICCP` chunks |
+| WebP | RIFF `EXIF`, `XMP `, and `ICCP` chunks, unknown chunks at the top level and inside `ANMF` animation frames, and data past the declared RIFF length. The `VP8X` header's ICC, Exif, and XMP flag bits are cleared to match (ADR-0023) |
 | PDF | Document Information Dictionary (Author, Creator, Producer, Title, Subject, Keywords, CreationDate, ModDate), XMP metadata streams (document and object level), document ID, embedded-file and annotation metadata, orphaned/incremental-update remnants |
 
 Two requirements that apply to every handler:

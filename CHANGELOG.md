@@ -56,6 +56,24 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   strip report as kept on purpose. A chunk strypt does not recognise is also kept if the file
   marks it as *critical* — meaning whatever wrote the file said it is needed to interpret the
   image — and the report says plainly that its bytes went through unexamined.
+- **`strypt show` and `strypt strip` now work on WebP images.** They report and remove the
+  `EXIF` block, the `XMP ` packet, the `ICCP` colour profile, and any chunk strypt does not
+  recognise — including chunks hidden *inside* an animation frame, which the WebP
+  specification explicitly permits and which a handler looking only at the top level would
+  walk straight past. Data after the length the file's header declares is removed too.
+- **strypt corrects the header that says what a WebP contains.** An extended WebP opens with a
+  `VP8X` chunk whose flags declare that the file has an ICC profile, Exif, or XMP. Remove
+  those and leave the flags set and the file lies about itself — some viewers warn, some
+  refuse to open it. strypt clears exactly those three bits and copies every other byte of the
+  chunk through, so the alpha channel, the animation, and the canvas dimensions are untouched
+  (ADR-0023). A side effect worth knowing: a file whose header was *already* claiming metadata
+  it did not have will be changed by `strip` even though `show` reported nothing to remove.
+- **A WebP with no metadata header comes back byte-identical.** A simple-format WebP cannot
+  carry Exif, XMP, or an ICC profile at all — the format requires the extended header first —
+  so stripping one is a guaranteed pass-through rather than a file that happened to be clean.
+  An animation whose frames need nothing removed passes through unchanged too.
+- **A WebP animation keeps every frame.** The frames are the picture; a handler that treated
+  them as container chrome would silently hand back a still image.
 - **`strypt show` and `strypt strip` now work on PDF files.** They report and remove the
   Document Information Dictionary (including vendor-invented keys), XMP metadata packets,
   the document identifier, private application data in `/PieceInfo`, page modification
@@ -72,7 +90,7 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   can be identified. They are never copied through or reported as success.
 - CLI: batch processing, `--recursive`, `--in-place`, `--output-dir`, `--force`, `--json`
   with a stable schema, `--show-values`, `--max-bytes`, and documented exit codes.
-- Fuzz targets for the PDF, JPEG, and PNG handlers and for format detection, with seed
+- Fuzz targets for the PDF, JPEG, PNG, and WebP handlers and for format detection, with seed
   corpora that include deliberately malformed files. They assert invariants — that stripped
   output re-inspects clean and that stripping is idempotent — not merely that nothing
   crashed.
@@ -91,8 +109,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 Read these before relying on the tool. They are limitations, not bugs, and each is deliberate:
 
-- **Only PDF, JPEG, and PNG are handled so far.** WebP is in progress; until it lands, those
-  files are reported as unsupported rather than processed.
+- **All four Phase 1 formats are handled: PDF, JPEG, PNG, and WebP.** Everything else is
+  reported as unsupported rather than processed.
 - **Stripping a JPEG can change how it displays.** Two of the things removed affect
   rendering: Exif `Orientation`, so an image that relied on it may appear rotated, and the ICC
   colour profile, so a wide-gamut image is afterwards interpreted as sRGB. Both are also
@@ -118,6 +136,25 @@ Read these before relying on the tool. They are limitations, not bugs, and each 
 - **A malformed PNG is refused, not repaired.** A file whose first chunk is not `IHDR`, that
   ends before `IEND`, or whose chunk lengths do not agree with its size, is rejected rather
   than cleaned up and handed back.
+- **An extended WebP is not returned byte-identical.** Two fields change beyond the removals:
+  the header's flags byte, and the container's own size. A simple-format WebP, and an extended
+  one whose flags describe only the picture, are unchanged.
+- **strypt does not read inside a WebP's ICC profile.** The chunk is removed whole and
+  reported as a colour profile, without naming the device manufacturer or model recorded in
+  it. Parsing an ICC profile would mean another format parser running on untrusted bytes for
+  no change to what is removed.
+- **A WebP animation frame strypt cannot parse is kept, not refused.** The report says plainly
+  that its bytes went through unexamined, so anything hidden in that frame is still there.
+- **A WebP with no picture in it is refused.** A file consisting of only a header and a
+  metadata chunk would otherwise strip to a valid-looking container with no image, reported as
+  a success.
+- **A WebP's encoder fingerprint survives.** The bitstream carries its encoder's choices and
+  the chunk order carries its muxer's. Removing them would mean re-encoding, which for a lossy
+  WebP also means degrading the picture a second time.
+- **strypt has not been compared against mat2 on WebP.** mat2 supports the format, but its
+  WebP path needs a GdkPixbuf WebP loader that was not present on the machine used for
+  verification, so the comparison was not run — for WebP only. ExifTool finds nothing but
+  structural image properties in strypt's output.
 - **Encrypted PDFs are refused.** strypt will not emit a decrypted copy of your document, so
   a password-protected file cannot be stripped at present.
 - **Annotation contents are preserved.** strypt removes the annotator's name and dates, not

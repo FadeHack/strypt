@@ -791,3 +791,87 @@ have gone.
 - **Everything after `IEND` is removed**, for the reason `EOI` trailing data is removed from a
   JPEG: no decoder reads it, few users know it can be there, and it is a convenient place for
   a second copy of something.
+
+---
+
+## ADR-0023 — WebP is edited by chunk surgery, and `VP8X`'s flags are corrected rather than left lying
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** A WebP file is a RIFF container: an eight-byte header, the `WEBP` form type, and
+a flat list of chunks with no checksums anywhere (RFC 9649 §2.3, checked 2026-08-19 — RFC 9649
+is now the container's authoritative specification, superseding the Google developer page as a
+citable source). Structurally it is the closest thing in this crate to PNG, and the structural
+question ADR-0021 settled for JPEG and ADR-0022 settled for PNG barely arises: chunk surgery is
+obviously right, kept chunks copy through byte for byte, and there is not even a CRC to
+preserve. All the metadata lives in exactly three chunks — `ICCP`, `EXIF`, and `XMP ` — plus
+whatever a producer left in an unknown one.
+
+The question that did need deciding is what happens to `VP8X`. An extended-format file opens
+with that chunk, and its flags byte declares which optional parts the file has: an ICC profile,
+an alpha channel, Exif metadata, XMP metadata, an animation (§2.7). Remove the `EXIF` chunk and
+leave its bit set and the file now lies about itself — some decoders warn, some refuse. So
+unlike PNG, **stripping a WebP requires mutating a chunk that is kept**. Three options were on
+the table: clear the flag bits, drop `VP8X` entirely once no flags remain, or refuse extended
+files outright.
+
+**Decision.** Clear the three metadata flag bits in `VP8X` and copy every other byte of the
+chunk through unchanged. The alpha and animation bits, the reserved bits, and the canvas
+dimensions are untouched. A `VP8X` whose metadata bits are already clear is copied verbatim, so
+the rewrite happens only where it changes something.
+
+**Rationale, and why the other two were declined.**
+
+- **Dropping `VP8X` when no flags remain** produces a smaller file but rewrites the container's
+  shape, and it is only safe if the header's canvas dimensions agree with the bitstream's own.
+  Verifying that means parsing a VP8 or VP8L bitstream — a decoder, on attacker-controlled
+  bytes, inside a tool whose whole design avoids exactly that — for a cosmetic gain.
+- **Refusing extended files** is safe and close to useless: §2.7 requires the extended header
+  before any metadata chunk, so every WebP that carries metadata is an extended file. That
+  option succeeds only on the files that needed nothing done.
+- **Precedent already runs in this direction.** The JPEG handler rewrites `APP0` to zero a
+  thumbnail's dimensions (ADR-0021). A kept structure being corrected to match what was removed
+  is an established position in this project, not a new one.
+
+**Consequences.**
+
+- **An extended file is no longer a pure byte-for-byte copy of its kept chunks.** One byte
+  changes, plus the RIFF size field, which has to be recomputed once any chunk is gone. A
+  *simple*-format file — one with no `VP8X` — cannot carry metadata at all, so it is a
+  guaranteed byte-identical pass-through, and `tests/webp.rs` asserts that rather than leaving
+  it implicit. So is an extended file whose flags describe only the picture.
+- **A file can be modified with nothing reported as removed.** A header claiming an Exif chunk
+  the file does not have is corrected on strip, while `show` reports no findings — the flags
+  are not metadata. This is a real inconsistency between the two commands and it is the honest
+  one: the alternative is either inventing a finding for a byte that names nobody, or leaving a
+  file that lies.
+- **No decompressor, again.** Nothing WebP puts metadata in is compressed at the container
+  level, so `strypt-core` gains no dependency and no inflate path (as ADR-0022 anticipated when
+  it left `ParseLimits::max_expanded_bytes` reserved with no caller).
+- **Unknown chunks are removed, which is a deliberate departure from the specification.**
+  §2.7.1.6 tells readers to ignore unknown chunks and writers to preserve them. strypt does the
+  first and not the second: it is not a general WebP writer, and an unknown chunk is precisely
+  where something goes that its producer would rather a metadata tool did not look at. Because
+  the same section makes them ignorable to readers, dropping one cannot break a decoder — which
+  is why this handler has no equivalent of PNG's unknown-critical-chunk dilemma.
+- **Animation frames are filtered, not merely copied.** §2.7.1.1 allows an `ANMF` frame to
+  carry an optional list of unknown chunks alongside its alpha and bitstream sub-chunks, which
+  makes the inside of a frame a hiding place with the specification's blessing. So the
+  sub-chunk area is walked and filtered the same way the top level is, and the sixteen-byte
+  frame header is copied verbatim — nothing in it depends on which sub-chunks follow. A frame
+  whose sub-chunk area does not parse is kept exactly as it arrived, with a
+  `Note::UnparsedRegion` saying so; a frame that needed nothing dropped is copied rather than
+  reassembled, so an ordinary animation still passes through byte-identically.
+- **The file is refused if it would strip to a container with no picture in it.** A file whose
+  only chunks are `VP8X` and `EXIF` would otherwise produce a valid-looking WebP with no image,
+  reported as a success. So is a file that does not open with `VP8X`, `VP8 `, or `VP8L`, one
+  whose `VP8X` is not exactly ten bytes, one whose RIFF or chunk size runs past what is
+  available, and one whose four-character code is not ASCII.
+- **A `EXIF` chunk beginning with JPEG's `Exif\0\0` introducer is tolerated.** §2.7.1.5 puts no
+  introducer here, but a producer copying a JPEG `APP1` payload across brings one, and feeding
+  those six bytes to the shared TIFF reader shifts every offset inside the block and yields a
+  confident parse of the wrong bytes. The chunk is removed either way; this only decides
+  whether the report is right about what was in it.
+- **Everything past the declared RIFF size is removed**, for the reason trailing data is
+  removed from a JPEG and a PNG: no decoder reads it, few users know it can be there, and it is
+  a convenient place for a second copy of something.

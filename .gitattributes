@@ -20,3 +20,10 @@ crates/strypt-core/fuzz/seeds/detect/* binary
 # guarantee does not depend on that detection, for the same reason the PDFs are.
 corpus/jpeg/**/*.jpg binary
 crates/strypt-core/fuzz/seeds/jpeg/*.jpg binary
+# PNG and WebP fixtures. Git detects both as binary on content already — a PNG has a NUL in
+# its signature and a WebP has one in the size field at byte 5 — but they are marked for the
+# same reason the JPEGs are: the guarantee should not rest on content detection.
+corpus/png/**/*.png binary
+crates/strypt-core/fuzz/seeds/png/**/*.png binary
+corpus/webp/**/*.webp binary
+crates/strypt-core/fuzz/seeds/webp/**/*.webp binary

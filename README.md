@@ -1,22 +1,24 @@
 # strypt
 
-> ## Status: Phase 1 in progress — PDF, JPEG, and PNG work, WebP does not
+> ## Status: Phase 1 in progress — all four handlers exist, the phase does not end here
 >
-> **Only PDF, JPEG, and PNG are implemented.** WebP is recognised and reported as
+> **PDF, JPEG, PNG, and WebP are implemented.** Everything else is recognised and reported as
 > unsupported; it is not processed. There has been no external audit, no release, and no
 > testing against files from real producers — every test fixture so far is generated, which
-> for JPEG means no real camera maker notes have ever been through this code.
+> for JPEG means no real camera maker notes have ever been through this code. Fuzzing so far
+> is smoke-test length, not the sustained budget the roadmap calls for, and the performance
+> numbers in the PRD are still estimates rather than measurements.
 >
 > | Phase | Status |
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Complete |
-> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 PDF, JPEG, and PNG done; WebP not started |
+> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 All four handlers done; corpus, fuzzing, and performance work outstanding |
 > | 2 — Expanded formats · 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
 > Full phase definitions and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 >
-> **For anything other than PDF, JPEG, and PNG, and for anything that matters, use
+> **For anything other than PDF, JPEG, PNG, and WebP, and for anything that matters, use
 > [mat2](https://github.com/jvoisin/mat2) or [ExifTool](https://exiftool.org/)** — both
 > mature, actively maintained, and covering far more formats.
 > [`docs/PRD.md`](docs/PRD.md) §4 explains where strypt intends to differ.
@@ -51,13 +53,13 @@ cargo run -p strypt-cli -- strip corpus/jpeg/exif-gps.jpg
 unless you ask for `--in-place`. Full command reference and exit codes:
 [`INSTRUCTIONS.md`](INSTRUCTIONS.md).
 
-## Planned scope (Phase 1)
+## Scope (Phase 1)
 
 | Format | What gets removed |
 |---|---|
 | JPEG | Exif (incl. GPS and MakerNote), XMP, IPTC, ICC profile, comments, embedded thumbnails, and data hidden after the end-of-image marker. The picture is never re-encoded |
 | PNG | Text chunks (`tEXt`, `zTXt`, `iTXt`), timestamps, ICC profile, the `eXIf` chunk, unknown ancillary chunks, and data hidden after the end chunk. Image data is copied through byte for byte |
-| WebP | EXIF, XMP, and ICC chunks |
+| WebP | The `EXIF`, `XMP `, and `ICCP` chunks, unknown chunks at the top level and inside animation frames, and data hidden past the container's declared length. The header's flags are corrected so the file stops claiming metadata it no longer has. The bitstream is copied through byte for byte |
 | PDF | Document info dictionary, XMP metadata streams, document IDs, annotation and embedded-file metadata |
 
 More formats — Office documents, audio, video — are Phase 2. See

@@ -17,17 +17,33 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 0 — Foundation**
+## 2. Current phase: **Phase 1 — Core engine + CLI**
 
-**The workspace is scaffolded but contains no logic.** `strypt-core` exports only a
-`version()` function; `strypt-cli` prints a not-implemented notice and exits 2. There are no
-format handlers, no detection, no dependencies. Do not assume any later-phase artefact
-exists — check before referencing it.
+**Phase 0 is complete. All four Phase 1 handlers exist and work — but the phase does not end
+there.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, and WebP; every other format
+is reported as unsupported and never passed through untouched. Landed: bounded ingest,
+content-sniffing detection, the handler registry and trait, the post-strip verification pass,
+structured reports, typed errors, the atomic write path, the full CLI, four handlers with
+shared Exif and XMP readers, five fuzz targets, and a generated fixture corpus for all four
+formats.
 
-Working and locally verified: `cargo build`/`test`/`clippy`/`fmt`, the ADR-0004 gate
-(`scripts/check-no-network.sh`, proven to fail on a deliberate violation including
-transitively), the `.githooks/pre-commit` gate, and CI workflows. `docs/ROADMAP.md` Phase 0
-lists what remains: running CI on a real push, which needs a remote.
+**Do not read "all four handlers exist" as "Phase 1 is nearly done".** Three exit criteria are
+outstanding and none of them is a handler:
+
+- **Real-producer corpus** — every fixture is synthetic, so the tool has been tested against
+  specifications, not against what real software emits. This is the largest gap and the one
+  most likely to surface a genuine bug.
+- **Sustained fuzzing** — the runs so far are smoke tests of seconds to minutes, against
+  ADR-0014's bar of 100 CPU-hours per handler plus a coverage plateau.
+- **Measured performance numbers** — `docs/PRD.md` §9 still carries estimates labelled as
+  such. Nothing has been measured.
+
+One differential-testing gap is also open and must not be reported as a pass: the mat2
+comparison for WebP has never run, because mat2's WebP path needs a GdkPixbuf WebP loader the
+verification machine lacks (`docs/THREAT_MODEL.md` §7.4).
+
+Read `docs/ROADMAP.md` for the full exit criteria before treating any of this as settled, and
+**check before referencing a later-phase artefact** — nothing beyond Phase 1 exists.
 
 **Premise correction — settled, and binding (ADR-0012).** The project's founding premise
 was that mat2 is archived and unmaintained. That is wrong: mat2 is actively maintained (last
@@ -131,10 +147,10 @@ this class of tool loses the trust it exists to hold.
 ## 7. How to work here
 
 Exact commands live in [`INSTRUCTIONS.md`](INSTRUCTIONS.md) — **it is the source of truth,
-and it must be updated in the same commit whenever a command changes.** Once the workspace
-exists the loop is roughly `cargo build` / `cargo test` / `cargo clippy --all-targets -- -D
-warnings` / `cargo fmt`. During Phase 0 most of these do not yet exist; do not invent output
-for a command you have not run.
+and it must be updated in the same commit whenever a command changes.** The loop is roughly
+`cargo build` / `cargo test` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt`, plus
+`./scripts/check-no-network.sh`, and a fuzz run for the target whose handler you touched. All
+of them work today — so run them, and **never invent output for a command you have not run.**
 
 ## 8. Coding standards
 

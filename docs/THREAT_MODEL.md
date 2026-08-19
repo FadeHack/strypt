@@ -378,6 +378,79 @@ hang, or timeout; that is a smoke test, not the Phase 3 budget (ADR-0014).
 
 ---
 
+### 7.4 WebP (Phase 1)
+
+**What strypt removes.** The `ICCP` colour profile, the `EXIF` block, the `XMP ` packet, every
+chunk strypt does not recognise — at the top level and inside an animation frame alike — and
+anything after the length the RIFF header declares. The `VP8X` header's ICC, Exif, and XMP
+flag bits are cleared so that the file stops claiming metadata it no longer has (ADR-0023).
+
+**WebP concentrates its metadata in three chunks, and that is the good news.** Unlike PNG's
+open-ended text-chunk store, there is no general-purpose key-value area a producer can invent
+fields in: RFC 9649 §2.7.1.5 gives Exif and XMP one chunk each, and colour management one more.
+The corresponding bad news is §2.7.1.6, which asks writers to *preserve* chunks they do not
+recognise, and §2.7.1.1, which explicitly allows unknown chunks inside an animation frame. Both
+are hiding places with the specification's blessing, and both are places a conforming WebP
+writer will carry data through untouched. strypt removes them in both positions. It cannot
+break a decoder by doing so, because the same section that asks writers to keep unknown chunks
+tells readers to ignore them.
+
+**Measured against other tools on 2026-08-19.** ExifTool 13.55 finds nothing but structural
+image properties — dimensions, flags, animation timing — in strypt's output for every fixture
+in `corpus/webp`. **The mat2 differential for WebP was not run**, and this is a gap rather than
+a pass: mat2 0.15.0 lists `image/webp` as supported, but its WebP path goes through
+GdkPixbuf, and the machine used for verification has no WebP pixbuf loader installed — mat2
+fails identically on the *original* fixtures, so the comparison says nothing about strypt.
+Recorded here rather than quietly omitted; it should be run before release on a machine with
+the loader present.
+
+**What remains, and why.**
+
+- **An extended file is not returned byte-identical.** Two fields change beyond the removals:
+  the `VP8X` flags byte, and the RIFF chunk's own size. A *simple*-format file — no `VP8X` — is
+  a guaranteed byte-identical pass-through, because §2.7 requires the extended header before
+  any metadata chunk, so such a file has nowhere to put any. So is an extended file whose flags
+  describe only the picture. This is a weaker property than PNG's and it is the price of the
+  flags decision in ADR-0023; the alternative was leaving a file that lies about itself.
+- **A file can change with nothing reported as removed.** A header claiming an Exif chunk that
+  the file does not contain is corrected on strip, while `show` reports nothing — the flags
+  byte names nobody, so it is not a finding. The two commands genuinely disagree here, and
+  `corpus/webp/stale-flags.webp` is the case.
+- **An animation frame that does not parse is kept, and the report says it was not examined.**
+  strypt does not re-serialise a frame it only partly understands, and it does not refuse the
+  whole file over one. It copies the frame through and emits a `Note::UnparsedRegion`, so the
+  user is told plainly that some bytes went by unread rather than left to assume the frame was
+  scrubbed. `corpus/webp/unparsable-frame.webp` is deliberately such a file.
+- **The ICC profile is removed but never read.** A profile's internal tags carry the device
+  manufacturer, the model, and a creation date, and strypt reports the chunk without naming
+  any of them: parsing an ICC profile means another format parser on attacker-controlled
+  bytes, for report granularity on a chunk that is going regardless. Same trade as compressed
+  text in §7.3.
+- **The encoder's fingerprint.** The VP8 or VP8L bitstream carries its encoder's choices —
+  quantisation, partitioning, prediction modes, the lossless transforms selected — and chunk
+  ordering carries the muxer's. Together they identify the producing software. This is §4.7 and
+  it is not addressed; addressing it would mean re-encoding, which for a lossy format also
+  means degrading the picture a second time.
+- **The picture itself.** strypt never decodes or re-encodes an image, so anything visible in
+  the frame is exactly as it was. §4.3 applies.
+
+**What strypt refuses.** A file that is not RIFF, or is RIFF but not `WEBP`; one whose declared
+RIFF size or chunk size runs past what is available; one that does not open with `VP8X`,
+`VP8 `, or `VP8L`; one whose `VP8X` is not the ten bytes §2.7 fixes it at; one whose
+four-character code is not ASCII; and — the one worth naming separately — **one that contains
+no bitstream and no animation frame**, which would otherwise strip to a valid-looking container
+with no picture in it and be reported as a success. That is the failure mode in §5.4, reached
+by a file consisting of nothing but a header and an `EXIF` chunk.
+
+**New attack surface this handler introduces.** None from dependencies. The chunk walker is
+written in this repository, under the crate's panic-freedom lints, over the shared
+checked-reading primitive, and it shares the Exif and XMP readers with the JPEG and PNG
+handlers rather than adding parsers of its own. WebP carries no checksums at all, so unlike PNG
+there is not even a CRC field to reason about. The residual risks are the ones safe Rust still
+has — a hang or unbounded allocation on a hostile file — which is what the `webp` fuzz target
+exists to find. A 180-second run over the seed corpus on 2026-08-19 executed 6.99 million inputs with no
+crash, hang, or timeout; that is a smoke test, not the Phase 3 budget (ADR-0014).
+
 ---
 
 ## 8. Review triggers

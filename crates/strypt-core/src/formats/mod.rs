@@ -31,6 +31,7 @@ mod exif;
 pub mod jpeg;
 pub mod pdf;
 pub mod png;
+pub mod webp;
 mod xmp;
 
 /// Sanitised bytes and an account of what was done to produce them.

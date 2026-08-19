@@ -11,6 +11,8 @@ git history is forever — so it is ignored, and only what a human chose lives h
   them.
 - `png/` — copies of `corpus/png/`, valid and malformed alike. Refresh after regenerating
   them.
+- `webp/` — copies of `corpus/webp/`, valid and malformed alike. Refresh after regenerating
+  them.
 - `detect/` — one specimen of every signature the detector knows, plus an empty file and a
   plain-text file. Coverage-guided fuzzing explores outward from what it is given, so the
   seeds decide which regions it can reach at all.

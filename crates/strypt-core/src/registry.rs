@@ -12,6 +12,7 @@ use crate::formats::MetadataHandler;
 use crate::formats::jpeg::JpegHandler;
 use crate::formats::pdf::PdfHandler;
 use crate::formats::png::PngHandler;
+use crate::formats::webp::WebpHandler;
 
 /// The handler for `format`, or [`None`] if this release has none.
 ///
@@ -25,9 +26,7 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         Format::Jpeg => Some(&JpegHandler),
         Format::Pdf => Some(&PdfHandler),
         Format::Png => Some(&PngHandler),
-        // WebP is landing in this phase, with its own fuzz target and seed corpus. Until it
-        // arrives, the format is reported as unsupported.
-        Format::Webp => None,
+        Format::Webp => Some(&WebpHandler),
     }
 }
 
@@ -60,9 +59,13 @@ mod tests {
     }
 
     #[test]
-    fn an_unimplemented_format_reports_none_rather_than_a_default_handler() {
-        // There is deliberately no fallback handler. A pass-through default would make every
-        // future unimplemented format silently "succeed".
-        assert!(handler_for(Format::Pdf).is_some());
+    fn every_phase_one_format_has_a_handler() {
+        // All four are implemented as of this release. The assertion that matters is not this
+        // one but its absent counterpart: there is deliberately no fallback handler, so a
+        // format added to `Format` without a line in `handler_for` fails to compile rather
+        // than silently "succeeding" by being passed through (`docs/THREAT_MODEL.md` §5.4).
+        for format in [Format::Jpeg, Format::Png, Format::Webp, Format::Pdf] {
+            assert!(handler_for(format).is_some(), "{format} has no handler");
+        }
     }
 }

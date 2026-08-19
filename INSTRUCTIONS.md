@@ -6,11 +6,13 @@ commit as any change to the build, test, or lint workflow.**
 
 ---
 
-> ## ⚠️ Phase 1 — PDF works; the image handlers do not exist yet
+> ## ⚠️ Phase 1 — all four handlers work; the phase is not finished
 >
 > **Every command below was executed and verified on 2026-08-19.** `strypt show` and
-> `strypt strip` work on PDF files. JPEG, PNG, and WebP are detected and reported as
-> unsupported — they are not processed and are never passed through untouched.
+> `strypt strip` work on PDF, JPEG, PNG, and WebP files. Every other format is detected and
+> reported as unsupported — never processed, and never passed through untouched. What remains
+> in the phase is corpus, fuzzing, and performance work, not handlers; see
+> [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
 
@@ -22,8 +24,9 @@ commit as any change to the build, test, or lint workflow.**
 | `cargo-deny` | supply-chain gate | `cargo install cargo-deny` |
 | ExifTool, mat2 | differential testing | Optional locally, required for release verification. **Never runtime dependencies.** Verified working 2026-08-19 with ExifTool 13.55 and mat2 0.15.0. |
 | `qpdf` | fixture validation | Optional. `qpdf --check` confirms a generated PDF fixture is structurally sound. |
-| ImageMagick | fixture validation | Optional. `magick identify` confirms a JPEG fixture still decodes; `magick compare -metric AE` confirms stripping changed no pixels. |
+| ImageMagick | fixture validation | Optional. `magick identify` confirms a JPEG, PNG, or WebP fixture still decodes; `magick compare -metric AE` confirms stripping changed no pixels. |
 | Python 3 | fixture generation | Optional. Only needed to regenerate `corpus/`. |
+| `cwebp` | WebP base bitstreams | **Not needed.** The two base bitstreams are committed as literals inside `make_webp_fixtures.py`; `cwebp 1.6.0` produced them once. Only needed to replace them. |
 
 Check your toolchain:
 
@@ -121,12 +124,13 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/detect   # libFuzzer's working corpus; git-ignored
-cargo +nightly fuzz list                                          # pdf, jpeg, png, detect
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/detect  # libFuzzer's working corpus; git-ignored
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, detect
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
 cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
+cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz cmin pdf corpus/pdf                           # minimise the corpus
 ```
@@ -136,8 +140,9 @@ Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is 
 machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
 directory given and reads the rest.
 
-The PDF, JPEG, and PNG seeds are copies of `corpus/pdf/`, `corpus/jpeg/`, and `corpus/png/`
-(including their `malformed/` subdirectories); refresh them after regenerating the fixtures.
+The PDF, JPEG, PNG, and WebP seeds are copies of `corpus/pdf/`, `corpus/jpeg/`, `corpus/png/`,
+and `corpus/webp/` (including their `malformed/` subdirectories); refresh them after
+regenerating the fixtures.
 
 A crash writes its input to `crates/strypt-core/fuzz/artifacts/<target>/`. Reproduce with:
 
@@ -151,9 +156,11 @@ cargo +nightly fuzz run pdf artifacts/pdf/crash-<hash>
 python3 corpus/tools/make_pdf_fixtures.py        # regenerate; deterministic
 python3 corpus/tools/make_jpeg_fixtures.py       # regenerate; deterministic
 python3 corpus/tools/make_png_fixtures.py        # regenerate; reuses the JPEG tool's TIFF builder
+python3 corpus/tools/make_webp_fixtures.py       # regenerate; reuses the JPEG tool's TIFF builder
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
 magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still decodes
 magick identify corpus/png/exif-gps.png          # confirm a PNG fixture still decodes
+magick identify corpus/webp/all-metadata.webp    # confirm a WebP fixture still decodes
 exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
 ```
 
@@ -180,6 +187,13 @@ mat2 --show /tmp/strypt-diff/*.stripped.pdf
 
 Anything either tool still reports is **either a bug or a documented limitation**, and that
 decision must be explicit and recorded — never made by silence.
+
+**mat2's WebP path needs a GdkPixbuf WebP loader**, which is not present on every machine. Where
+it is missing, mat2 fails on the *original* fixtures as well as on strypt's output, so the
+comparison says nothing and must be recorded as not run rather than as a pass. Check with
+`mat2 --show corpus/webp/all-metadata.webp` before drawing any conclusion from a WebP run.
+Verified 2026-08-19: not available on the macOS machine used, so the WebP mat2 differential is
+outstanding (`docs/THREAT_MODEL.md` §7.4).
 
 **Every crash, hang, or OOM requires a regression test and the offending input added to the
 corpus before the fix is accepted** ([`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md)
@@ -238,17 +252,6 @@ Once per clone. Catches edits made outside Claude Code, which the `.claude/` hoo
 
 ```sh
 git config core.hooksPath .githooks
-```
-
-## Running strypt locally
-
-**Phase 0: the binary is a stub that prints a notice and exits 2.** These are the Phase 1
-commands:
-
-```sh
-cargo run -p strypt-cli -- show test.jpg
-cargo run -p strypt-cli -- strip test.jpg
-cargo run -p strypt-cli -- --help
 ```
 
 ## Full pre-commit check

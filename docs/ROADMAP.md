@@ -81,26 +81,51 @@ correct, honest about what it did, and demonstrably does not crash on hostile in
 **Scope is locked** to JPEG, PNG, WebP, PDF by ADR-0005. Expanding it requires a superseding
 ADR, not a judgement call mid-phase.
 
-**Progress so far (2026-08-19).** PDF, JPEG, and PNG are done to the per-format bar; WebP is
-not started. Landed: bounded ingest, content-sniffing detection, the handler registry and
-trait, the verification pass, structured reports, typed errors, the atomic write path, the
-full CLI, the PDF handler, the JPEG handler with its shared Exif and XMP readers, the PNG
-handler reusing both, fuzz targets for PDF, JPEG, PNG, and detection, and a generated fixture
-corpus for all three formats. Differential
-testing against ExifTool 13.55 and mat2 0.15.0 over that corpus shows nothing surviving in
-strypt's output, with one recorded and deliberate gap: strypt keeps the JPEG `APP14` Adobe
-colour-transform marker, which mat2 removes (ADR-0021). Exit criterion 4 is met for JPEG and
-by a stronger check than it asks for — the entropy-coded data is byte-identical after
-stripping, and ImageMagick reports zero differing pixels where mat2's re-encoding path reports
-some. PNG needed no new dependency: its compressed text chunks are removed without being inflated,
-because everything that decides what goes is outside the compression (ADR-0022). The
-differential run covers it too — ExifTool 13.55 finds nothing but structural image properties
-in strypt's PNG output, and against mat2 0.15.0 the recorded difference is that mat2's Pillow
-path re-encodes, rewriting an 8-bit greyscale image as RGB and dropping the colour-space
-chunks, where strypt's `IDAT` is byte-identical to the input's (`docs/THREAT_MODEL.md` §7.3). **Remaining:
-the WebP handler, real-producer corpus files (photographs from real cameras with real maker
-notes, and screenshots from real tools, are the largest gap), and the measured performance
-numbers.**
+**Progress so far (2026-08-19).** All four handlers are done to the per-format bar. Landed:
+bounded ingest, content-sniffing detection, the handler registry and trait, the verification
+pass, structured reports, typed errors, the atomic write path, the full CLI, the PDF handler,
+the JPEG handler with its shared Exif and XMP readers, the PNG handler reusing both, the WebP
+handler reusing both again, fuzz targets for PDF, JPEG, PNG, WebP, and detection, and a
+generated fixture corpus for all four formats. Differential testing against ExifTool 13.55 and
+mat2 0.15.0 over that corpus shows nothing surviving in strypt's output, with two recorded and
+deliberate gaps: strypt keeps the JPEG `APP14` Adobe colour-transform marker, which mat2
+removes (ADR-0021), and the **mat2 comparison for WebP was not run at all** — mat2's WebP path
+needs a GdkPixbuf WebP loader that the verification machine does not have, so mat2 fails on the
+original fixtures too and the comparison says nothing (`docs/THREAT_MODEL.md` §7.4). It must be
+run before release on a machine with the loader.
+
+Exit criterion 4 is met for JPEG and by a stronger check than it asks for — the entropy-coded
+data is byte-identical after stripping, and ImageMagick reports zero differing pixels where
+mat2's re-encoding path reports some. PNG needed no new dependency: its compressed text chunks
+are removed without being inflated, because everything that decides what goes is outside the
+compression (ADR-0022), and its `IDAT` is byte-identical to the input's where mat2's Pillow
+path re-encodes (`docs/THREAT_MODEL.md` §7.3). WebP needed no new dependency either, and for a
+simpler reason — nothing it puts metadata in is compressed at the container level. Its one
+structural decision was `VP8X`, whose flags declare which metadata chunks a file has: strypt
+clears the ICC, Exif, and XMP bits and copies the rest of the chunk verbatim, so the file stops
+claiming metadata it no longer has (ADR-0023). The cost, recorded rather than glossed: an
+extended WebP is not returned byte-identical, though a simple-format one is guaranteed to be.
+
+**Remaining in this phase — none of it is a handler:**
+
+- **Real-producer corpus.** The largest and longest-standing gap, flagged in
+  `corpus/MANIFEST.md` for all four formats. Every fixture is synthetic, so the tool has been
+  tested against specifications rather than against what real software emits — and real
+  software is where the quirks are. Photographs from actual cameras and phones with real maker
+  notes, PDFs from LaTeX, Word, Acrobat, and scanners, screenshots from real tools, and WebPs
+  from browsers and from the conversion pipelines that turn a JPEG into one and carry its Exif
+  block across. This needs files, not code, and it is the thing most likely to find a genuine
+  bug.
+- **Sustained fuzzing (exit criterion 2).** The runs so far are smoke tests — 90 seconds for
+  PNG, 180 for WebP, five minutes for JPEG. ADR-0014's bar is 100 CPU-hours per handler plus a
+  coverage plateau, and that ADR is still Proposed and says explicitly that the number is a
+  hypothesis to revise once real coverage data exists. PNG's and WebP's chunk lists will
+  plateau far sooner than PDF's object graph, so the honest move is to measure and then set
+  per-handler numbers.
+- **Performance numbers.** `docs/PRD.md` §9 still carries order-of-magnitude guesses, labelled
+  as intentions to be replaced by measurements in this phase. Nothing has been measured.
+- **The mat2 differential for WebP**, on a machine with a GdkPixbuf WebP loader.
+- **CI green on all three platforms.**
 
 **Deliverables.**
 - `strypt-core`: bounded ingest, content-sniffing format detection, handler registry, the
