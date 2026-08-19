@@ -489,3 +489,163 @@ without protection" failure this project warns about elsewhere.
 - The `cargo-deny` action runs in a musl container that could not resolve the pinned
   toolchain, emitting a rustup error into the log. Its `rust-version` input is now pinned to
   match `rust-toolchain.toml`, because log noise is how real failures get overlooked.
+
+---
+
+## ADR-0017 — Handlers take a byte slice and return a buffer
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** `docs/ARCHITECTURE.md` §3 sketched `MetadataHandler` over `&mut dyn ReadSeek`
+for input and `&mut dyn Write` for output. That sketch predates any implementation, and Phase
+1 is where it meets the two things it has to support: a verification pass, and lints that
+forbid panicking on hostile input.
+
+**Decision.** Handlers take `&[u8]` and return `Stripped { bytes: Vec<u8>, report }`.
+
+**Consequences.**
+
+- **The verification pass becomes possible.** `docs/ARCHITECTURE.md` §1 stage 5 re-inspects
+  the handler's output and fails if metadata survived. If a handler streamed straight to the
+  destination, unverified — possibly partially-sanitised — bytes would already be on disk by
+  the time that check ran. Holding the output in memory means nothing reaches the user's
+  filesystem until it has passed. That is the fail-closed rule made structural rather than
+  aspirational.
+- **The panic-freedom lints become enforceable.** Seek-driven parsing spreads bounds checking
+  across every read site. A slice concentrates it in `crate::bytes::Reader`, which is the one
+  place `indexing_slicing` and `arithmetic_side_effects` have to be satisfied — and it is
+  unit-tested against overflow and truncation directly (ADR-0006).
+- **The cost is memory.** A file is held whole, and a PDF rewrite holds the parsed object
+  graph as well, so peak usage is a multiple of the input size. This is why `io::Limits`
+  bounds ingest *before* a handler is reached, and why the default ceiling is 512 MiB rather
+  than "as much as will fit" — the constrained, RAM-only systems this tool targets are
+  exactly where that distinction matters.
+- Streaming remains possible later for formats that genuinely need it, but it would have to
+  come with an answer for how the output gets verified before it is committed.
+
+---
+
+## ADR-0018 — Phase 1 dependencies
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** ADR-0008 requires an ADR per dependency and treats "it is convenient" as
+insufficient. Phase 1 needs four. All versions were re-verified against crates.io on
+2026-08-19, at the start of this phase, rather than carried over from the Phase 0 snapshot in
+`docs/ARCHITECTURE.md` §4 — which, as it happens, they matched.
+
+**Decision.**
+
+| Crate | Version | Licence | Where | Why |
+|---|---|---|---|---|
+| `thiserror` | 2.0.20 | MIT OR Apache-2.0 | `strypt-core` | Typed errors. `anyhow` stays banned here: callers must distinguish "unsupported format" from "corrupt file" from "I/O error", and a boxed error erases exactly that |
+| `lopdf` | 0.44.0 | MIT | `strypt-core` | PDF object model. Pure Rust, the longest maintenance record of the candidates, and it exposes the object-graph access a full rewrite needs |
+| `clap` | 4.6.6 | MIT OR Apache-2.0 | `strypt-cli` | Argument parsing |
+| `serde_json` | 1.0.151 | MIT OR Apache-2.0 | `strypt-cli` | JSON output. Hand-rolling a serialiser to avoid a dependency means hand-rolling string escaping, and a metadata value is precisely the attacker-influenced text that finds the bugs in a hand-rolled escaper |
+
+`lopdf` is taken with `default-features = false`, which drops `rayon` and `chrono-clock`.
+Parallel object processing would put deterministic output at risk — invariant 4 in
+`docs/TESTING_STRATEGY.md` §1, which the idempotence and byte-identity checks all rest on —
+and a metadata scrubber has no business reading the wall clock.
+
+**Consequences.**
+
+- **`lopdf` is a parser sitting on hostile input, and it is not covered by this project's
+  no-panic rule.** `#![forbid(unsafe_code)]` protects strypt's own code; it says nothing
+  about whether a dependency panics on a malformed file. This is the largest single piece of
+  untrusted-input surface in the tree and it is not ours. Mitigation is the fuzz target,
+  which exercises `lopdf` through strypt on every run, and the honest statement here that a
+  panic originating in it is a real possibility rather than a theoretical one. Phase 3's
+  sandboxing investigation should weigh this specifically: containing a dependency is one of
+  the few things sandboxing genuinely buys a safe-Rust parser.
+- `lopdf` brings a substantial transitive tree even with defaults off — `aes`, `sha2`,
+  `md-5`, `flate2`, `nom`, `encoding_rs`, `getrandom`, `rand`, and others. That is a real
+  cost against ADR-0008 and it is accepted rather than waved away: writing a PDF parser from
+  scratch for Phase 1 is not a credible alternative, and the alternative crate
+  (`oxidize-pdf`) is younger and moving through major versions quickly.
+- The no-network gate (`scripts/check-no-network.sh`) was run against the resolved graph with
+  `lopdf` in it and passes. `tokio` is behind the non-default `async` feature and is not in
+  the tree.
+- `getrandom` and `rand` are present for `lopdf`'s encryption support. They are a determinism
+  risk if any write path ever reaches them; the fixture-wide determinism test exists partly to
+  catch that, and it passes.
+
+---
+
+## ADR-0019 — Output carries a fresh timestamp and owner-only permissions
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** `docs/PRD.md` §8.3 flagged this as requiring an explicit decision. When strypt
+writes a sanitised copy, it can preserve the source file's modification time and permission
+bits, or it can not.
+
+**Decision.** Neither is copied. Output gets the current time and `0600` on Unix.
+
+**Consequences.**
+
+- **Modification time is metadata.** Preserving it hands back a fact the user believed they
+  had just removed — it can reveal when a photograph was taken or when a document was
+  prepared, long after the EXIF or Info dictionary is gone. Copying it through would be a leak
+  performed by the tool whose job is to prevent leaks.
+- **The stripped file is the more sensitive artefact of the pair, not the less.** It is the
+  one about to be published. A world-readable copy sitting in a shared directory in the
+  meantime is avoidable exposure, so the default is owner-only. The temporary file is created
+  with the same mode at open time rather than tightened afterwards, which closes the window in
+  which it exists at the umask's permissions.
+- **Costs, stated plainly.** Batch output all shares one timestamp, so file-manager sorting by
+  date is lost. Users copying output somewhere another local account must read — a web
+  server's directory, a shared `/srv` — will need `chmod`. For the personas in
+  `docs/PRD.md` §5, working on their own machine and then uploading or emailing, neither costs
+  anything: their own viewer, browser, and mail client read `0600` fine, and USB drives are
+  usually FAT/exFAT, which has no Unix permission bits at all.
+- **Windows is weaker and this is a known limitation, not an oversight.** There is no umask
+  equivalent; a new file inherits the parent directory's ACL, and strypt does not currently
+  narrow it. `Permissions::OwnerOnly` therefore means less there than on Unix. Phase 3's
+  platform validation is where this gets addressed.
+- If the timestamp loss proves genuinely annoying in practice, a `--preserve-times` flag is
+  the right shape for the fix — opt-in, named for what it does, with the leak stated in its
+  help text. It is not the default.
+
+---
+
+## ADR-0020 — PDF is rewritten in full, never patched incrementally
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** A PDF can be edited by appending: the original bytes stay where they are, and a
+new cross-reference section at the end declares which objects supersede which. Removing the
+Info dictionary this way is easy, fast, and preserves the rest of the file almost perfectly.
+
+The alternative is to parse the document into its object graph, scrub it, drop everything the
+catalogue can no longer reach, and serialise a new file.
+
+**Decision.** Full rewrite. Incremental patching is not offered, not even as a flag.
+
+**Consequences.**
+
+- **This is the whole reason the decision matters.** A patch leaves every superseded
+  revision physically in the file. A document saved three times carries all three authors,
+  and the first two are recoverable with a hex editor by anyone who thinks to look. Patching
+  and reporting success would be a silent failure of the exact kind
+  `docs/THREAT_MODEL.md` §5.4 identifies as the most dangerous bug class here: the user is
+  told the file is clean and publishes it. `corpus/pdf/incremental-update.pdf` exists to hold
+  this to account, and asserts on the output's *bytes* rather than on strypt's report.
+- **Output is not byte-comparable with input**, object numbers change, and file size moves in
+  both directions. Objects are renumbered deliberately so that output depends on the object
+  graph rather than on whatever numbering the input happened to use — without which two
+  documents that scrub to identical content would serialise differently, breaking the
+  determinism invariant for no reason.
+- **Files the rewrite cannot faithfully reproduce are refused, not mangled.** Encrypted
+  documents are refused outright: `lopdf` can open one protected by an empty owner password,
+  and emitting a decrypted copy would silently strip the user's protection along with their
+  metadata — a change to their document's security they did not ask for and might not notice.
+- **The residual risk is fidelity.** A rewrite touches every object, so a bug damages the
+  document rather than merely failing. This is why the fixture set checks that content
+  survives — an annotation's comment, a form field's name, an attachment's bytes — and not
+  only that metadata does not. Real-producer files (LaTeX, Word, Acrobat, scanners) are the
+  gap in that coverage today and are recorded as such in `corpus/MANIFEST.md`.
+- Annotation `/T` is removed only on markup annotation subtypes. On a `/Widget` it is the
+  form field's name, which the form's logic and its saved data depend on; removing it would
+  break the document. Breaking a user's file to protect them is not a trade this tool makes
+  silently.

@@ -1,22 +1,23 @@
 # strypt
 
-> ## Status: Phase 0 (Foundation) complete — Phase 1 not started
+> ## Status: Phase 1 in progress — PDF works, images do not
 >
-> **No file format is implemented yet.** `strypt strip` is a stub that exits 2. What exists
-> is the foundation: design docs, threat model, decision log, workspace, and CI gates —
-> nothing that removes metadata. Nothing has been fuzzed or externally audited.
+> **Only PDF is implemented.** JPEG, PNG, and WebP are recognised and reported as
+> unsupported; they are not processed. There has been no external audit, no release, and no
+> testing against files from real producers — every test fixture so far is generated.
 >
 > | Phase | Status |
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Complete |
-> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ⬜ Not started |
+> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 PDF done; JPEG, PNG, WebP not started |
 > | 2 — Expanded formats · 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
 > Full phase definitions and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 >
-> **To strip metadata today, use [mat2](https://github.com/jvoisin/mat2) or
-> [ExifTool](https://exiftool.org/)** — both mature and actively maintained.
+> **For anything other than PDF, and for anything that matters, use
+> [mat2](https://github.com/jvoisin/mat2) or [ExifTool](https://exiftool.org/)** — both
+> mature, actively maintained, and covering far more formats.
 > [`docs/PRD.md`](docs/PRD.md) §4 explains where strypt intends to differ.
 >
 > Development is AI-assisted under defined constraints — see
@@ -36,6 +37,17 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 <!-- [![CI](…)](…) [![crates.io](…)](…) [![License](…)](…) -->
 
 ---
+
+## Trying it
+
+```sh
+cargo run -p strypt-cli -- show corpus/pdf/info-dictionary.pdf
+cargo run -p strypt-cli -- strip corpus/pdf/info-dictionary.pdf
+```
+
+`show` never writes. `strip` writes a copy beside the input and leaves the original alone
+unless you ask for `--in-place`. Full command reference and exit codes:
+[`INSTRUCTIONS.md`](INSTRUCTIONS.md).
 
 ## Planned scope (Phase 1)
 

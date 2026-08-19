@@ -2,9 +2,10 @@
 //!
 //! # Status
 //!
-//! **Phase 0 — scaffolding only.** This crate contains no logic yet. The intended design is
-//! specified in `docs/ARCHITECTURE.md`; implementation begins in Phase 1 with the JPEG, PNG,
-//! WebP, and PDF handlers (scope locked by ADR-0005).
+//! **Phase 1 — in progress.** Format detection, the report types, and the typed error set
+//! exist. Handlers for JPEG, PNG, WebP, and PDF are landing one at a time, each with its own
+//! fuzz target and seed corpus (scope locked by ADR-0005). A format with no handler is
+//! reported as unsupported and is never passed through untouched.
 //!
 //! # Invariants
 //!
@@ -20,6 +21,25 @@
 //!   humans, reads argv, prints, or exits. Front-ends render. (ADR-0003)
 //! - **Fail closed.** Never emit partially-sanitised output, and never report success for a
 //!   file that was not actually processed.
+
+mod bytes;
+pub mod detect;
+pub mod error;
+pub mod formats;
+pub mod io;
+pub mod pipeline;
+pub mod registry;
+pub mod report;
+
+pub use detect::{Format, detect};
+pub use error::{IoAction, MalformedDetail, ResourceLimit, Result, StryptError, UnsupportedKind};
+pub use formats::{MetadataHandler, ParseLimits, StripOptions, Stripped};
+pub use io::{AtomicWrite, Limits, Overwrite, Permissions};
+pub use pipeline::{inspect_bytes, inspect_file, strip_bytes, strip_file};
+pub use report::{
+    Finding, InspectOptions, MetadataKind, MetadataReport, MetadataValue, Note, Retained,
+    RetentionReason, Sensitivity, StripReport,
+};
 
 /// The crate version, for front-ends to report.
 #[must_use]

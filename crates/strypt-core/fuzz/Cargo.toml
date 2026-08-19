@@ -1,0 +1,35 @@
+[package]
+name = "strypt-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+strypt-core = { path = ".." }
+
+[[bin]]
+name = "pdf"
+path = "fuzz_targets/pdf.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "detect"
+path = "fuzz_targets/detect.rs"
+test = false
+doc = false
+bench = false
+
+# Fuzz targets are their own workspace: they need nightly and a different profile from the
+# crates under test, and folding them into the main workspace would drag libfuzzer into every
+# ordinary `cargo build`.
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = true

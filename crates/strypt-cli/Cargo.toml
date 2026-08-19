@@ -16,7 +16,11 @@ path = "src/main.rs"
 # `version` is required alongside `path`: a bare path dependency is a wildcard
 # (deny.toml `wildcards = "deny"`) and cannot be published to crates.io in Phase 4.
 strypt-core = { path = "../strypt-core", version = "0.0.0" }
-# CLI dependencies (clap, etc.) arrive in Phase 1. See docs/ARCHITECTURE.md §4.
+clap = { workspace = true }
+# JSON output. Hand-rolling a serialiser to save a dependency would mean hand-rolling string
+# escaping, and a metadata value is precisely the kind of attacker-influenced text that finds
+# the bugs in a hand-rolled escaper (ADR-0018).
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

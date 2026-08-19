@@ -1,0 +1,44 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(attachment) 6 0 R] >> >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >>  >>
+endobj
+4 0 obj
+<< /Length 45 >>
+stream
+BT /F1 12 Tf 20 100 Td (strypt fixture) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Filespec /F (attachment.txt) /Desc (SYNTHETIC-DESC-0009) /EF << /F 7 0 R >> >>
+endobj
+7 0 obj
+<< /Type /EmbeddedFile /Length 22 /Params << /CreationDate (D:20200105000000Z) /ModDate (D:20200106000000Z) /Size 22 >> >>
+stream
+attached file contents
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000126 00000 n 
+0000000183 00000 n 
+0000000310 00000 n 
+0000000405 00000 n 
+0000000475 00000 n 
+0000000579 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+757
+%%EOF

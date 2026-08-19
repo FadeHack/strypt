@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 0 in progress · **Last updated:** 2026-08-19
+**Status:** Phase 1 in progress · **Last updated:** 2026-08-19
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -15,7 +15,7 @@ ordered by dependency, and a phase that needs longer gets longer.
 
 ---
 
-## Phase 0 — Foundation *(in progress)*
+## Phase 0 — Foundation *(complete)*
 
 **Goal.** Someone cloning this repository — human or AI — can determine what strypt is, why
 it exists, how it is built, what phase it is in, and what to do next, without asking anyone.
@@ -55,7 +55,9 @@ it exists, how it is built, what phase it is in, and what to do next, without as
    declaration, *and* `rustls` pulled in transitively — the transitive case being precisely
    what the Claude Code hooks structurally cannot see. Change reverted; gate re-verified
    clean. Confirmed running green in GitHub Actions 2026-08-19.
-4. `INSTRUCTIONS.md` contains real, copy-pasteable commands that actually run.
+4. ✅ **Met 2026-08-19.** `INSTRUCTIONS.md` contains real, copy-pasteable commands that
+   actually run. The last of them — the fuzz, `cargo-deny`, and CLI commands — could only be
+   verified once Phase 1 produced something to run them against, and now have been.
 5. ✅ **Met 2026-08-19.** The owner reviewed `docs/PRD.md` §0 and confirmed the project
    proceeds on the corrected footing recorded in ADR-0012.
 6. ✅ **Met 2026-08-19.** `rust-toolchain.toml` pins an explicit version and CI demonstrably
@@ -71,13 +73,21 @@ it exists, how it is built, what phase it is in, and what to do next, without as
 
 ---
 
-## Phase 1 — Core engine + CLI (JPEG, PNG, WebP, PDF)
+## Phase 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) *(in progress)*
 
 **Goal.** A person can strip metadata from the four highest-risk formats with a tool that is
 correct, honest about what it did, and demonstrably does not crash on hostile input.
 
 **Scope is locked** to JPEG, PNG, WebP, PDF by ADR-0005. Expanding it requires a superseding
 ADR, not a judgement call mid-phase.
+
+**Progress so far (2026-08-19).** PDF is done to the per-format bar; the three image
+handlers are not started. Landed: bounded ingest, content-sniffing detection, the handler
+registry and trait, the verification pass, structured reports, typed errors, the atomic write
+path, the full CLI, the PDF handler, fuzz targets for PDF and detection, and a generated
+fixture corpus. Differential testing against ExifTool 13.55 and mat2 0.15.0 over that corpus
+shows nothing surviving in strypt's output. **Remaining: the JPEG, PNG, and WebP handlers,
+real-producer corpus files, and the measured performance numbers.**
 
 **Deliverables.**
 - `strypt-core`: bounded ingest, content-sniffing format detection, handler registry, the

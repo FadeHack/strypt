@@ -183,7 +183,67 @@ Stated so they can be challenged; each is a place the model could be wrong.
 
 ---
 
-## 7. Review triggers
+## 7. Per-format findings
+
+Added as each handler lands, from what implementing and testing it actually taught us — not
+from what the specification says ought to be true. §4's general limitations still apply on top
+of everything here.
+
+### 7.1 PDF (Phase 1)
+
+**What strypt removes.** The Document Information Dictionary, including keys no specification
+ever defined — applications invent their own freely, and a custom key is no less identifying
+for being non-standard. XMP metadata packets at document and object level. The trailer `/ID`.
+`/PieceInfo`, which is a scratch area where an application may store whatever private state
+it likes between editing sessions. `/LastModified`. Markup-annotation authorship (`/T`),
+dates, and identifiers. Embedded-file parameter dates and checksums.
+
+**Objects left behind by incremental updates are the finding that shaped the design.** A PDF
+saved more than once contains every earlier version of itself: the old bytes stay, and a new
+cross-reference section declares what supersedes what. Nothing in a normal reader shows this,
+and neither ExifTool nor mat2 reported the superseded author in our own test fixture — but it
+sits in the file in plain text. strypt rebuilds the document from what the catalogue can
+reach, so those objects are never written out (ADR-0020). Any tool that patches a PDF in place
+rather than rewriting it leaves them there while reporting the file clean.
+
+**What remains, and why.**
+
+- **Annotation contents.** The comment text a reviewer wrote is preserved; only their name and
+  the dates are removed. This is §4.1 applied deliberately — content is not strypt's to
+  delete. It is a real difference from tools that re-render the page, which lose the comment
+  along with its author.
+- **Form field names.** `/T` on a `/Widget` annotation is the field name that the form's logic
+  and its saved data depend on, not a person's name. It is kept. Breaking a user's document to
+  protect them is not a trade this tool makes silently.
+- **Embedded attachments are not opened.** Their parameter metadata goes; whatever is inside
+  them is untouched, and the report says so. Recursing into nested files is a zip-bomb-shaped
+  problem that Phase 2 has to decide about explicitly, with a depth and expansion limit.
+- **Compressed XMP packets are removed but not itemised.** ISO 32000-1 §14.3.2 recommends
+  metadata streams be left uncompressed, and in practice they nearly always are. Inflating the
+  rare compressed one to produce a more detailed report would mean accepting a decompression
+  bomb in exchange for a nicer listing. The packet is still found and still removed.
+- **Structural fingerprints.** Object ordering, the producer's layout conventions, font
+  subsetting, and compression choices all survive and can identify the generating software.
+  This is §4.7 and strypt does not address it. A full rewrite changes the fingerprint to
+  strypt's own rather than erasing the notion of one — which, per assumption 6.5, may itself be
+  distinguishing in a small population of documents.
+
+**What strypt refuses.** Encrypted documents. `lopdf` can open one protected by an empty owner
+password, and emitting a decrypted copy would strip the user's protection along with their
+metadata — a change to their document's security they did not ask for and might not notice.
+
+**New attack surface this handler introduces.** `lopdf` is a third-party PDF parser processing
+attacker-controlled bytes, and this project's no-panic rule does not extend to it (ADR-0018).
+`#![forbid(unsafe_code)]` rules out memory-corruption exploitation; it does not rule out a
+panic, a hang, or unbounded allocation originating inside the dependency. This is the largest
+piece of untrusted-input surface in the tree and it is not code we control. It is why the PDF
+fuzz target exists, and it is a specific input to Phase 3's sandboxing decision — containing a
+compromised or merely fragile dependency is one of the few things sandboxing genuinely buys a
+safe-Rust parser.
+
+---
+
+## 8. Review triggers
 
 Update this document when:
 

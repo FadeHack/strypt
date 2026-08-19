@@ -4,9 +4,16 @@
 
 # Fuzzing artefacts. Seed corpora ARE committed (docs/TESTING_STRATEGY.md §3); crash
 # artefacts are not — a crash gets a regression test and a sanitised corpus entry instead.
-fuzz/target
-fuzz/artifacts
-fuzz/coverage
+#
+# Leading `**/` matters: a pattern containing a slash is anchored to this file's directory,
+# so a bare `fuzz/target` would only match one at the repository root. The fuzz crate lives at
+# crates/strypt-core/fuzz/, per docs/ARCHITECTURE.md §2.
+**/fuzz/target/
+**/fuzz/artifacts/
+**/fuzz/coverage/
+# libFuzzer's working corpus, which reaches thousands of machine-generated files within
+# minutes. The curated seeds are committed separately, under fuzz/seeds/.
+**/fuzz/corpus/
 
 # Never commit real user files. Test fixtures must contain no real personal data
 # (CONTRIBUTING.md); scratch files must not leak into history.

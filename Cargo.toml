@@ -13,9 +13,17 @@ repository = "https://github.com/FadeHack/strypt"
 authors = ["The strypt Contributors"]
 
 [workspace.dependencies]
-# Deliberately empty in Phase 0. Every dependency requires an ADR (ADR-0008); the vetted
-# candidates for Phase 1 are recorded in docs/ARCHITECTURE.md §4 and must be re-verified
-# before use.
+# Every dependency requires an ADR (ADR-0008). Versions were re-verified against crates.io on
+# 2026-08-19, at Phase 1 start, as docs/ARCHITECTURE.md §4 requires — not carried over from
+# the Phase 0 snapshot on trust.
+thiserror = "2.0.20"   # ADR-0018. strypt-core only; anyhow is banned there.
+# ADR-0018. `default-features = false` drops `rayon` and `chrono-clock`: parallel object
+# processing would put deterministic output at risk (docs/TESTING_STRATEGY.md §1, invariant 4)
+# and a metadata scrubber has no business reading the wall clock.
+lopdf = { version = "0.44.0", default-features = false }
+# Front-end only — never in strypt-core (ADR-0003). Versions verified 2026-08-19.
+clap = { version = "4.6.6", features = ["derive"] }
+serde_json = "1.0.151"
 
 # Lints applied across the workspace. The panic-capable lints are denied in strypt-core
 # only (ADR-0006) — see that crate's manifest.

@@ -21,6 +21,49 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **`strypt show` and `strypt strip` now work on PDF files.** They report and remove the
+  Document Information Dictionary (including vendor-invented keys), XMP metadata packets,
+  the document identifier, private application data in `/PieceInfo`, page modification
+  times, markup-annotation authorship and dates, and embedded-file parameter metadata.
+- **Earlier revisions of a PDF no longer survive stripping.** A PDF that has been saved more
+  than once carries every previous version inside it, recoverable with a hex editor. strypt
+  rebuilds the document from what the catalogue can actually reach, so superseded revisions
+  are not written out at all (ADR-0020). The report also tells you when a file had earlier
+  revisions in it, whether or not you were expecting that.
+- **Output is checked before it is written.** Every strip is re-inspected, and if metadata
+  survived, the operation fails and nothing is written. strypt would rather refuse than hand
+  you a file it cannot vouch for.
+- Unsupported and unrecognised formats are reported as such, with the format named where it
+  can be identified. They are never copied through or reported as success.
+- CLI: batch processing, `--recursive`, `--in-place`, `--output-dir`, `--force`, `--json`
+  with a stable schema, `--show-values`, `--max-bytes`, and documented exit codes.
+- Fuzz targets for the PDF handler and for format detection, with seed corpora. Both assert
+  invariants — that stripped output re-inspects clean and that stripping is idempotent — not
+  merely that nothing crashed.
+- Test corpus with a manifest and a deterministic generator (`corpus/tools/`). No fixture
+  contains real personal data, by construction.
+
+### Known limitations in this release
+
+Read these before relying on the tool. They are limitations, not bugs, and each is deliberate:
+
+- **Only PDF is handled so far.** JPEG, PNG, and WebP are in progress; until they land, those
+  files are reported as unsupported rather than processed.
+- **Encrypted PDFs are refused.** strypt will not emit a decrypted copy of your document, so
+  a password-protected file cannot be stripped at present.
+- **Annotation contents are preserved.** strypt removes the annotator's name and dates, not
+  the comment they wrote. It removes metadata, not information — a reviewer's remarks are
+  content, and something visible in a document is not something this tool deletes.
+- **Embedded attachments are not opened.** Their parameter metadata is removed and the
+  attachment itself is left intact; if it carries its own metadata, strypt has not touched it.
+  The report says so.
+- **strypt does not redact.** Text under a black rectangle in a PDF is still in the file.
+- Testing so far uses generated fixtures. Files from real producers — LaTeX, Word, Acrobat,
+  scanners, browser print-to-PDF — are not yet in the corpus, and real producers are where
+  the quirks live.
+
+### Added — foundation
+
 - Phase 0 foundation documents: PRD, architecture, roadmap, threat model, decision log,
   and testing strategy.
 - Contribution, security, and code of conduct policies.

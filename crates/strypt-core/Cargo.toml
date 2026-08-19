@@ -9,7 +9,13 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-# None yet. Phase 1 candidates are vetted in docs/ARCHITECTURE.md §4; each needs an ADR.
+# Typed errors. `anyhow` must never appear here: callers have to distinguish "unsupported
+# format" from "corrupt file" from "I/O error", and a boxed error erases exactly that
+# (ADR-0008, ADR-0018).
+thiserror = { workspace = true }
+# PDF object model. See ADR-0018 for the evaluation against `oxidize-pdf` and for the
+# honest accounting of what this dependency costs in transitive surface.
+lopdf = { workspace = true }
 
 # Lints are specified explicitly here rather than inherited, because Cargo does not permit a
 # crate to both inherit `workspace.lints` and override them. The workspace set is repeated

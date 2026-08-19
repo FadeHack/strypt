@@ -69,3 +69,44 @@ jobs:
       - run: cargo build --all-features
     env:
       RUSTUP_TOOLCHAIN: "1.95"
+
+  fuzz-smoke:
+    name: fuzz smoke
+    # Linux only: cargo-fuzz supports x86-64 and aarch64 on Unix-like systems and not Windows
+    # at all (verified 2026-08-19). Windows is covered by the other layers.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # The deliberate second exception to the toolchain pin, alongside `msrv`: libFuzzer's
+      # instrumentation needs nightly. See that job for why RUSTUP_TOOLCHAIN is set rather
+      # than relying on a default.
+      - run: rustup toolchain install nightly --profile minimal --no-self-update
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      # A short run per target, on every push. This will not find a deep bug — the sustained
+      # budget is Phase 3's job (ADR-0014) — but it does catch a target that stopped building
+      # or an invariant assertion that a change just broke, which is the failure that would
+      # otherwise sit unnoticed until someone remembered to fuzz manually.
+      # `seeds/` is the committed corpus; `corpus/` is libFuzzer's scratch and is git-ignored,
+      # so it has to be created here. libFuzzer writes to the first directory and reads the rest.
+      - name: Fuzz the PDF handler
+        working-directory: crates/strypt-core/fuzz
+        run: |
+          mkdir -p corpus/pdf
+          cargo fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=60 -rss_limit_mb=2048
+      - name: Fuzz format detection
+        working-directory: crates/strypt-core/fuzz
+        run: |
+          mkdir -p corpus/detect
+          cargo fuzz run detect corpus/detect seeds/detect -- -max_total_time=30
+      # Any crash, hang, or OOM leaves its input behind. Publishing it makes the finding
+      # reproducible by whoever picks it up, rather than a red X with a log that scrolled away.
+      - name: Upload any crashing input
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: crates/strypt-core/fuzz/artifacts/
+    env:
+      RUSTUP_TOOLCHAIN: "nightly"
