@@ -365,3 +365,74 @@ fn a_file_that_is_not_a_pdf_is_refused_rather_than_copied() {
     let err = strip_bytes(b"nothing at all", &StripOptions::default()).unwrap_err();
     assert!(matches!(err, StryptError::UnrecognisedFormat), "{err:?}");
 }
+
+#[test]
+fn a_stream_whose_length_disagrees_with_its_content_is_refused() {
+    // Regression test. Found by the `pdf` fuzz target on 2026-08-20, as an idempotence
+    // failure, which is what made the underlying bug visible at all.
+    //
+    // The fixture declares "/Length 45." — a malformed real where §7.3.8.2 requires an
+    // integer. lopdf 0.44 parses the document, reports no error, keeps the bad value in the
+    // dictionary, and stores *empty* stream content because it cannot find the stream's end.
+    //
+    // strypt used to accept that, rewrite it, and report "nothing to remove; wrote a clean
+    // copy" — while emitting a PDF whose /Length claims 45 bytes over an empty stream, with
+    // the page's content silently gone. qpdf called the output corrupt ("expected endstream",
+    // "recovered stream length: 1"). A second strip produced different bytes again, which is
+    // the non-idempotence the fuzzer tripped over.
+    //
+    // The verification pass did not catch it because it looks for residual metadata, and an
+    // emptied stream has none. So this is pinned here instead.
+    let input = fixture("malformed/stream-length-mismatch.pdf");
+
+    let err = strip_bytes(&input, &StripOptions::default()).unwrap_err();
+    assert!(
+        matches!(
+            err,
+            StryptError::Malformed {
+                format: Format::Pdf,
+                detail: strypt_core::MalformedDetail::LengthOutOfRange,
+                ..
+            }
+        ),
+        "expected a length-mismatch refusal, got {err:?}"
+    );
+}
+
+#[test]
+fn a_19_byte_xref_entry_is_refused_as_typed_malformed_not_silently_passed() {
+    // ISO 32000-1 §7.5.4 fixes each cross-reference entry at exactly 20 bytes, but real
+    // producers emit 19 by dropping the padding space before the newline. `lopdf` 0.44
+    // rejects the trailer when they do; qpdf --check accepts the same bytes and mat2 strips
+    // them successfully. So this is a strypt capability gap against the tools it is compared
+    // with, documented in docs/THREAT_MODEL.md §7.5.
+    //
+    // Found by the Phase 1 real-producer sweep, in a file whose upstream copy carries a real
+    // person's name — hence a synthetic reproducer here rather than the file itself
+    // (docs/TESTING_STRATEGY.md §3).
+    //
+    // What this test pins is the *safety* property, which holds regardless of the gap: the
+    // refusal is a typed Malformed error, not a panic and — the failure that would actually
+    // hurt someone — not a success report on an unprocessed file (CLAUDE.md §3.6).
+    let input = fixture("malformed/xref-19-byte-entries.pdf");
+
+    // It still sniffs as a PDF. Refusal happens at parse, not detection; a file rejected as
+    // "not a PDF" would send the user looking in entirely the wrong place.
+    assert_eq!(detect(&input).unwrap(), Format::Pdf);
+
+    for err in [
+        inspect_bytes(&input, &InspectOptions::names_only()).unwrap_err(),
+        strip_bytes(&input, &StripOptions::default()).unwrap_err(),
+    ] {
+        assert!(
+            matches!(
+                err,
+                StryptError::Malformed {
+                    format: Format::Pdf,
+                    ..
+                }
+            ),
+            "expected a typed Malformed refusal, got {err:?}"
+        );
+    }
+}

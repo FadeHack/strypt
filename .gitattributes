@@ -12,7 +12,11 @@
 
 * text=auto
 
-corpus/pdf/*.pdf binary
+# `**` rather than `*` so that fixtures in subdirectories — corpus/pdf/malformed/ — are
+# covered too. PDFs are mostly printable ASCII, so Git classifies them as text and rewrites
+# their line endings on a Windows checkout, which shifts every cross-reference offset and
+# stops the file parsing. The other three formats already use `**` for this reason.
+corpus/pdf/**/*.pdf binary
 crates/strypt-core/fuzz/seeds/pdf/*.pdf binary
 # The detection seeds have no extensions and are raw magic-number fragments.
 crates/strypt-core/fuzz/seeds/detect/* binary

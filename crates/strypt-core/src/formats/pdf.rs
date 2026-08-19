@@ -134,6 +134,45 @@ fn load(input: &[u8], limits: &ParseLimits) -> Result<Document> {
         });
     }
 
+    // Every stream's declared /Length must be an integer that matches the content actually
+    // parsed out of it.
+    //
+    // ISO 32000-1 §7.3.8.2 requires /Length to be an integer giving the exact byte count
+    // between "stream" and "endstream". When it is not — a fuzz case reached here by writing
+    // "/Length 45." instead of "/Length 45" — lopdf 0.44 parses the object, keeps the
+    // malformed value in the dictionary, and stores *empty* content, because it cannot locate
+    // the stream's end. It reports no error while doing so.
+    //
+    // Left unchecked, the document reaches the rewriter with the stream's bytes already gone.
+    // strypt then writes a file whose /Length still claims 45 bytes over an empty stream, and
+    // reports "nothing to remove; wrote a clean copy" — a structurally invalid PDF, missing
+    // the user's page content, presented as a success. That is the §5.4 failure the whole
+    // design is arranged to avoid, and the reason it went unnoticed is that the verification
+    // pass looks for residual *metadata*, which an emptied stream has none of.
+    //
+    // Refusing costs nothing on real documents: across the synthetic corpus and all 23
+    // parseable PDFs of the real-producer corpus — pdfLaTeX, LibreOffice, Google Docs,
+    // Acrobat and ImageMagick output, compressed streams included — not one stream disagrees
+    // with its declared length.
+    for object in doc.objects.values() {
+        let Ok(stream) = object.as_stream() else {
+            continue;
+        };
+        let declared = stream
+            .dict
+            .get(b"Length")
+            .ok()
+            .and_then(|length| length.as_i64().ok())
+            .and_then(|length| usize::try_from(length).ok());
+        if declared != Some(stream.content.len()) {
+            return Err(StryptError::Malformed {
+                format: Format::Pdf,
+                offset: None,
+                detail: MalformedDetail::LengthOutOfRange,
+            });
+        }
+    }
+
     Ok(doc)
 }
 

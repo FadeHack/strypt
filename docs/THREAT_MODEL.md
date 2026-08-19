@@ -451,6 +451,75 @@ has — a hang or unbounded allocation on a hostile file — which is what the `
 exists to find. A 180-second run over the seed corpus on 2026-08-19 executed 6.99 million inputs with no
 crash, hang, or timeout; that is a smoke test, not the Phase 3 budget (ADR-0014).
 
+### 7.5 What real producers showed (Phase 1)
+
+The findings in §7.1–7.4 were reached against synthetic fixtures — files built to the
+specification. On 2026-08-20 all four handlers were run over the fetch-on-demand corpus in
+`real-producer-corpus/`: 101 files, comprising 23 camera and phone JPEGs (Canon, Nikon, Sony,
+Samsung, HMD, Jolla, Apple), 23 PDFs (pdfLaTeX, LibreOffice, Google Docs, Acrobat,
+ImageMagick), 27 PNGs and 28 WebPs. Each was put through `show`, then `strip`, then `show`
+again on the output.
+
+**No panic, no hang, and no silent pass-through occurred.** Ninety-six files processed and
+re-inspected clean. Five were refused, four of them correctly: three deliberately truncated
+generated files, and one password-protected LibreOffice document, which exercised the
+encryption refusal in §7.1 against a real file for the first time. Real Canon, Nikon and Sony
+MakerNote blocks — the least standardised region in Exif, and the one §7.2 calls out as the
+most likely to hide a parser bug — were handled without incident.
+
+**Refreshing the PDF fuzz seeds found a real bug, and it is worth reading as a lesson about
+where the verification pass does not reach.** ISO 32000-1 §7.3.8.2 requires a stream's
+`/Length` to be an integer. Given `45.` instead, `lopdf` 0.44 parses the document, reports no
+error, keeps the malformed value, and stores *empty* stream content because it cannot locate
+the stream's end. strypt accepted that document, rewrote it, and emitted a PDF whose `/Length`
+still claimed 45 bytes over an empty stream — structurally invalid by qpdf's reading, with the
+page's content gone — while reporting "nothing to remove; wrote a clean copy". That is a §5.4
+failure: a success message about a file that was not correctly processed.
+
+**The verification pass did not catch it, and could not have.** It searches the output for
+residual metadata, and a stream that has been emptied has none — the check and the defect were
+looking at different properties. What caught it was the fuzz target's byte-for-byte
+idempotence assertion, because a second strip produced different bytes again. This is the
+argument for keeping invariants in the fuzz targets that duplicate no production check.
+
+`load()` now refuses any document with a stream whose declared length disagrees with its
+parsed content. The refusal costs nothing on real files: across the synthetic corpus and all
+23 parseable real-producer PDFs, not one stream disagrees.
+
+**One genuine gap surfaced, and it is a capability gap rather than a safety failure.**
+`019-grayscale-image.pdf` writes cross-reference entries of 19 bytes instead of the 20 that
+ISO 32000-1 §7.5.4 fixes them at, dropping the padding space before each newline. `qpdf
+--check` reports no syntax errors on that file and **mat2 strips it successfully**, but
+`lopdf` 0.44 — the parser strypt uses (ADR-0018), and already the newest release — rejects
+the trailer, so strypt refuses a document that the tool it is most often compared with
+handles. Padding the entries to 20 bytes makes it parse, confirming the cause.
+
+This is recorded as a known gap rather than worked around. Normalising a cross-reference
+table before parsing would mean rewriting untrusted bytes ahead of the parser, in the most
+security-sensitive path in the project, to widen what strypt accepts — the wrong trade for
+this tool. Refusing is the correct fail-closed behaviour (§5.4): the user is told the file was
+not processed and can reach for another tool, which is the outcome that keeps them safe.
+Where mat2 handles a file strypt cannot, mat2 is the better recommendation, and this is such a
+case.
+
+`corpus/pdf/malformed/xref-19-byte-entries.pdf` reproduces the structure synthetically — the
+upstream file carries a real person's name, which §3 of `docs/TESTING_STRATEGY.md` keeps out
+of the committed corpus. The accompanying test pins the refusal as a *typed* `Malformed`
+error, so that if a future `lopdf` becomes tolerant here, the change is noticed rather than
+absorbed silently.
+
+**What this sweep does not establish.** The corpus has no WebP written by a browser and none
+produced by a JPEG→WebP conversion that carries an Exif block across, so the path in §7.4
+where metadata survives a format conversion is still untested against real output. Every
+category directory beneath `real-producer-corpus/real-corpus/` is a coverage bucket, not a
+verified producer claim; 29 of the 101 files are marked `LOW` provenance in the manifest, and
+the file above is one of them — its "scanner" bucket is unverified.
+
+The corpus is **not committed** (`.gitignore`), because its files carry real names, a device
+serial number, and live GPS coordinates, which §3 of `docs/TESTING_STRATEGY.md` keeps out of
+this repository. `build_real_corpus.py` and the manifests are committed, and a rebuild
+reproduces all 101 fixtures byte-identically, so this sweep is repeatable by anyone.
+
 ---
 
 ## 8. Review triggers

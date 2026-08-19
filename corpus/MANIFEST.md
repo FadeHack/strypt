@@ -38,21 +38,33 @@ means the generator changed.
 | `piece-info.pdf` | `/PieceInfo` private application scratch data and `/LastModified` | That application-private storage is removed |
 | `embedded-file.pdf` | A `/Filespec` attachment with `/Desc` and `/Params` dates | That attachment metadata is removed, the attachment itself is preserved, and the report says plainly that strypt did not open it |
 | `clean.pdf` | Nothing | That a clean file produces no findings. A tool that invents findings teaches users to ignore it |
+| `malformed/xref-19-byte-entries.pdf` | A correct document whose xref entries are 19 bytes, not the 20 ISO 32000-1 §7.5.4 requires — the padding space before each newline is dropped | That strypt refuses it as a *typed* `Malformed` error rather than panicking or reporting success on a file it never processed. A known capability gap: qpdf and mat2 both accept these bytes (`docs/THREAT_MODEL.md` §7.5) |
+| `malformed/stream-length-mismatch.pdf` | A content stream declaring `/Length 45.` — a malformed real where §7.3.8.2 requires an integer. lopdf parses the document without error but stores empty stream content | **A regression test for a real bug.** strypt used to rewrite this and report a clean copy while silently discarding the page's content and emitting a PDF qpdf calls corrupt. Now refused |
+
+`malformed/stream-length-mismatch.pdf` is the one fixture in this corpus not produced by a
+generator: it is a minimised `pdf` fuzz artifact, kept as the exact input that triggered the
+bug (`CONTRIBUTING.md`). It is a mutation of `xmp-packet.pdf`, so it carries only the
+synthetic markers that fixture carries.
 
 ### Not yet represented
 
-Recorded so the gaps are visible rather than forgotten. These need real-world producers and
-are the corpus's main weakness today:
+Recorded so the gaps are visible rather than forgotten. The fixtures above are synthetic, so
+they test strypt against the specification rather than against what real software emits — and
+real software is where the quirks live.
 
-- Files from actual producers: LaTeX, Word, Acrobat, LibreOffice, scanners, browser
-  print-to-PDF. The fixtures above are synthetic, so they test strypt against the
-  specification rather than against what real software emits — and real software is where the
-  quirks live.
-- Linearised ("fast web view") files.
+The fetch-on-demand corpus in `real-producer-corpus/` now covers several of these locally
+(24 PDFs from LaTeX, LibreOffice, Google Docs, Acrobat and ImageMagick). It is **not**
+committed — its files carry real names and coordinates, which `docs/TESTING_STRATEGY.md` §3
+forbids here. So these remain gaps in *this* corpus, which is the one CI runs against:
+
+- Files from actual producers, as committed fixtures.
+- Linearised ("fast web view") files — absent from both corpora.
 - Object streams and cross-reference streams (PDF 1.5+), which most modern producers emit and
-  which none of the fixtures above use.
-- Encrypted documents. Refused by design (`crates/strypt-core/src/formats/pdf.rs`), but the
-  refusal is not yet covered by a fixture.
+  which none of the fixtures above use. Exercised via the fetched corpus (`GeoTopo.pdf` carries
+  34 object streams and strips cleanly), but not pinned by a committed fixture.
+- Encrypted documents. Refused by design (`crates/strypt-core/src/formats/pdf.rs`), and the
+  refusal is confirmed against a real password-protected LibreOffice file in the fetched
+  corpus, but it is not yet covered by a committed fixture.
 
 ## JPEG
 

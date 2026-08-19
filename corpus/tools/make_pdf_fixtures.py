@@ -71,6 +71,7 @@ def page_objects(extra_page_keys: bytes = b"", annots: bytes = b"") -> dict[int,
 
 def write(name: str, data: bytes) -> None:
     path = OUT / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     print(f"{path.relative_to(pathlib.Path.cwd())}  {len(data)} bytes")
 
@@ -188,6 +189,23 @@ def main() -> None:
     # 8. A document with no metadata at all. Strip must be a well-formed no-op, and `show` must
     #    report nothing — a tool that invents findings on a clean file trains users to ignore it.
     write("clean.pdf", build(page_objects(), b"/Root 1 0 R"))
+
+    # 9. A cross-reference table whose entries are 19 bytes rather than the 20 that
+    #    ISO 32000-1 §7.5.4 requires. The spec is explicit that each entry is exactly 20
+    #    bytes, ending in a two-character sequence (SP CR, SP LF, or CR LF); this fixture
+    #    drops the padding space so each entry ends "n\n" instead of "n \n".
+    #
+    #    Real producers emit this. It was found in the wild during the Phase 1 real-producer
+    #    corpus sweep (`pdf/scanner/019-grayscale-image.pdf`, from py-pdf/sample-files), where
+    #    qpdf --check reports no syntax errors and mat2 strips the file successfully, but
+    #    lopdf 0.44 — the parser strypt uses — rejects the trailer outright.
+    #
+    #    strypt therefore refuses a file that other tools accept. That is a capability gap,
+    #    not a safety failure: refusing is the correct fail-closed behaviour (CLAUDE.md §3.6),
+    #    and the accompanying test pins it as a *typed* refusal so that the day lopdf gains
+    #    tolerance here, the change is noticed rather than absorbed silently.
+    strict = build(page_objects(), b"/Root 1 0 R")
+    write("malformed/xref-19-byte-entries.pdf", strict.replace(b" n \n", b" n\n").replace(b" f \n", b" f\n"))
 
 
 if __name__ == "__main__":

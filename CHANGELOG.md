@@ -99,6 +99,36 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
+- **A PDF whose content stream declared a malformed length was rewritten with that stream's
+  contents silently discarded, and reported as a clean copy.** The specification requires a
+  stream's `/Length` to be an integer; a file writing `45.` instead of `45` parses without
+  complaint in the underlying PDF library, which then hands strypt the stream with its bytes
+  already dropped. strypt rewrote the document, wrote out a file whose `/Length` still claimed
+  45 bytes over an empty stream — structurally invalid, and missing the page's content — and
+  told the user "nothing to remove; wrote a clean copy". Such files are now refused.
+
+  **No metadata was leaked by this**, so a file you stripped with an earlier build has not
+  had anything exposed. What could happen is the reverse: an affected document would come back
+  damaged, with content missing, while reporting success. Only PDFs with a malformed stream
+  length were affected — no file in the synthetic corpus or in the 23 real-producer PDFs
+  (pdfLaTeX, LibreOffice, Google Docs, Acrobat, ImageMagick) triggers it. Found by the `pdf`
+  fuzz target, which noticed that stripping such a file twice gave two different results.
+
+- The `binary` rule for PDF fixtures now covers subdirectories (`corpus/pdf/**/*.pdf`, not
+  `corpus/pdf/*.pdf`). The narrower pattern matched no fixture in `corpus/pdf/malformed/`, so
+  the first one added there would have been silently corrupted on a Windows checkout by the
+  same CRLF rewriting described below — the fix was in place but did not reach where it was
+  next needed.
+
+- `real-producer-corpus/build_real_corpus.py` now rebuilds reproducibly. ImageMagick stamps
+  the wall clock into generated PNGs in two places — the `date:*` text chunks and the `tIME`
+  chunk — so every rebuild produced different bytes and invalidated every checksum in the
+  manifest. It also prunes files it no longer produces; a renamed fixture had been left
+  behind as an unlisted duplicate, inflating the corpus counts. Its `minimal-object-stream.pdf`
+  contained no object stream and pointed `startxref` at the wrong offset, so it failed for a
+  reason unrelated to its name; it is replaced by `minimal-xref-table.pdf`, built from
+  computed offsets.
+
 - PDF test fixtures are marked `binary` in `.gitattributes`. Without it, Git classified them
   as text — they are mostly printable ASCII — and rewrote every LF to CRLF when checking out
   on Windows, which shifts every offset in a PDF's cross-reference table and stops the file
@@ -157,6 +187,15 @@ Read these before relying on the tool. They are limitations, not bugs, and each 
   structural image properties in strypt's output.
 - **Encrypted PDFs are refused.** strypt will not emit a decrypted copy of your document, so
   a password-protected file cannot be stripped at present.
+- **Some PDFs are refused that other tools accept, because of how their cross-reference table
+  is written.** The PDF specification fixes each entry in that table at exactly 20 bytes, and
+  some producers write 19 by leaving out a padding space. strypt's PDF parser rejects those
+  files; `qpdf` reports no errors on them and **mat2 strips them successfully**. If strypt
+  tells you a PDF is malformed but other tools open it happily, this is the likely reason —
+  **use mat2 for that file.** strypt refuses rather than guessing, so you are never handed a
+  file it did not actually process, but this is a gap on strypt's side rather than a problem
+  with your document. Found against real files during Phase 1 corpus work
+  (`docs/THREAT_MODEL.md` §7.5).
 - **Annotation contents are preserved.** strypt removes the annotator's name and dates, not
   the comment they wrote. It removes metadata, not information — a reviewer's remarks are
   content, and something visible in a document is not something this tool deletes.
