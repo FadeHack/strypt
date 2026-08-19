@@ -1,22 +1,22 @@
 # strypt
 
-> ## Status: Phase 1 in progress — PDF and JPEG work, PNG and WebP do not
+> ## Status: Phase 1 in progress — PDF, JPEG, and PNG work, WebP does not
 >
-> **Only PDF and JPEG are implemented.** PNG and WebP are recognised and reported as
-> unsupported; they are not processed. There has been no external audit, no release, and no
+> **Only PDF, JPEG, and PNG are implemented.** WebP is recognised and reported as
+> unsupported; it is not processed. There has been no external audit, no release, and no
 > testing against files from real producers — every test fixture so far is generated, which
 > for JPEG means no real camera maker notes have ever been through this code.
 >
 > | Phase | Status |
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Complete |
-> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 PDF and JPEG done; PNG and WebP not started |
+> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 PDF, JPEG, and PNG done; WebP not started |
 > | 2 — Expanded formats · 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
 > Full phase definitions and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 >
-> **For anything other than PDF and JPEG, and for anything that matters, use
+> **For anything other than PDF, JPEG, and PNG, and for anything that matters, use
 > [mat2](https://github.com/jvoisin/mat2) or [ExifTool](https://exiftool.org/)** — both
 > mature, actively maintained, and covering far more formats.
 > [`docs/PRD.md`](docs/PRD.md) §4 explains where strypt intends to differ.
@@ -56,7 +56,7 @@ unless you ask for `--in-place`. Full command reference and exit codes:
 | Format | What gets removed |
 |---|---|
 | JPEG | Exif (incl. GPS and MakerNote), XMP, IPTC, ICC profile, comments, embedded thumbnails, and data hidden after the end-of-image marker. The picture is never re-encoded |
-| PNG | Text chunks, timestamps, ICC profile, EXIF chunk, other ancillary chunks |
+| PNG | Text chunks (`tEXt`, `zTXt`, `iTXt`), timestamps, ICC profile, the `eXIf` chunk, unknown ancillary chunks, and data hidden after the end chunk. Image data is copied through byte for byte |
 | WebP | EXIF, XMP, and ICC chunks |
 | PDF | Document info dictionary, XMP metadata streams, document IDs, annotation and embedded-file metadata |
 

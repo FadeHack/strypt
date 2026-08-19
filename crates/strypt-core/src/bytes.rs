@@ -13,9 +13,6 @@
 //! arithmetic. `strypt-core` denies all three (ADR-0006), and this module is written so that
 //! handlers never need them.
 //!
-//! One accessor is still uncalled and is marked as such at its definition rather than by a
-//! module-wide allowance: the exception should be visible where it applies, so that the next
-//! unused method is a warning rather than something the allowance already covered.
 
 /// A cursor over a byte slice that cannot read out of bounds and cannot overflow.
 ///
@@ -43,12 +40,6 @@ impl<'a> Reader<'a> {
     }
 
     /// True when the cursor has consumed the whole slice.
-    ///
-    /// Not yet called: the PNG and WebP handlers landing later in this phase are the ones that
-    /// walk a chunk list to exhaustion. Kept because trimming this primitive to exactly
-    /// today's callers and regrowing it twice more would churn the one file in the crate where
-    /// a mistake is most expensive.
-    #[allow(dead_code)]
     pub(crate) const fn is_empty(&self) -> bool {
         self.remaining() == 0
     }

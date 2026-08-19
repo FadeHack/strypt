@@ -703,3 +703,91 @@ both affecting how the image renders.
   therefore only reads — it exists to name what was in the block, because "GPSLatitude,
   BodySerialNumber, DateTimeOriginal" is what lets someone judge a file they already
   published, and "a 12 KB Exif block" is not.
+
+---
+
+## ADR-0022 — PNG is edited by chunk surgery, and compressed text is never inflated
+
+**Status:** Accepted (2026-08-19)
+
+**Context.** A PNG is a signature followed by a flat list of chunks, each carrying its own
+length, type, payload, and CRC. Everything identifying lives in ancillary chunks — `tEXt`,
+`zTXt`, `iTXt`, `tIME`, `eXIf`, `iCCP` — and the picture lives in `IDAT`. So the structural
+question that ADR-0021 settled for JPEG barely arises here: chunk surgery is obviously right,
+and re-encoding would be indefensible for a format whose whole point is losslessness.
+
+The question that did need deciding is compression. `zTXt` is compressed by definition and
+`iTXt` is compressed when its compression flag is set, so the natural assumption is that this
+handler needs a zlib decompressor, and therefore a new dependency and this ADR.
+
+That assumption is wrong, and checking it is the reason this ADR exists. Per the PNG
+specification (W3C PNG Third Edition, §11.3.3.3 `zTXt` and §11.3.3.4 `iTXt`, checked
+2026-08-19), the keyword, the compression flag, the language tag, and the translated keyword
+are **all uncompressed**; only the text itself is compressed. `iCCP`'s profile name — the part
+that names a device or a vendor — is uncompressed too, and `eXIf` is a raw TIFF block that the
+existing reader in `formats/exif.rs` handles directly.
+
+Every chunk in that list is removed **whole**. Nothing that decides what is removed is behind
+the compression, and no inflated byte could ever reach the output file. Decompression would
+change one thing only: how finely the *report* names what was in a compressed chunk.
+
+**Decision.** Chunk surgery, with no decompressor. `strypt-core` gains no dependency for PNG.
+Compressed text is reported by its keyword — which is enough to say what the chunk was — and
+the chunk is removed either way.
+
+The kept-versus-removed line follows ADR-0021's test, "does it name a person, a place, or a
+device": `IHDR`, `PLTE`, `IDAT`, `IEND` and the rendering chunks (`tRNS`, `gAMA`, `cHRM`,
+`sRGB`, `sBIT`, `pHYs`, `bKGD`, `hIST`, `cICP`, `mDCV`, `cLLI`, and the APNG chunks `acTL`,
+`fcTL`, `fdAT`) are copied through byte for byte. `pHYs` is additionally declared in the strip
+report's `retained` list, because it is the chunk a careful user is most likely to expect to
+have gone.
+
+**Consequences.**
+
+- **This is the same trade the PDF handler already made, in the same direction.** A
+  `FlateDecode`d XMP stream is reported as one item rather than itemised by property
+  (`formats/pdf.rs`, and `docs/THREAT_MODEL.md` §7.1). Inflating for PNG while refusing to
+  inflate for PDF would have left the project holding two positions on one question. The
+  rejected option was `miniz_oxide` — pure Rust, `#![forbid(unsafe_code)]`, already in the
+  tree transitively via `lopdf` → `flate2`, and with `decompress_to_vec_zlib_with_limit` it
+  offers exactly the bounded primitive `ParseLimits::max_expanded_bytes` was shaped for. It
+  was still declined: the gain is report granularity on a minority of chunks, and the cost is
+  a decompression-bomb surface, a direct dependency (ADR-0008), and a pin to the `0.8` line
+  that `flate2 1.1.9` requires while `0.9.1` is current — taking `0.9` instead would put two
+  inflate implementations in one binary.
+- **The report is less detailed for compressed chunks, and this is the honest cost.** An XMP
+  packet in an uncompressed `iTXt` is broken down by property; the same packet compressed is
+  one finding. ImageMagick's `Raw profile type exif` and `Raw profile type iptc` chunks are
+  reported by keyword and classified by what that keyword means the chunk is, not by reading
+  inside it. Recorded in `docs/THREAT_MODEL.md` §7.3 rather than left for a user to discover.
+- **`ParseLimits::max_expanded_bytes` and `ResourceLimit::ExpandedSize` stay in the API with
+  no caller.** WebP brings no zlib either, so nothing in Phase 1 will use them. They are
+  marked as reserved where they are defined rather than quietly left looking enforced. Phase
+  2's ZIP-container formats are what they were built for.
+- **CRCs are copied, never recomputed, and never checked.** A chunk's CRC covers only its own
+  type and data, and this handler never alters a chunk it keeps — so a kept chunk's CRC is
+  still correct by construction, and no CRC implementation is needed anywhere in the tree.
+  Validating them was declined separately: strypt is not a decoder, and refusing a file whose
+  CRC a previous tool left stale would help nobody. A corrupt file is a decoder's problem;
+  a file that lies about its *lengths* is ours, and those are checked on every chunk.
+- **A clean PNG strips to a byte-identical copy of itself**, because kept chunks are copied
+  as raw bytes rather than re-serialised. That is a stronger property than the JPEG handler's
+  and it makes idempotence a consequence of the design rather than a test result.
+- **Unknown chunks split by the ancillary bit** (bit 5 of the first byte of the type, §5.4).
+  An unknown *ancillary* chunk is removed and reported: a private chunk can hold anything, and
+  a scrubber that copies through what it does not understand is not scrubbing. An unknown
+  *critical* chunk is kept, with a `Note::UnparsedRegion` saying its bytes were preserved and
+  anything inside them was not removed. Critical means whoever wrote the file marked that
+  chunk as required in order to interpret the image, and strypt cannot know what it holds or
+  what depends on it — so it copies it through and says so, rather than deciding on the user's
+  behalf that it was disposable. Note the honest consequence: a conforming decoder already
+  refuses such a file, so keeping the chunk keeps the file exactly as unreadable as it
+  arrived. Silently dropping it to make the file open would be strypt changing what the
+  document *is*, which is a larger decision than the one the user asked for.
+- **`sPLT` is removed** despite being a standard rendering chunk, which is the one place this
+  handler departs from "keep what affects rendering". Its palette-name field is arbitrary
+  text, so it is a text carrier; it is advisory data used only by decoders that cannot display
+  the full image, so removing it changes nothing a modern viewer does.
+- **Everything after `IEND` is removed**, for the reason `EOI` trailing data is removed from a
+  JPEG: no decoder reads it, few users know it can be there, and it is a convenient place for
+  a second copy of something.

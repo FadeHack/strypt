@@ -30,6 +30,7 @@ use crate::report::{InspectOptions, MetadataReport, StripReport};
 mod exif;
 pub mod jpeg;
 pub mod pdf;
+pub mod png;
 mod xmp;
 
 /// Sanitised bytes and an account of what was done to produce them.
@@ -59,6 +60,14 @@ pub struct ParseLimits {
     /// Maximum number of structural items — objects, segments, chunks — in one file.
     pub max_items: u32,
     /// Maximum bytes a single compressed structure may expand to.
+    ///
+    /// **Reserved: no handler in this release uses it.** Neither PNG nor WebP decompresses
+    /// anything — PNG's compressed text chunks are removed without being inflated (ADR-0022)
+    /// — and the PDF handler declines to inflate a filtered metadata stream for the same
+    /// reason. It is kept rather than removed because Phase 2's ZIP-container formats cannot
+    /// be attempted without it, and because a limit that exists is easier to review than one
+    /// invented under deadline. It is documented as reserved rather than left looking
+    /// enforced.
     pub max_expanded_bytes: u64,
 }
 

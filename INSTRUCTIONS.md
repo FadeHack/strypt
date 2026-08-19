@@ -121,11 +121,12 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/detect   # libFuzzer's working corpus; git-ignored
-cargo +nightly fuzz list                                          # pdf, jpeg, detect
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/detect   # libFuzzer's working corpus; git-ignored
+cargo +nightly fuzz list                                          # pdf, jpeg, png, detect
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
+cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz cmin pdf corpus/pdf                           # minimise the corpus
 ```
@@ -135,8 +136,8 @@ Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is 
 machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
 directory given and reads the rest.
 
-The PDF and JPEG seeds are copies of `corpus/pdf/` and `corpus/jpeg/` (including
-`corpus/jpeg/malformed/`); refresh them after regenerating the fixtures.
+The PDF, JPEG, and PNG seeds are copies of `corpus/pdf/`, `corpus/jpeg/`, and `corpus/png/`
+(including their `malformed/` subdirectories); refresh them after regenerating the fixtures.
 
 A crash writes its input to `crates/strypt-core/fuzz/artifacts/<target>/`. Reproduce with:
 
@@ -149,8 +150,10 @@ cargo +nightly fuzz run pdf artifacts/pdf/crash-<hash>
 ```sh
 python3 corpus/tools/make_pdf_fixtures.py        # regenerate; deterministic
 python3 corpus/tools/make_jpeg_fixtures.py       # regenerate; deterministic
+python3 corpus/tools/make_png_fixtures.py        # regenerate; reuses the JPEG tool's TIFF builder
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
 magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still decodes
+magick identify corpus/png/exif-gps.png          # confirm a PNG fixture still decodes
 exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
 ```
 

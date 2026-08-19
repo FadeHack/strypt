@@ -20,4 +20,8 @@
 /scratch
 *.local
 
+# Bytecode from the fixture generators. `make_png_fixtures.py` imports the JPEG tool for its
+# shared TIFF builder, which is what creates this directory.
+__pycache__/
+
 .DS_Store

@@ -296,6 +296,88 @@ target exists to find. A five-minute run over the seed corpus on 2026-08-19 exec
 million inputs with no crash, hang, or timeout; that is a smoke test, not the Phase 3 budget
 (ADR-0014).
 
+### 7.3 PNG (Phase 1)
+
+**What strypt removes.** Every text chunk — `tEXt`, `zTXt`, and `iTXt` — the `tIME`
+modification timestamp, the `eXIf` block, the `iCCP` colour profile, `sPLT`, every ancillary
+chunk strypt does not recognise, and anything after `IEND`.
+
+**PNG's text chunks are a general-purpose store, and that is the finding.** Unlike Exif, there
+is no fixed field list: a keyword is any Latin-1 string up to 79 characters, and applications
+use that freely. In practice the contents are worse than the format's reputation suggests.
+Freedesktop thumbnailers write `Thumb::URI`, which is the **full path of the original file** —
+it names a home directory, and a home directory names a person. `ImageMagick` stores entire
+Exif and IPTC blocks as hex text under `Raw profile type` keywords, so a PNG converted from a
+JPEG can carry the camera's GPS coordinates in a chunk that a tool looking only at `eXIf`
+walks straight past. Screenshot and editing tools write their own names. strypt classifies by
+keyword so that the report ranks these the way this document does, rather than filing
+everything under "text".
+
+**Measured against other tools on 2026-08-19.** ExifTool 13.55 finds nothing but structural
+image properties — dimensions, bit depth, colour type — in strypt's output for every fixture in
+`corpus/png`. Against mat2 0.15.0 over `corpus/png/text-chunks.png`: both remove the text
+chunks, and the difference is what happens to the image. strypt's `IDAT` is byte-identical to
+the input's; mat2's PNG path re-encodes through Pillow, which rewrote the 8-bit greyscale image
+as 8-bit RGB — colour type 0 to colour type 2, tripling the pixel data — and dropped `gAMA`,
+`sRGB`, and `pHYs` while adding a `bKGD` chunk of its own. ImageMagick reports zero differing
+pixels, so nothing *visible* changed; the file did. That is a deliberate trade on their side
+and a real one — re-encoding is robust against structures a parser does not understand — but
+it means the output is no longer the file the user had, and it replaces the original encoder's
+fingerprint with Pillow's rather than removing the notion of one (assumption 6.5). mat2 also
+refuses `corpus/png/unknown-chunks.png` outright, which is a reasonable outcome for the same
+reason any conforming decoder refuses it.
+
+**What remains, and why.**
+
+- **Compressed text is removed but not itemised.** `zTXt` is compressed by definition, and
+  `iTXt` is when its flag says so. strypt carries no decompressor (ADR-0022) and does not need
+  one: the keyword, the compression flag, the language tag, the translated keyword, and
+  `iCCP`'s profile name are all outside the compression, and the chunk is removed whole
+  regardless. What is lost is granularity — an XMP packet in an uncompressed `iTXt` is broken
+  down by property, and the same packet compressed is one finding. This is the same trade
+  §7.1 records for a `FlateDecode`d PDF metadata stream, made for the same reason: a
+  decompression bomb is a real cost and a nicer listing is not worth it.
+- **Rendering chunks survive.** `gAMA`, `cHRM`, `sRGB`, `sBIT`, `tRNS`, `bKGD`, `hIST`, the
+  HDR chunks, and the APNG animation chunks are all copied through. None of them names a
+  person, a place, or a device, and several change how the image looks if they go. `pHYs` —
+  the pixel dimensions and DPI — is additionally declared in the strip report's `retained`
+  list, because it is the chunk a careful user is most likely to expect to have gone.
+- **An unknown critical chunk is kept, and the report says it was not examined.** Critical
+  means the producer marked it as required in order to interpret the image, so strypt cannot
+  know what it holds or what depends on it. It is copied through and reported as an unparsed
+  region, so the user is told plainly that some bytes went by unexamined. The honest
+  consequence: a conforming decoder already refuses such a file, so keeping the chunk leaves
+  it exactly as unreadable as it arrived — `corpus/png/unknown-chunks.png` is deliberately
+  one of those files. Dropping the chunk to make the file open would be strypt deciding what
+  the document is, which is a bigger decision than the user asked for. An unknown *ancillary*
+  chunk is removed: a private chunk can hold anything, and copying through what you do not
+  understand is not scrubbing.
+- **The encoder's fingerprint.** Filter choices per scanline, the deflate implementation's
+  output, chunk ordering, and interlacing all survive and together identify the producing
+  software. This is §4.7 and it is not addressed; addressing it would mean re-encoding the
+  image, which for a lossless format is exactly what a user chose PNG to avoid.
+- **The picture itself.** strypt never decodes or re-encodes an image, so anything visible in
+  the frame — a face, a screen, a filename in a screenshot's title bar — is exactly as it was.
+  §4.3 applies, and for PNG it applies hardest: a screenshot is *made of* content that a
+  metadata tool cannot help with.
+
+**What strypt refuses.** A file whose first chunk is not `IHDR`, one that ends before `IEND`,
+one whose chunk length runs past the end of the file or sets the high bit the specification
+reserves, and one whose chunk type is not four letters. Each of those means the walk is not
+where it thinks it is, and a "cleaned" copy would be a guess presented as a fact.
+
+**New attack surface this handler introduces.** None from dependencies, and this is where the
+decision in ADR-0022 pays: the obvious implementation of PNG text handling pulls in a zlib
+decompressor and feeds it attacker-controlled bytes, and strypt's does not. The chunk walker
+is written in this repository, under the crate's panic-freedom lints, over the shared
+checked-reading primitive. CRCs are copied rather than recomputed, so there is no checksum
+code either. The residual risks are the ones safe Rust still has — a hang or unbounded
+allocation on a hostile file — which is what the `png` fuzz target exists to find. A
+90-second run over the seed corpus on 2026-08-19 executed 4.46 million inputs with no crash,
+hang, or timeout; that is a smoke test, not the Phase 3 budget (ADR-0014).
+
+---
+
 ---
 
 ## 8. Review triggers

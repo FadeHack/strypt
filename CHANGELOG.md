@@ -36,6 +36,26 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   carries the pixel aspect ratio, and the Adobe marker, which declares the colour transform —
   without it, CMYK images render with wrong colours. Neither names a person, a place, or a
   device. Any thumbnail inside the JFIF header is still removed.
+- **`strypt show` and `strypt strip` now work on PNG images.** They report and remove text
+  chunks (`tEXt`, `zTXt`, `iTXt`), the `tIME` modification timestamp, the `eXIf` block, the
+  `iCCP` colour profile, suggested palettes, ancillary chunks strypt does not recognise, and
+  any data hidden after the file's end chunk. Text chunks are reported by keyword, so you can
+  see that a thumbnailer had recorded the original file's full path — `Thumb::URI` names your
+  home directory — or that a converter had stashed a whole Exif block as hex text under a
+  `Raw profile type` keyword, where a tool looking only for Exif would miss it.
+- **Your PNG is not re-encoded, and a file with nothing to remove comes back byte-identical.**
+  Chunks that stay are copied through exactly as they were, CRCs included. PNG is a lossless
+  format; a tool that re-saved it would be undoing the reason you chose it.
+- **strypt reads PNG's compressed text chunks without decompressing them** (ADR-0022). The
+  keyword that says what a chunk is sits outside the compression, and the chunk is removed
+  whole either way — so strypt ships no decompressor and never feeds one an untrusted file.
+  The cost, stated plainly: a compressed XMP packet is reported as one item rather than
+  broken down property by property. An uncompressed one is still itemised.
+- **Two PNG behaviours are deliberate and reported rather than silent.** Chunks that affect
+  how the image renders are kept, and the physical-dimensions chunk (`pHYs`) is listed in the
+  strip report as kept on purpose. A chunk strypt does not recognise is also kept if the file
+  marks it as *critical* — meaning whatever wrote the file said it is needed to interpret the
+  image — and the report says plainly that its bytes went through unexamined.
 - **`strypt show` and `strypt strip` now work on PDF files.** They report and remove the
   Document Information Dictionary (including vendor-invented keys), XMP metadata packets,
   the document identifier, private application data in `/PieceInfo`, page modification
@@ -52,7 +72,7 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   can be identified. They are never copied through or reported as success.
 - CLI: batch processing, `--recursive`, `--in-place`, `--output-dir`, `--force`, `--json`
   with a stable schema, `--show-values`, `--max-bytes`, and documented exit codes.
-- Fuzz targets for the PDF handler, the JPEG handler, and format detection, with seed
+- Fuzz targets for the PDF, JPEG, and PNG handlers and for format detection, with seed
   corpora that include deliberately malformed files. They assert invariants — that stripped
   output re-inspects clean and that stripping is idempotent — not merely that nothing
   crashed.
@@ -71,8 +91,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 Read these before relying on the tool. They are limitations, not bugs, and each is deliberate:
 
-- **Only PDF and JPEG are handled so far.** PNG and WebP are in progress; until they land,
-  those files are reported as unsupported rather than processed.
+- **Only PDF, JPEG, and PNG are handled so far.** WebP is in progress; until it lands, those
+  files are reported as unsupported rather than processed.
 - **Stripping a JPEG can change how it displays.** Two of the things removed affect
   rendering: Exif `Orientation`, so an image that relied on it may appear rotated, and the ICC
   colour profile, so a wide-gamut image is afterwards interpreted as sRGB. Both are also
@@ -87,6 +107,17 @@ Read these before relying on the tool. They are limitations, not bugs, and each 
 - **A JPEG's encoder fingerprint survives.** Quantisation tables, Huffman tables, and chroma
   subsampling identify the software and often the device that produced a file. Removing them
   would mean re-encoding the picture, which strypt will not do.
+- **A compressed PNG text chunk is reported less finely than an uncompressed one.** strypt
+  carries no decompressor, so a compressed XMP packet is reported as a single item rather than
+  property by property. It is removed either way (ADR-0022).
+- **A PNG chunk strypt does not recognise is kept if it is critical.** strypt cannot know
+  what it holds or what depends on it, so it copies the bytes through unexamined and the
+  report says so. If you have a file with an unusual critical chunk, read the notes before
+  publishing it — and note that such a file was already unreadable to ordinary viewers before
+  strypt saw it.
+- **A malformed PNG is refused, not repaired.** A file whose first chunk is not `IHDR`, that
+  ends before `IEND`, or whose chunk lengths do not agree with its size, is rejected rather
+  than cleaned up and handed back.
 - **Encrypted PDFs are refused.** strypt will not emit a decrypted copy of your document, so
   a password-protected file cannot be stripped at present.
 - **Annotation contents are preserved.** strypt removes the annotator's name and dates, not

@@ -7,6 +7,10 @@ while running. That directory reaches thousands of machine-generated files withi
 git history is forever — so it is ignored, and only what a human chose lives here.
 
 - `pdf/` — copies of `corpus/pdf/`, the documented fixtures. Refresh after regenerating them.
+- `jpeg/` — copies of `corpus/jpeg/`, valid and malformed alike. Refresh after regenerating
+  them.
+- `png/` — copies of `corpus/png/`, valid and malformed alike. Refresh after regenerating
+  them.
 - `detect/` — one specimen of every signature the detector knows, plus an empty file and a
   plain-text file. Coverage-guided fuzzing explores outward from what it is given, so the
   seeds decide which regions it can reach at all.

@@ -81,18 +81,25 @@ correct, honest about what it did, and demonstrably does not crash on hostile in
 **Scope is locked** to JPEG, PNG, WebP, PDF by ADR-0005. Expanding it requires a superseding
 ADR, not a judgement call mid-phase.
 
-**Progress so far (2026-08-19).** PDF and JPEG are done to the per-format bar; PNG and WebP
-are not started. Landed: bounded ingest, content-sniffing detection, the handler registry and
+**Progress so far (2026-08-19).** PDF, JPEG, and PNG are done to the per-format bar; WebP is
+not started. Landed: bounded ingest, content-sniffing detection, the handler registry and
 trait, the verification pass, structured reports, typed errors, the atomic write path, the
-full CLI, the PDF handler, the JPEG handler with its shared Exif and XMP readers, fuzz targets
-for PDF, JPEG, and detection, and a generated fixture corpus for both formats. Differential
+full CLI, the PDF handler, the JPEG handler with its shared Exif and XMP readers, the PNG
+handler reusing both, fuzz targets for PDF, JPEG, PNG, and detection, and a generated fixture
+corpus for all three formats. Differential
 testing against ExifTool 13.55 and mat2 0.15.0 over that corpus shows nothing surviving in
 strypt's output, with one recorded and deliberate gap: strypt keeps the JPEG `APP14` Adobe
 colour-transform marker, which mat2 removes (ADR-0021). Exit criterion 4 is met for JPEG and
 by a stronger check than it asks for — the entropy-coded data is byte-identical after
 stripping, and ImageMagick reports zero differing pixels where mat2's re-encoding path reports
-some. **Remaining: the PNG and WebP handlers, real-producer corpus files (photographs from
-real cameras, with real maker notes, are the largest gap), and the measured performance
+some. PNG needed no new dependency: its compressed text chunks are removed without being inflated,
+because everything that decides what goes is outside the compression (ADR-0022). The
+differential run covers it too — ExifTool 13.55 finds nothing but structural image properties
+in strypt's PNG output, and against mat2 0.15.0 the recorded difference is that mat2's Pillow
+path re-encodes, rewriting an 8-bit greyscale image as RGB and dropping the colour-space
+chunks, where strypt's `IDAT` is byte-identical to the input's (`docs/THREAT_MODEL.md` §7.3). **Remaining:
+the WebP handler, real-producer corpus files (photographs from real cameras with real maker
+notes, and screenshots from real tools, are the largest gap), and the measured performance
 numbers.**
 
 **Deliverables.**

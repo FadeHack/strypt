@@ -19,6 +19,8 @@ is testing. An undocumented fixture is a file nobody dares change.
 
 ```
 python3 corpus/tools/make_pdf_fixtures.py
+python3 corpus/tools/make_jpeg_fixtures.py
+python3 corpus/tools/make_png_fixtures.py
 ```
 
 Deterministic: two runs produce byte-identical files, so a fixture appearing in `git diff`
@@ -89,6 +91,51 @@ valid files teaches the fuzzer that files are valid.
 - Progressive JPEGs with several scans, and files using restart intervals in anger.
 - CMYK and YCCK images, which are what makes the `APP14` retention matter.
 
-## PNG, WebP
+## PNG
 
-Not yet present — those handlers have not landed.
+Every PNG fixture is a **real, decodable image**: the same 16×16 greyscale gradient with
+different metadata chunks spliced around it. That shared base is what makes the image-identity
+test possible — after stripping, all of them must have byte-identical `IDAT` data.
+
+The compressed chunks are built with **stored (uncompressed) deflate blocks**. That is a legal
+zlib stream, so every fixture stays decodable, and it means the text inside a `zTXt` or a
+compressed `iTXt` is visible in the file's raw bytes — which lets a test assert that strypt's
+*output* does not contain it, rather than trusting strypt's report. It also makes the
+generator independent of any compressor's version-to-version output, which is what determinism
+needs.
+
+| Fixture | Carries | Tests |
+|---|---|---|
+| `text-chunks.png` | `tEXt`: `Author`, `Software`, `Comment` | The baseline case, and that keywords are classified rather than all filed as "text" |
+| `thumbnail-uri.png` | `tEXt`: `Thumb::URI` holding a full `file:///home/...` path, and `Thumb::MTime` | That a thumbnailer's record of where the original lived is ranked as identifying. A home directory names a person |
+| `compressed-text.png` | `zTXt` with keyword `Comment` | **The fixture that justifies ADR-0022.** The keyword is readable, the payload is not read, and the chunk goes whole — with no decompressor anywhere in the tree |
+| `xmp-packet.png` | `iTXt` `XML:com.adobe.xmp`, uncompressed: `dc:creator`, `xmp:CreatorTool`, `xmpMM:DocumentID` | That an uncompressed packet is broken down property by property |
+| `xmp-compressed.png` | The same packet, with the compression flag set | The documented cost of carrying no decompressor: removed identically, reported as one item |
+| `exif-gps.png` | An `eXIf` chunk: `Make`, `Model`, `DateTime`, and a GPS directory | That the `eXIf` chunk goes through the same Exif reader a JPEG's `APP1` does |
+| `icc-profile.png` | `iCCP` with a vendor-named profile | That the profile name — which is *not* compressed — is what the report names |
+| `timestamp.png` | `tIME` | That the modification time is removed, and that its value is withheld unless the caller asks |
+| `raw-profile.png` | `tEXt` with keyword `Raw profile type exif` holding a hex-encoded Exif block | `ImageMagick`'s habit. A tool that only looks at `eXIf` chunks walks straight past a camera's GPS coordinates |
+| `unknown-chunks.png` | A private ancillary chunk (`prVW`) and an unknown critical one (`VeND`) | That the ancillary one goes and the critical one is **kept and declared**. Its marker is prefixed `PRESERVED-`, not `SYNTHETIC-`, so the "no marker survives" test does not sweep it up. **This fixture is deliberately not renderable**: a conforming decoder must refuse an unrecognised critical chunk, and macOS `sips` duly does. Do not "fix" it |
+| `rendering-chunks.png` | `gAMA`, `sRGB`, `pHYs`, `bKGD`, plus a `tEXt` | That chunks affecting how the image renders survive, and that `pHYs` is declared in the report's `retained` list rather than left to be discovered |
+| `trailing-data.png` | A whole second PNG after `IEND` | Where an uncropped copy of a cropped picture fits comfortably. Nothing reads past `IEND` |
+| `clean.png` | Nothing | That a clean file produces no findings and is returned **byte-identical** |
+
+### `corpus/png/malformed/`
+
+Deliberately broken files: a chunk length running past the end of the file, a length with the
+high bit the specification reserves, a file ending before `IEND`, a chunk type that is not
+four letters, a file whose first chunk is not `IHDR`, and a text chunk with no NUL separator.
+They are fuzz seeds and are asserted on directly: nothing may panic, and anything reported as
+a success must really be clean. The last of them should still strip rather than be refused —
+it is malformed and on its way out regardless.
+
+### Not yet represented
+
+- PNGs from real producers: screenshot tools, phone screenshots, Photoshop, GIMP, scanners.
+  Screenshot metadata is where this format's real-world risk concentrates.
+- APNG animations. The animation chunks are kept by design and no fixture yet proves it.
+- Interlaced images, 16-bit depths, and palette images with `PLTE` plus `tRNS`.
+
+## WebP
+
+Not yet present — that handler has not landed.
