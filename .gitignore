@@ -39,11 +39,31 @@ AGENTS.md
 # The real-producer corpus (docs/ROADMAP.md Phase 1, exit criterion 1).
 #
 # These rules live here rather than in a nested `.gitignore` so that every ignore rule in this
-# repository has one home and one place to read the reasoning for it. `__pycache__/` and
-# `.DS_Store` above already cover that directory at any depth; `.cache/` is the only rule it
-# genuinely adds. It holds re-clonable upstream sample repositories — large, somebody else's
-# history, and `build_real_corpus.py` fetches them again on demand.
+# repository has one home and one place to read the reasoning for it.
+#
+# `.cache/` holds re-clonable upstream sample repositories — large, somebody else's history,
+# and `build_real_corpus.py` fetches them again on demand.
 /real-producer-corpus/.cache/
+#
+# The fixtures themselves stay out of history too, and this one is not about size.
+# `docs/TESTING_STRATEGY.md` §3 is absolute: no committed file may carry real personal data,
+# because the corpus is public and permanent. A sweep on 2026-08-20 found four real names in
+# Canon MakerNote OwnerName fields, two more in PDF Author fields, a device serial number,
+# and live GPS coordinates for five photographs — Helsinki, Hämeenlinna, Kansas City and
+# Madrid. That the same files are public upstream does not make it this project's business to
+# republish them, least of all in a tool whose entire purpose is removing that data. The
+# second rule in §3 — large fixtures belong in a fetched-on-demand corpus — applies as well,
+# at 32 MB.
+#
+# Nothing is lost by this. `build_real_corpus.py` reproduces all 101 fixtures into these exact
+# directories, verified byte-identical on rebuild, so the corpus is a command away for anyone
+# who wants it. What is committed is the recipe and the manifests: enough to know precisely
+# what was tested and to reproduce it, without the payload.
+/real-producer-corpus/real-corpus/jpeg/
+/real-producer-corpus/real-corpus/pdf/
+/real-producer-corpus/real-corpus/png/
+/real-producer-corpus/real-corpus/webp/
+/real-producer-corpus/real-corpus/generated/
 
 # Loose Python bytecode outside a __pycache__ directory.
 *.py[cod]

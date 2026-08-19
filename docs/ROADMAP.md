@@ -108,14 +108,30 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
 
 **Remaining in this phase — none of it is a handler:**
 
-- **Real-producer corpus.** The largest and longest-standing gap, flagged in
-  `corpus/MANIFEST.md` for all four formats. Every fixture is synthetic, so the tool has been
-  tested against specifications rather than against what real software emits — and real
-  software is where the quirks are. Photographs from actual cameras and phones with real maker
-  notes, PDFs from LaTeX, Word, Acrobat, and scanners, screenshots from real tools, and WebPs
-  from browsers and from the conversion pipelines that turn a JPEG into one and carry its Exif
-  block across. This needs files, not code, and it is the thing most likely to find a genuine
-  bug.
+- **Real-producer corpus.** *Substantially addressed 2026-08-20; two gaps remain.* A
+  fetch-on-demand corpus of 101 files now exists in `real-producer-corpus/`, assembled by
+  `build_real_corpus.py` from three public sample sets: 23 camera and phone JPEGs with real
+  maker notes (Canon, Nikon, Sony, Samsung, HMD, Jolla, Apple), 23 PDFs (pdfLaTeX,
+  LibreOffice, Google Docs, Acrobat, ImageMagick), 27 PNGs and 28 WebPs. All four handlers
+  were run over the set — no panic, no hang, no silent pass-through; results in
+  `docs/THREAT_MODEL.md` §7.5.
+
+  **It is deliberately not committed.** Its files carry four real names in Canon MakerNote
+  owner fields, two more in PDF author fields, a device serial number, and live GPS
+  coordinates for five photographs — which `docs/TESTING_STRATEGY.md` §3 forbids in a corpus
+  that is public and permanent, and which this tool of all tools should not republish. The
+  build script and manifests are committed instead, and a rebuild reproduces every fixture
+  byte-identically, so the sweep is repeatable.
+
+  It did what it was meant to do: it found the 19-byte-xref limitation against a real scanner
+  PDF (§7.5), and refreshing the fuzz seeds from the enlarged corpus surfaced a genuine bug —
+  a malformed stream length caused strypt to discard a page's contents and report a clean
+  copy. Both are now fixed or documented, with regression tests.
+
+  **Still missing:** WebPs written by a browser, and WebPs from a JPEG→WebP conversion
+  pipeline that carries an Exif block across — the path where metadata survives a format
+  conversion is still untested against real output. Committed fixtures for real producers
+  also remain absent, since the fetched files cannot serve that role.
 - **Sustained fuzzing (exit criterion 2).** The runs so far are smoke tests — 90 seconds for
   PNG, 180 for WebP, five minutes for JPEG. ADR-0014's bar is 100 CPU-hours per handler plus a
   coverage plateau, and that ADR is still Proposed and says explicitly that the number is a
