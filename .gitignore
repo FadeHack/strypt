@@ -25,3 +25,25 @@
 __pycache__/
 
 .DS_Store
+# Codex's local tooling, kept out of the repository by choice (2026-08-19).
+#
+# Note the asymmetry, because it is deliberate rather than an oversight: `.claude/` IS tracked,
+# since CLAUDE.md §6 points at `.claude/settings.json` and `.claude/hooks/` as the early local
+# warning for the ADR-0004 and ADR-0007 gates. `.codex/hooks/` mirrors those same two gates and
+# AGENTS.md mirrors the working agreement — so anyone relying on either is relying on an
+# untracked local copy that no other clone has and that nothing keeps in step with CLAUDE.md.
+# `.codex/hooks.json` also hardcodes absolute paths, so it is not portable as written.
+.codex/
+AGENTS.md
+
+# The real-producer corpus (docs/ROADMAP.md Phase 1, exit criterion 1).
+#
+# These rules live here rather than in a nested `.gitignore` so that every ignore rule in this
+# repository has one home and one place to read the reasoning for it. `__pycache__/` and
+# `.DS_Store` above already cover that directory at any depth; `.cache/` is the only rule it
+# genuinely adds. It holds re-clonable upstream sample repositories — large, somebody else's
+# history, and `build_real_corpus.py` fetches them again on demand.
+/real-producer-corpus/.cache/
+
+# Loose Python bytecode outside a __pycache__ directory.
+*.py[cod]
