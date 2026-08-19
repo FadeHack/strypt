@@ -47,6 +47,30 @@ const ALL_FIXTURES: &[&str] = &[
 ];
 
 #[test]
+fn fixtures_survived_checkout_intact() {
+    // Regression test for a corruption that happened *before* any strypt code ran. The
+    // fixtures are mostly printable ASCII, so Git classified them as text and — on Windows,
+    // where core.autocrlf defaults to true — rewrote every LF to CRLF on checkout. A PDF's
+    // cross-reference table is a list of absolute byte offsets, so that shifted all of them
+    // and every fixture stopped parsing. Fifteen tests failed on windows-latest and none
+    // anywhere else, which is a confusing signal to receive if you assume the handler is at
+    // fault.
+    //
+    // `.gitattributes` marks the fixtures `binary`, which is the actual fix. This test is
+    // what notices if that ever stops being true — on any platform, without needing a Windows
+    // runner to tell us. The generator emits bare LF and never CRLF, so a CR here means
+    // something rewrote the file in transit.
+    for name in ALL_FIXTURES {
+        let bytes = fixture(name);
+        assert!(
+            !bytes.windows(2).any(|w| w == b"\r\n"),
+            "{name} contains CRLF: it was converted on checkout, not committed that way. \
+             Check .gitattributes."
+        );
+    }
+}
+
+#[test]
 fn the_information_dictionary_is_reported_and_removed() {
     let input = fixture("info-dictionary.pdf");
     let report = inspect_bytes(&input, &InspectOptions::names_only()).unwrap();

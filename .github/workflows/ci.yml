@@ -90,16 +90,24 @@ jobs:
       # otherwise sit unnoticed until someone remembered to fuzz manually.
       # `seeds/` is the committed corpus; `corpus/` is libFuzzer's scratch and is git-ignored,
       # so it has to be created here. libFuzzer writes to the first directory and reads the rest.
+      #
+      # `--target` is explicit and must stay that way. install-action supplies a musl-built
+      # cargo-fuzz, and cargo-fuzz defaults its target to its own build triple — so it tried
+      # to build the fuzz binary for x86_64-unknown-linux-musl, where the address sanitizer
+      # cannot link against a statically linked libc. The failure reads as a missing `core`
+      # crate, which points nowhere near the actual cause.
       - name: Fuzz the PDF handler
         working-directory: crates/strypt-core/fuzz
         run: |
           mkdir -p corpus/pdf
-          cargo fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=60 -rss_limit_mb=2048
+          cargo fuzz run --target x86_64-unknown-linux-gnu pdf corpus/pdf seeds/pdf \
+            -- -max_total_time=60 -rss_limit_mb=2048
       - name: Fuzz format detection
         working-directory: crates/strypt-core/fuzz
         run: |
           mkdir -p corpus/detect
-          cargo fuzz run detect corpus/detect seeds/detect -- -max_total_time=30
+          cargo fuzz run --target x86_64-unknown-linux-gnu detect corpus/detect seeds/detect \
+            -- -max_total_time=30
       # Any crash, hang, or OOM leaves its input behind. Publishing it makes the finding
       # reproducible by whoever picks it up, rather than a red X with a log that scrolled away.
       - name: Upload any crashing input
@@ -110,3 +118,8 @@ jobs:
           path: crates/strypt-core/fuzz/artifacts/
     env:
       RUSTUP_TOOLCHAIN: "nightly"
+      # Overrides the workflow-level `-D warnings`. cargo-fuzz composes its own RUSTFLAGS and
+      # appends this one, which would then apply to every dependency compiled into the fuzz
+      # binary — turning a warning in somebody else's crate into a failed gate here. Our own
+      # code is still held to -D warnings by the clippy job.
+      RUSTFLAGS: ""

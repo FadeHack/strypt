@@ -43,6 +43,14 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - Test corpus with a manifest and a deterministic generator (`corpus/tools/`). No fixture
   contains real personal data, by construction.
 
+### Fixed
+
+- PDF test fixtures are marked `binary` in `.gitattributes`. Without it, Git classified them
+  as text — they are mostly printable ASCII — and rewrote every LF to CRLF when checking out
+  on Windows, which shifts every offset in a PDF's cross-reference table and stops the file
+  parsing at all. Caught by CI as fifteen failures on `windows-latest` and none elsewhere.
+  A test now checks fixture integrity directly, so this cannot recur silently on any platform.
+
 ### Known limitations in this release
 
 Read these before relying on the tool. They are limitations, not bugs, and each is deliberate:

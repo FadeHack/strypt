@@ -1,0 +1,18 @@
+# Line-ending policy.
+#
+# This file exists because of a real failure, not as boilerplate. The PDF test fixtures are
+# mostly printable ASCII with no NUL byte anywhere near the start, so Git's content detection
+# classifies them as text — and on Windows, where `core.autocrlf` defaults to true, it
+# rewrites every LF to CRLF on checkout. A PDF's cross-reference table is a list of absolute
+# byte offsets, so that shifts every one of them and the file stops parsing entirely. CI
+# caught it as 15 failing tests on windows-latest and nowhere else.
+#
+# Any fixture that is bytes-as-committed must be marked here. `binary` means "no diffing, no
+# line-ending conversion".
+
+* text=auto
+
+corpus/pdf/*.pdf binary
+crates/strypt-core/fuzz/seeds/pdf/*.pdf binary
+# The detection seeds have no extensions and are raw magic-number fragments.
+crates/strypt-core/fuzz/seeds/detect/* binary
