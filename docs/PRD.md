@@ -1,6 +1,6 @@
 # strypt — Product Requirements Document
 
-**Status:** Draft, Phase 0 · **Last updated:** 2026-08-19
+**Status:** Phase 1 in progress · **Last updated:** 2026-08-20
 **Owner:** project owner (see `CLAUDE.md`)
 
 ---

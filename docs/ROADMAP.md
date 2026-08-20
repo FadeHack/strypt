@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 in progress · **Last updated:** 2026-08-20
+**Status:** Phase 1 in progress · **Last updated:** 2026-08-21
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -132,14 +132,25 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   pipeline that carries an Exif block across — the path where metadata survives a format
   conversion is still untested against real output. Committed fixtures for real producers
   also remain absent, since the fetched files cannot serve that role.
-- **Sustained fuzzing (exit criterion 2).** The runs so far are smoke tests — 90 seconds for
-  PNG, 180 for WebP, five minutes for JPEG. ADR-0014's bar is 100 CPU-hours per handler plus a
-  coverage plateau, and that ADR is still Proposed and says explicitly that the number is a
-  hypothesis to revise once real coverage data exists. PNG's and WebP's chunk lists will
-  plateau far sooner than PDF's object graph, so the honest move is to measure and then set
-  per-handler numbers.
-- **Performance numbers.** `docs/PRD.md` §9 still carries order-of-magnitude guesses, labelled
-  as intentions to be replaced by measurements in this phase. Nothing has been measured.
+- **Sustained fuzzing (exit criterion 2).** Under way, not met. The first sustained run
+  (2026-08-20, `scripts/fuzz-sustained.sh`) delivered **37.79 CPU-hours** — eight hours each on
+  JPEG, PNG, WebP and detect, and 5h47m on PDF, which stopped early on a genuine finding. It
+  earned its keep: three real PDF defects, all fixed with regression tests — negative zero
+  breaking byte-identical idempotence in the object graph and again in the trailer, and an
+  integer-overflow panic inside `lopdf` that reached the shipped binary as exit 101.
+
+  **The coverage data now exists, and it says the run was too short.** Only `detect` plateaued,
+  and legitimately so: 96 edges found in 3 seconds, then nothing in eight hours at 86k exec/s.
+  The four format handlers were all still finding new edges inside the final quarter — PNG
+  gained five in its last 1000 seconds, after 7.7 hours. So this run establishes a floor, not
+  a number. Superseding ADR-0014 needs at least one handler driven to an actual plateau;
+  replacing a provisional 100 with a figure extrapolated from curves that never flattened
+  would swap one guess for another.
+
+  PDF additionally owes a re-run, having lost its last 2h13m to the crash.
+- **Performance numbers.** ✅ Done. `docs/PRD.md` §9 now carries measurements from
+  `scripts/measure-performance.sh`, which refuses to run against a debug binary. One machine
+  only — Linux and Windows are unmeasured, and none of it is a commitment.
 - **The mat2 differential for WebP**, on a machine with a GdkPixbuf WebP loader.
 - **CI green on all three platforms.**
 

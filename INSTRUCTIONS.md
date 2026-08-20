@@ -167,8 +167,13 @@ repository root:
 ```
 
 Targets run **in parallel, one process each**, so wall time is the `-d` value no matter how
-many targets are selected — but CPU-hours are `-d × targets`, and the script prints that total
-before it starts. It exits non-zero if any target produced a crash artefact.
+many targets are selected — but CPU-hours are `-d × targets`, and the script prints that
+**budget** before it starts. It exits non-zero if any target produced a crash artefact.
+
+The summary reports CPU-hours **budgeted** and **delivered** separately, and you want the
+second one. They diverge whenever a target stops early on a crash — the first sustained run was
+budgeted 40.00 and delivered 37.79, because PDF stopped at 5h47m. ADR-0014's criterion is
+stated in CPU-hours, so quote delivered when arguing that a run met it.
 
 Each run writes to `target/fuzz-runs/<timestamp>/` (git-ignored):
 

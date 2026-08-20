@@ -31,11 +31,14 @@ four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
 **Do not read "all four handlers exist" as "Phase 1 is nearly done".** These exit criteria are
 outstanding and none of them is a handler:
 
-- **Sustained fuzzing** — the runs so far are smoke tests of seconds to minutes, against
-  ADR-0014's bar of 100 CPU-hours per handler plus a coverage plateau. This is now the largest
-  remaining gap.
-- **Measured performance numbers** — `docs/PRD.md` §9 still carries estimates labelled as
-  such. Nothing has been measured.
+- **Sustained fuzzing** — started, nowhere near finished, and still the largest remaining gap.
+  One run has happened (2026-08-20): **37.79 CPU-hours** delivered across five targets via
+  `scripts/fuzz-sustained.sh`. It found three real PDF defects, all fixed. But **only `detect`
+  reached a coverage plateau** — all four format handlers were still finding new edges in the
+  final quarter of an eight-hour run, so ADR-0014's bar is not met and cannot yet be replaced
+  with a measured number. PDF also owes a re-run: it stopped at 5h47m on a crash. Do not
+  report criterion 2 as passed, and do not supersede ADR-0014 until a handler actually
+  plateaus.
 - **Two corpus gaps remain** — no WebP written by a browser, and none from a JPEG→WebP
   conversion carrying an Exif block across, so the format-conversion path is still untested
   against real output. The real-producer corpus is deliberately **not committed**: its files
@@ -49,6 +52,17 @@ verification machine lacks (`docs/THREAT_MODEL.md` §7.4).
 One known capability gap is recorded and deliberate: a PDF with 19-byte cross-reference
 entries is refused by `lopdf`, where mat2 strips it. Refusing is correct fail-closed
 behaviour, and mat2 is the better recommendation for that file (`docs/THREAT_MODEL.md` §7.5).
+
+**Panics inside `lopdf` are contained, not eliminated (ADR-0024).** Fuzzing reached an integer
+overflow in `lopdf` 0.44.0's xref parser that panicked the shipped binary. Calls into `lopdf`
+now go through `strypt_core::panic_guard`, which turns an unwinding panic into an ordinary
+typed refusal. Read that module's header before trusting it: it cannot catch a stack overflow
+or an abort, it needs unwinding panics (so **do not set `panic = "abort"`**), and it says
+nothing about a dependency returning a wrong answer quietly. Containment is a floor, not a
+fix — the defect is being reported upstream.
+
+**Measured performance numbers** are in `docs/PRD.md` §9 as of 2026-08-20, produced by
+`scripts/measure-performance.sh`. One machine only; Linux and Windows are unmeasured.
 
 Read `docs/ROADMAP.md` for the full exit criteria before treating any of this as settled, and
 **check before referencing a later-phase artefact** — nothing beyond Phase 1 exists.

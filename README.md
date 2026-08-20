@@ -6,14 +6,16 @@
 > unsupported; it is not processed. There has been no external audit and no release. All four
 > handlers have now been run over 101 files from real producers — real camera maker notes
 > included — which found and fixed one genuine bug and one documented limitation; two coverage
-> gaps remain (see [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.5). Fuzzing so far is
-> smoke-test length, not the sustained budget the roadmap calls for, and the performance
-> numbers in the PRD are still estimates rather than measurements.
+> gaps remain (see [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.5). Sustained fuzzing has
+> begun — 37.8 CPU-hours across five targets, which found three real PDF defects, all fixed —
+> but only the format-detection target has stopped finding new code paths, so the budget the
+> roadmap calls for is not yet met. Performance numbers in the PRD are now measured rather than
+> estimated, on one machine.
 >
 > | Phase | Status |
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Complete |
-> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 All four handlers done and swept over a real-producer corpus; sustained fuzzing and performance measurement outstanding |
+> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 All four handlers done, swept over a real-producer corpus, performance measured; sustained fuzzing under way but short of the budget |
 > | 2 — Expanded formats · 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >

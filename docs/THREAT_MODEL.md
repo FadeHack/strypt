@@ -1,6 +1,6 @@
 # strypt — Threat Model
 
-**Status:** Draft, Phase 0 · **Last updated:** 2026-08-19
+**Status:** Phase 1 in progress · **Last updated:** 2026-08-21
 
 **This document must be revisited every time a format handler is added or substantially
 changed.** A new format brings new places for data to hide, and a threat model that lags the
