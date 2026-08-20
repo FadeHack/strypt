@@ -38,6 +38,13 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   which was written before any parser existed and which that ADR already flags as a hypothesis
   to revise against real data.
 
+  Its run summary now reports CPU-hours **budgeted** and CPU-hours **delivered** separately.
+  The two differ whenever a target stops early on a crash: the first 8-hour five-target run
+  was budgeted 40.00 CPU-hours but delivered 37.79, because the PDF target stopped at 5h47m on
+  a genuine finding. Since ADR-0014 states its exit criterion in CPU-hours, reporting the
+  budget as though it were delivered would credit a run with time it never spent — and the
+  number is going to be read later, by someone deciding whether a release criterion was met.
+
 - **`strypt show` and `strypt strip` now work on JPEG images.** They report and remove Exif
   — including GPS coordinates, camera make and model, body and lens serial numbers, the
   maker note, timestamps, and the embedded thumbnail — along with XMP packets, Photoshop and

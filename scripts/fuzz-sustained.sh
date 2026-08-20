@@ -115,7 +115,7 @@ new_artifacts() {
 echo "strypt sustained fuzzing"
 echo "  targets   : ${TARGETS[*]}"
 echo "  duration  : ${DURATION}s per target, in parallel"
-echo "  cpu-hours : $(awk -v d="$DURATION" -v n="${#TARGETS[@]}" 'BEGIN{printf "%.2f", d*n/3600}') this run"
+echo "  cpu-hours : $(awk -v d="$DURATION" -v n="${#TARGETS[@]}" 'BEGIN{printf "%.2f", d*n/3600}') budgeted"
 echo "  logs      : $OUT_DIR"
 echo
 
@@ -142,13 +142,24 @@ done
 # Analysis. Two questions per target: where did coverage end up, and had it stopped
 # climbing? The second is ADR-0014's plateau condition and is the reason for the timestamps.
 # ---------------------------------------------------------------------------
+# Budgeted CPU-hours are what was asked for; DELIVERED is what the targets actually ran. They
+# differ whenever a target stops early on a crash — and ADR-0014's exit criterion is stated in
+# CPU-hours, so reporting the budget as though it were delivered would credit the run with time
+# it never spent. Sum each log's largest elapsed-second prefix instead.
+delivered_cpu_hours() {
+  for t in "${TARGETS[@]}"; do
+    awk '$1+0 > m { m = $1+0 } END { print m+0 }' "$OUT_DIR/$t.log"
+  done | awk '{ s += $1 } END { printf "%.2f", s/3600 }'
+}
+
 {
   echo "# Sustained fuzzing run"
   echo
   echo "- Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "- Duration: ${DURATION}s per target (parallel)"
   echo "- Targets: ${TARGETS[*]}"
-  echo "- CPU-hours this run: $(awk -v d="$DURATION" -v n="${#TARGETS[@]}" 'BEGIN{printf "%.2f", d*n/3600}')"
+  echo "- CPU-hours budgeted: $(awk -v d="$DURATION" -v n="${#TARGETS[@]}" 'BEGIN{printf "%.2f", d*n/3600}')"
+  echo "- CPU-hours delivered: $(delivered_cpu_hours)"
   echo
   echo "| target | cov | ft | corpus | exec/s | last cov gain | plateau (ADR-0014) | crashes |"
   echo "|---|---|---|---|---|---|---|---|"
