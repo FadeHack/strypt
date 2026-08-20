@@ -232,6 +232,23 @@ rather than rewriting it leaves them there while reporting the file clean.
 password, and emitting a decrypted copy would strip the user's protection along with their
 metadata — a change to their document's security they did not ask for and might not notice.
 
+**A panic inside `lopdf` reached the shipped binary, and is now contained.** A sustained fuzz
+run found an integer overflow in `lopdf` 0.44.0's cross-reference parser (`parser/mod.rs:516`,
+computing `start + index` where `start` is read from the file). Because `Cargo.toml`
+deliberately enables `overflow-checks` in release — an overflow parsing an attacker-controlled
+field should abort rather than wrap into a nonsensical offset (ADR-0006) — the release binary
+panicked with exit 101 and a stack trace, not merely the debug build. 0.44.0 was already the
+newest release.
+
+Calls into `lopdf` that touch untrusted bytes are now wrapped so an unwinding panic becomes a
+typed `DependencyPanic` refusal (ADR-0024). What that is worth stating precisely: the panic was
+already *fail-closed* — the process died before writing anything, so no partially-sanitised file
+escaped and no success was reported on an unprocessed file. What containment buys is that the
+user gets an intelligible refusal instead of a crash indistinguishable from a bug in strypt, and
+that exit criterion 2 is met by fixing the behaviour rather than by redefining it as acceptable.
+It buys nothing at all against a dependency that returns a *wrong answer* quietly, which no
+guard detects.
+
 **New attack surface this handler introduces.** `lopdf` is a third-party PDF parser processing
 attacker-controlled bytes, and this project's no-panic rule does not extend to it (ADR-0018).
 `#![forbid(unsafe_code)]` rules out memory-corruption exploitation; it does not rule out a

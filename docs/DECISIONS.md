@@ -875,3 +875,64 @@ the rewrite happens only where it changes something.
 - **Everything past the declared RIFF size is removed**, for the reason trailing data is
   removed from a JPEG and a PNG: no decoder reads it, few users know it can be there, and it is
   a convenient place for a second copy of something.
+
+---
+
+## ADR-0024 — A panic inside a third-party parser is contained and reported as a refusal
+
+**Status:** Accepted (2026-08-21)
+
+**Context.** ADR-0006 requires strypt's own parsing code never to panic: malformed input is
+expected input, and failures are typed `Result` values. ADR-0018 accepted `lopdf` as the PDF
+parser and recorded plainly that this rule does not extend inside it —
+`docs/THREAT_MODEL.md` §5.1 names a panic in a dependency as one of the residual risks that
+`forbid(unsafe_code)` does not address, precisely because memory safety and panic-freedom are
+different properties.
+
+On 2026-08-21 that stopped being theoretical. A sustained fuzz run reached an integer overflow
+in `lopdf` 0.44.0's cross-reference parser — `parser/mod.rs:516`, computing `start + index`
+where `start` is read from the file. `Cargo.toml` deliberately enables `overflow-checks` in
+release so that an overflow while parsing an attacker-controlled field aborts rather than
+wrapping into a nonsensical offset, so the **shipped binary** panicked: exit code 101 and a
+Rust stack trace, on a file a user might plausibly be handed by someone hostile. 0.44.0 was
+already the newest release, so there was no upgrade to take.
+
+**Decision.** Calls into `lopdf` that touch untrusted bytes — parsing and serialisation — are
+wrapped by `strypt_core::panic_guard::guard`, which converts an unwinding panic into
+`Malformed { detail: DependencyPanic }`. The user gets an ordinary refusal, and nothing is
+written. The defect is reported upstream separately; containment is not a fix.
+
+**Alternatives considered.**
+
+*Report upstream and wait.* Correct, and being done, but it leaves strypt crashing on hostile
+input for however long a third party's release cycle takes. Not acceptable on its own for a
+tool whose users are handed files by people who may wish them harm.
+
+*Validate the cross-reference table before handing bytes to `lopdf`.* Rejected. It puts more
+of our own code in the most security-sensitive path in the project to work around someone
+else's bug, and ADR-0018 argues specifically against pre-processing untrusted bytes ahead of
+the parser. It would also only address the overflow we happen to know about.
+
+*Accept the panic as fail-closed behaviour.* It is genuinely fail-closed — the process dies
+before writing anything, so no partially-sanitised file escapes and no success is reported.
+But a crash is still a denial of service, it is indistinguishable to the user from a bug in
+strypt itself, and Phase 1 exit criterion 2 requires zero panics across the fuzz targets. A
+criterion satisfied by redefining the failure as acceptable is not satisfied.
+
+**Consequences.**
+
+- A dependency panic reaches the user as "the parser failed on this file and it was not
+  processed", with a distinct `DependencyPanic` detail so the occurrence stays findable in the
+  wild rather than being folded into ordinary refusals.
+- **This depends on unwinding panics.** Building with `panic = "abort"` defeats it entirely.
+  strypt does not set `panic = "abort"`, and this ADR is a reason not to.
+- It cannot catch what does not unwind: stack overflow from deep recursion, an abort, or a
+  signal. Bounded recursion via `ParseLimits` remains the control for the first.
+- **It says nothing about correctness.** A dependency that panics may equally return a wrong
+  answer quietly, which no guard detects. This is a floor, not a guarantee, and it must not be
+  cited as evidence that dependency defects are handled.
+- The panic message is suppressed for guarded calls only, via a thread-local flag, because a
+  parser's panic message can quote the bytes it was parsing — which are the user's document,
+  and CLAUDE.md §3.8 forbids printing metadata values.
+- It is a general mechanism rather than a PDF one. Any future handler wrapping a third-party
+  parser should use it, and Phase 2's ZIP-container work is the obvious next candidate.

@@ -97,11 +97,23 @@ impl MetadataHandler for PdfHandler {
         // their document to protect a distinction the format does not make.
         normalise_negative_zero(&mut doc, &options.limits)?;
 
+        // Guarded for the same reason as `load`: serialisation walks a document graph built
+        // from hostile input, so it is dependency code on untrusted data just as parsing is.
+        // Failing here means nothing is written, which is the correct half of the trade.
         let mut bytes = Vec::new();
-        doc.save_to(&mut bytes).map_err(|source| StryptError::Io {
-            action: crate::error::IoAction::WritingOutput,
-            source,
-        })?;
+        crate::panic_guard::guard(
+            || {
+                doc.save_to(&mut bytes).map_err(|source| StryptError::Io {
+                    action: crate::error::IoAction::WritingOutput,
+                    source,
+                })
+            },
+            || StryptError::Malformed {
+                format: Format::Pdf,
+                offset: None,
+                detail: MalformedDetail::DependencyPanic,
+            },
+        )?;
 
         Ok(Stripped {
             report: StripReport {
@@ -125,7 +137,20 @@ struct Scrubbed {
 
 /// Parse `input`, refusing documents this handler must not rewrite.
 fn load(input: &[u8], limits: &ParseLimits) -> Result<Document> {
-    let doc = Document::load_mem(input).map_err(|e| map_parse_error(&e))?;
+    // `lopdf` is third-party code parsing attacker-controlled bytes, and ADR-0006's no-panic
+    // rule does not reach inside it (ADR-0018). A sustained fuzz run found an integer overflow
+    // in its cross-reference parser, which with `overflow-checks` on in release meant the
+    // shipped binary aborted with a stack trace instead of refusing the file. Contained here
+    // so it reaches the user as an ordinary refusal; see `crate::panic_guard` for what that
+    // does and does not cover.
+    let doc = crate::panic_guard::guard(
+        || Document::load_mem(input).map_err(|e| map_parse_error(&e)),
+        || StryptError::Malformed {
+            format: Format::Pdf,
+            offset: None,
+            detail: MalformedDetail::DependencyPanic,
+        },
+    )?;
 
     // Encrypted documents are refused rather than rewritten. lopdf can open one protected by
     // an empty owner password, and it would be technically easy to emit a decrypted copy —

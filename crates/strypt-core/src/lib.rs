@@ -27,6 +27,7 @@ pub mod detect;
 pub mod error;
 pub mod formats;
 pub mod io;
+pub mod panic_guard;
 pub mod pipeline;
 pub mod registry;
 pub mod report;

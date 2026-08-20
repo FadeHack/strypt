@@ -64,7 +64,11 @@ pub enum StryptError {
     UnrecognisedFormat,
 
     /// The file claims to be `format` but violates its structure.
-    #[error("malformed {format} at byte offset {offset:?}: {detail}")]
+    ///
+    // The offset is formatted by hand because `{offset:?}` on an `Option` renders "None" or
+    // "Some(42)" — debug syntax shown to someone deciding whether to publish a document. When
+    // the position is unknown, saying nothing is better than saying "None".
+    #[error("malformed {format}{}: {detail}", .offset.map_or_else(String::new, |o| format!(" at byte offset {o}")))]
     Malformed {
         /// The format whose rules were broken.
         format: Format,
@@ -215,6 +219,14 @@ pub enum MalformedDetail {
     CyclicReference,
     /// The file uses a feature strypt will not process, such as encryption.
     UnsupportedFeature,
+    /// A third-party parser panicked on this file and the panic was contained.
+    ///
+    /// Reported as malformed input rather than as an internal error because that is what it
+    /// means for the user: the file was not processed and nothing was written. It is a
+    /// distinct variant rather than being folded into `BrokenIndex` because a panic in a
+    /// dependency is a defect worth being able to find in the wild, not an ordinary refusal
+    /// (`crate::panic_guard`).
+    DependencyPanic,
 }
 
 impl std::fmt::Display for MalformedDetail {
@@ -227,6 +239,7 @@ impl std::fmt::Display for MalformedDetail {
             Self::BrokenIndex => "the cross-reference structure is unusable",
             Self::CyclicReference => "objects reference each other in a cycle",
             Self::UnsupportedFeature => "the file uses a feature strypt will not process",
+            Self::DependencyPanic => "the parser failed on this file and it was not processed",
         };
         f.write_str(s)
     }

@@ -475,3 +475,56 @@ fn a_negative_zero_real_survives_a_second_strip_unchanged() {
         "CropBox disappeared instead of being normalised: {text}"
     );
 }
+
+#[test]
+fn a_panic_inside_the_pdf_parser_is_contained_and_reported_as_malformed() {
+    // Regression test. Found by the pdf fuzz target at 20833s of an eight-hour run: an integer
+    // overflow inside lopdf 0.44.0's cross-reference parser (`parser/mod.rs:516`, computing
+    // `start + index` where `start` comes from the file). Because Cargo.toml deliberately
+    // enables overflow-checks in release — an overflow parsing an attacker-controlled field
+    // should abort rather than wrap into a nonsensical offset (ADR-0006) — the *shipped*
+    // binary panicked with exit 101 on this input, not just the debug build.
+    //
+    // ADR-0006's no-panic rule cannot be extended into a dependency by wishing (ADR-0018), so
+    // the panic is contained at the boundary instead and reported as what it means for the
+    // user: the file was not processed. See `strypt_core::panic_guard` for the limits of that.
+    //
+    // This pins the *safety* property, which is what matters and holds regardless of when
+    // lopdf fixes the overflow: a typed refusal, not a crash, and above all not a success
+    // report on a file that was never processed (CLAUDE.md §3.6).
+    let input = fixture("malformed/xref-start-overflow.pdf");
+
+    // Still sniffs as a PDF: containment happens at parse, not detection.
+    assert_eq!(detect(&input).unwrap(), Format::Pdf);
+
+    for err in [
+        inspect_bytes(&input, &InspectOptions::names_only()).unwrap_err(),
+        strip_bytes(&input, &StripOptions::default()).unwrap_err(),
+    ] {
+        assert!(
+            matches!(
+                err,
+                StryptError::Malformed {
+                    format: Format::Pdf,
+                    ..
+                }
+            ),
+            "expected a typed Malformed refusal, got {err:?}"
+        );
+    }
+}
+
+#[test]
+fn an_unknown_offset_is_not_rendered_as_debug_syntax() {
+    // The Malformed message used to format its Option offset with {:?}, so a refusal with no
+    // known position read "malformed PDF at byte offset None". That is debug syntax shown to
+    // someone deciding whether a document is safe to publish.
+    let err = strip_bytes(
+        &fixture("malformed/xref-start-overflow.pdf"),
+        &StripOptions::default(),
+    )
+    .unwrap_err();
+    let text = err.to_string();
+    assert!(!text.contains("None"), "debug syntax leaked into: {text}");
+    assert!(!text.contains("Some("), "debug syntax leaked into: {text}");
+}

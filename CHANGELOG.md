@@ -116,6 +116,21 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
+- **A malicious PDF could crash strypt instead of being refused.** A flaw in the underlying PDF
+  library made it overflow an integer while reading a damaged cross-reference table, and strypt
+  stopped with a Rust stack trace and exit code 101. Such files are now refused normally: "the
+  parser failed on this file and it was not processed".
+
+  **Nothing was leaked and no bad file was ever written** — strypt crashed before writing
+  anything, so it never produced a half-cleaned document or reported success on a file it had
+  not processed. The harm was a crash on hostile input and an error message that looked like a
+  bug in strypt. Affects PDFs only. Found by the `pdf` fuzz target during an eight-hour run and
+  reported upstream; strypt contains the failure rather than fixing the library (ADR-0024).
+
+- **Error messages no longer print `None` where a position is unknown.** A refusal with no known
+  byte offset read "malformed PDF at byte offset None" — debug syntax shown to someone deciding
+  whether a document is safe to publish. It now simply omits the position.
+
 - **Stripping a PDF containing a negative zero twice gave a different file than stripping it
   once.** The underlying PDF library writes the real number `-0.0` as `-0`, without the decimal
   point that made it a real; read back, `-0` becomes the integer `0` and is written as `0`. So a
