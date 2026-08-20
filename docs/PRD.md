@@ -236,13 +236,34 @@ Two requirements that apply to every handler:
 - **Platforms.** Linux is primary (target-user gravity and the live-OS story). macOS and
   Windows are supported and CI-tested from Phase 1. Note that `cargo-fuzz` does not support
   Windows (verified 2026-08-19), so fuzzing is a Linux/macOS CI activity.
-- **Performance.** Targets are order-of-magnitude intentions to be replaced by measured
-  numbers in Phase 1, not commitments: startup under ~50 ms; a typical 5 MB JPEG stripped in
-  well under a second; batches of thousands of files without unbounded memory growth.
-  Streaming/bounded-memory processing preferred over reading whole files where the format
-  allows.
+- **Performance. Measured 2026-08-20**, replacing the order-of-magnitude intentions this
+  section previously carried. Reproduce with `./scripts/measure-performance.sh`.
+
+  | Case | Measured | Prior intention |
+  |---|---|---|
+  | Startup (`--version`) | **2.5 ms** | under ~50 ms |
+  | `strip` a 3.3 MB JPEG | **10.9 ms** | 5 MB "well under a second" |
+  | `strip` a 4.1 MB PNG | **9.1 ms** | — |
+  | `strip` a 1.1 MB WebP | **7.8 ms** | — |
+  | `show` a 3.3 MB JPEG | **4.7 ms** | — |
+  | Batch of 3000 JPEGs | **10.4 s** (3.5 ms/file) | thousands of files |
+  | Peak RSS, 3000-file batch | **3.0 MB** | no unbounded growth |
+
+  Every intention is met with substantial margin. The memory claim is the one that needed
+  volume to demonstrate rather than assert: peak RSS was 2.4 MB over 200 files and 3.0 MB over
+  3000 — fifteen times the work for 0.6 MB more memory, so cost tracks the largest single file
+  rather than the batch.
+
+  **Read these as a floor, not a specification.** They are one machine (Apple Silicon, macOS,
+  11 cores), taken while a fuzzing run occupied three of those cores, so they understate rather
+  than flatter. Median of 15 runs; the script reports the best run too. Linux and Windows are
+  unmeasured. Nothing here is a commitment — no supported workload has a stated time budget,
+  and correctness outranks speed everywhere the two conflict.
+
 - **Binary size.** Aim for a release binary in the low tens of megabytes or below;
   a size regression is a signal that dependency footprint has drifted (ADR-0008).
+  **Measured 2026-08-20: 1.26 MB** release binary, macOS arm64 — comfortably inside the aim,
+  and a useful baseline for noticing drift.
 - **Determinism.** Same input plus same version yields byte-identical output. This makes
   differential testing and the Phase 5 GUI-parity check possible, and it means stripped
   output does not itself carry a random nonce.

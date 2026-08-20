@@ -21,6 +21,13 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **Measured performance numbers in `docs/PRD.md` §9, replacing estimates.** Startup is 2.5 ms,
+  a 3.3 MB JPEG strips in 10.9 ms, and a 3000-file batch peaks at 3.0 MB of memory against
+  2.4 MB for 200 files — fifteen times the work for 0.6 MB more, so memory tracks the largest
+  single file rather than the batch. `scripts/measure-performance.sh` reproduces them, and
+  refuses to run against a debug binary. One machine only; Linux and Windows are unmeasured,
+  and none of it is a commitment.
+
 - **A sustained-fuzzing runner, `scripts/fuzz-sustained.sh`.** The fuzzing commands documented
   until now were 300-second smoke tests — enough to prove a target still runs, not enough to
   stand behind. The runner runs any set of targets in parallel for a chosen duration and

@@ -186,6 +186,22 @@ long enough for its number to be set.
 Stopping a run early is safe. libFuzzer writes each discovery to `corpus/<target>/` as it finds
 it, so the next run resumes from what has been found rather than starting over.
 
+## Performance measurement
+
+Produces the numbers in `docs/PRD.md` §9. Needs a **release** binary — the script refuses a
+debug one, because debug Rust is slow enough to understate the tool by an order of magnitude.
+
+```sh
+cargo build --release
+./scripts/measure-performance.sh                  # 10 reps per case, 1000-file batch
+REPS=15 BATCH=3000 ./scripts/measure-performance.sh
+```
+
+Requires ImageMagick, which it uses to synthesise realistically-sized inputs; the fixtures in
+`corpus/` are deliberately tiny and would measure little but process startup. The script warns
+when machine load is high relative to core count — numbers taken under load are pessimistic,
+which is the direction nobody thinks to double-check.
+
 ## Test fixtures
 
 ```sh
