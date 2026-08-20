@@ -150,6 +150,42 @@ A crash writes its input to `crates/strypt-core/fuzz/artifacts/<target>/`. Repro
 cargo +nightly fuzz run pdf artifacts/pdf/crash-<hash>
 ```
 
+### Sustained runs
+
+**The commands above are smoke tests, not the Phase 1 exit criterion.** They prove a target
+still builds and runs. Exit criterion 2 in `docs/ROADMAP.md` asks for a sustained run, and
+ADR-0014 asks for two conditions together: a per-handler CPU-hour budget **and** a coverage
+plateau — no new edge coverage in the final 25% of the run. Use the runner, from the
+repository root:
+
+```sh
+./scripts/fuzz-sustained.sh                       # all five targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
+./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
+./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
+./scripts/fuzz-sustained.sh -h                    # options
+```
+
+Targets run **in parallel, one process each**, so wall time is the `-d` value no matter how
+many targets are selected — but CPU-hours are `-d × targets`, and the script prints that total
+before it starts. It exits non-zero if any target produced a crash artefact.
+
+Each run writes to `target/fuzz-runs/<timestamp>/` (git-ignored):
+
+| File | Contents |
+|---|---|
+| `summary.md` | Per-target `cov`, `ft`, corpus size, exec/s, when coverage last increased, whether ADR-0014's plateau condition holds, and crash count |
+| `cov-<target>.tsv` | The coverage curve — `elapsed_seconds<TAB>cov`, one row per increase |
+| `<target>.log` | Full libFuzzer output, every line prefixed with elapsed seconds |
+
+**The curves are the deliverable, not the duration.** ADR-0014's 100 CPU-hours per handler was
+set before any parser existed and the ADR says so explicitly: it is a hypothesis to be replaced
+by measurement. A target reporting `NO — still climbing` has not failed — it has not yet run
+long enough for its number to be set.
+
+Stopping a run early is safe. libFuzzer writes each discovery to `corpus/<target>/` as it finds
+it, so the next run resumes from what has been found rather than starting over.
+
 ## Test fixtures
 
 ```sh

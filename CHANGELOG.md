@@ -21,6 +21,16 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **A sustained-fuzzing runner, `scripts/fuzz-sustained.sh`.** The fuzzing commands documented
+  until now were 300-second smoke tests — enough to prove a target still runs, not enough to
+  stand behind. The runner runs any set of targets in parallel for a chosen duration and
+  records, per target, a coverage curve against elapsed time, whether coverage had stopped
+  climbing by the end of the run, and any crash artefact. It exits non-zero if a target
+  crashed. This is measurement infrastructure for a release criterion, not a new tool feature:
+  the curves are what will replace ADR-0014's provisional 100-CPU-hours-per-handler figure,
+  which was written before any parser existed and which that ADR already flags as a hypothesis
+  to revise against real data.
+
 - **`strypt show` and `strypt strip` now work on JPEG images.** They report and remove Exif
   — including GPS coordinates, camera make and model, body and lens serial numbers, the
   maker note, timestamps, and the embedded thumbnail — along with XMP packets, Photoshop and
