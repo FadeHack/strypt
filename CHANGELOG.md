@@ -127,7 +127,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   both passes removed everything they should. What broke was strypt's promise that stripping is
   repeatable, which is the property differential testing and future verification work rest on.
   Affected any PDF carrying a negative zero — legal, and ordinary enough in page geometry.
-  Found by the `pdf` fuzz target during a two-hour run.
+  Found by the `pdf` fuzz target during a two-hour run, and a second time by CI when the first
+  fix turned out to miss negative zeros in the file trailer.
 
 - **A PDF whose content stream declared a malformed length was rewritten with that stream's
   contents silently discarded, and reported as a clean copy.** The specification requires a

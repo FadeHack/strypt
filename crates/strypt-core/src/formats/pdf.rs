@@ -562,6 +562,13 @@ fn normalise_negative_zero(doc: &mut Document, limits: &ParseLimits) -> Result<(
     for object in doc.objects.values_mut() {
         normalise_object(object, limits, 0)?;
     }
+    // The trailer is not in `objects` and is reached only by walking it explicitly. Missing it
+    // is how the first version of this fix passed every local test and still failed: CI's fuzz
+    // run moved a negative zero into the trailer within minutes, and the assertion fired again
+    // on a document whose object graph was entirely clean.
+    for (_, value) in &mut doc.trailer {
+        normalise_object(value, limits, 0)?;
+    }
     Ok(())
 }
 

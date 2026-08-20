@@ -256,6 +256,12 @@ to preserve a distinction the format does not make. This is the opposite trade f
 untrusted bytes *ahead of the parser* to widen what strypt accepts; here, the document has
 already parsed and the change provably preserves meaning.
 
+The first version of this fix walked only the object graph and passed every test locally. CI's
+fuzz smoke run then moved a negative zero into the *trailer* — which lopdf keeps outside
+`objects` — and the assertion fired again within minutes, on a document whose object graph was
+entirely clean. Both are now walked. The lesson generalises past this bug: a normalisation pass
+is only as complete as its traversal, and "all the objects" was not all the document.
+
 Found by the PDF fuzz target 6985 seconds into a two-hour run, through the harness's
 idempotence assertion — the second real PDF defect that one assertion has caught, after the
 stream-length bug in §7.5. Both were invisible to the verification pass, which searches output

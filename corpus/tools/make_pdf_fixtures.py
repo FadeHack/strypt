@@ -221,11 +221,16 @@ def main() -> None:
     #     Both a bare value and one nested in an array are covered, using real page keys so
     #     they stay reachable — an unreferenced object would be pruned before the handler ever
     #     walked it, and the test would pass without exercising anything.
+    #
+    #     The trailer copy is not redundant. The first fix walked only the object graph and
+    #     passed every test here; CI's fuzz run then moved a negative zero into the trailer,
+    #     which lopdf keeps outside `objects`, and the assertion fired again within minutes on a
+    #     document whose objects were entirely clean.
     write(
         "negative-zero-real.pdf",
         build(
             page_objects(b"/UserUnit -0. /CropBox [-0. 0. -0.0 10] "),
-            b"/Root 1 0 R",
+            b"/Root 1 0 R /StrypteTestBox [-0. 0. -0.0 10] ",
         ),
     )
 
