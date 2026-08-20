@@ -3,16 +3,17 @@
 > ## Status: Phase 1 in progress — all four handlers exist, the phase does not end here
 >
 > **PDF, JPEG, PNG, and WebP are implemented.** Everything else is recognised and reported as
-> unsupported; it is not processed. There has been no external audit, no release, and no
-> testing against files from real producers — every test fixture so far is generated, which
-> for JPEG means no real camera maker notes have ever been through this code. Fuzzing so far
-> is smoke-test length, not the sustained budget the roadmap calls for, and the performance
+> unsupported; it is not processed. There has been no external audit and no release. All four
+> handlers have now been run over 101 files from real producers — real camera maker notes
+> included — which found and fixed one genuine bug and one documented limitation; two coverage
+> gaps remain (see [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.5). Fuzzing so far is
+> smoke-test length, not the sustained budget the roadmap calls for, and the performance
 > numbers in the PRD are still estimates rather than measurements.
 >
 > | Phase | Status |
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Complete |
-> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 All four handlers done; corpus, fuzzing, and performance work outstanding |
+> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 All four handlers done and swept over a real-producer corpus; sustained fuzzing and performance measurement outstanding |
 > | 2 — Expanded formats · 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >

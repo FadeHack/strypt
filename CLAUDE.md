@@ -24,23 +24,31 @@ there.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, and WebP; ever
 is reported as unsupported and never passed through untouched. Landed: bounded ingest,
 content-sniffing detection, the handler registry and trait, the post-strip verification pass,
 structured reports, typed errors, the atomic write path, the full CLI, four handlers with
-shared Exif and XMP readers, five fuzz targets, and a generated fixture corpus for all four
-formats.
+shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for all four
+formats, and — as of 2026-08-20 — a fetch-on-demand real-producer corpus of 101 files that all
+four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
 
-**Do not read "all four handlers exist" as "Phase 1 is nearly done".** Three exit criteria are
+**Do not read "all four handlers exist" as "Phase 1 is nearly done".** These exit criteria are
 outstanding and none of them is a handler:
 
-- **Real-producer corpus** — every fixture is synthetic, so the tool has been tested against
-  specifications, not against what real software emits. This is the largest gap and the one
-  most likely to surface a genuine bug.
 - **Sustained fuzzing** — the runs so far are smoke tests of seconds to minutes, against
-  ADR-0014's bar of 100 CPU-hours per handler plus a coverage plateau.
+  ADR-0014's bar of 100 CPU-hours per handler plus a coverage plateau. This is now the largest
+  remaining gap.
 - **Measured performance numbers** — `docs/PRD.md` §9 still carries estimates labelled as
   such. Nothing has been measured.
+- **Two corpus gaps remain** — no WebP written by a browser, and none from a JPEG→WebP
+  conversion carrying an Exif block across, so the format-conversion path is still untested
+  against real output. The real-producer corpus is deliberately **not committed**: its files
+  carry real names, a device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3).
+  The build script and manifests are committed and rebuild it byte-identically.
 
 One differential-testing gap is also open and must not be reported as a pass: the mat2
 comparison for WebP has never run, because mat2's WebP path needs a GdkPixbuf WebP loader the
 verification machine lacks (`docs/THREAT_MODEL.md` §7.4).
+
+One known capability gap is recorded and deliberate: a PDF with 19-byte cross-reference
+entries is refused by `lopdf`, where mat2 strips it. Refusing is correct fail-closed
+behaviour, and mat2 is the better recommendation for that file (`docs/THREAT_MODEL.md` §7.5).
 
 Read `docs/ROADMAP.md` for the full exit criteria before treating any of this as settled, and
 **check before referencing a later-phase artefact** — nothing beyond Phase 1 exists.
