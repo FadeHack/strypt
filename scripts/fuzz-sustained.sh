@@ -102,6 +102,16 @@ corpus_args() {
 cd "$FUZZ_DIR"
 for t in "${TARGETS[@]}"; do mkdir -p "corpus/$t"; done
 
+# Count only artefacts THIS run produced. artifacts/ is not cleared between runs, so counting
+# every file there would report a crash fixed and triaged months ago as a fresh failure — and
+# a runner that cries wolf is one whose next real finding gets waved through.
+RUN_MARKER="$OUT_DIR/.started"
+: > "$RUN_MARKER"
+new_artifacts() {
+  [ -d "$FUZZ_DIR/artifacts/$1" ] || { echo 0; return; }
+  find "$FUZZ_DIR/artifacts/$1" -type f -newer "$RUN_MARKER" | wc -l | tr -d ' '
+}
+
 echo "strypt sustained fuzzing"
 echo "  targets   : ${TARGETS[*]}"
 echo "  duration  : ${DURATION}s per target, in parallel"
@@ -143,8 +153,7 @@ done
   echo "| target | cov | ft | corpus | exec/s | last cov gain | plateau (ADR-0014) | crashes |"
   echo "|---|---|---|---|---|---|---|---|"
   for t in "${TARGETS[@]}"; do
-    artifacts=0
-    [ -d "$FUZZ_DIR/artifacts/$t" ] && artifacts=$(find "$FUZZ_DIR/artifacts/$t" -type f | wc -l | tr -d ' ')
+    artifacts=$(new_artifacts "$t")
     awk -v t="$t" -v dur="$DURATION" -v art="$artifacts" '
       # Track the last elapsed time at which cov increased, and the final values seen.
       {
@@ -182,11 +191,9 @@ cat "$OUT_DIR/summary.md"
 
 total_artifacts=0
 for t in "${TARGETS[@]}"; do
-  if [ -d "$FUZZ_DIR/artifacts/$t" ]; then
-    n=$(find "$FUZZ_DIR/artifacts/$t" -type f | wc -l | tr -d ' ')
-    total_artifacts=$((total_artifacts + n))
-  fi
+  total_artifacts=$((total_artifacts + $(new_artifacts "$t")))
 done
+rm -f "$RUN_MARKER"
 
 if [ "$total_artifacts" -gt 0 ]; then
   echo
