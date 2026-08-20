@@ -109,6 +109,19 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
+- **Stripping a PDF containing a negative zero twice gave a different file than stripping it
+  once.** The underlying PDF library writes the real number `-0.0` as `-0`, without the decimal
+  point that made it a real; read back, `-0` becomes the integer `0` and is written as `0`. So a
+  second strip changed one byte, and the value quietly changed type. strypt now writes negative
+  zero as zero, which the PDF specification treats as the same number — no page, no coordinate,
+  and no rendered output changes.
+
+  **Nothing was leaked or damaged by this**, and a file stripped with an earlier build is fine:
+  both passes removed everything they should. What broke was strypt's promise that stripping is
+  repeatable, which is the property differential testing and future verification work rest on.
+  Affected any PDF carrying a negative zero — legal, and ordinary enough in page geometry.
+  Found by the `pdf` fuzz target during a two-hour run.
+
 - **A PDF whose content stream declared a malformed length was rewritten with that stream's
   contents silently discarded, and reported as a clean copy.** The specification requires a
   stream's `/Length` to be an integer; a file writing `45.` instead of `45` parses without

@@ -83,6 +83,20 @@ impl MetadataHandler for PdfHandler {
         // (`docs/TESTING_STRATEGY.md` §1) fails for no good reason.
         doc.renumber_objects();
 
+        // Collapse negative zero to zero for the same reason renumbering exists above: without
+        // it the output is not stable under a second strip. lopdf writes `Real(-0.0)` as `-0`,
+        // dropping the decimal point; re-parsing `-0` yields `Integer(0)`, which writes as `0`.
+        // So one strip of a file containing `-0.` differs from two, breaking the idempotence
+        // invariant (`docs/TESTING_STRATEGY.md` §1, invariant 3).
+        //
+        // Rewriting a number in the user's document needs justifying, since this handler
+        // otherwise refuses rather than repairs (ADR-0018). It is sound here because ISO
+        // 32000-1 §7.3.3 gives PDF numbers no signed zero: `-0` and `0` denote the same value,
+        // there is no operator that can distinguish them, and no renderer can. The alternative
+        // — refusing a valid file over a lost minus sign that changes nothing — costs the user
+        // their document to protect a distinction the format does not make.
+        normalise_negative_zero(&mut doc, &options.limits)?;
+
         let mut bytes = Vec::new();
         doc.save_to(&mut bytes).map_err(|source| StryptError::Io {
             action: crate::error::IoAction::WritingOutput,
@@ -532,6 +546,50 @@ fn remove_from_object(
         Object::Array(items) => {
             for item in items {
                 remove_from_object(item, id, info_id, limits, depth.saturating_add(1))?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Rewrite every `Real(-0.0)` in the document as `Real(0.0)`.
+///
+/// See the call site for why this is done at all. Note the deliberate use of `is_sign_negative`
+/// rather than `== -0.0`: in IEEE 754 `-0.0 == 0.0` is true, so the obvious comparison matches
+/// positive zero as well and would rewrite values that were never a problem.
+fn normalise_negative_zero(doc: &mut Document, limits: &ParseLimits) -> Result<()> {
+    for object in doc.objects.values_mut() {
+        normalise_object(object, limits, 0)?;
+    }
+    Ok(())
+}
+
+/// Walk one object, collapsing negative zeros wherever they nest.
+fn normalise_object(object: &mut Object, limits: &ParseLimits, depth: u32) -> Result<()> {
+    if depth > limits.max_depth {
+        return Err(StryptError::LimitExceeded {
+            format: Format::Pdf,
+            limit: ResourceLimit::Depth,
+        });
+    }
+    match object {
+        Object::Real(value) if value.is_sign_negative() && *value == 0.0 => {
+            *value = 0.0;
+        }
+        Object::Dictionary(dict) => {
+            for (_, value) in dict.iter_mut() {
+                normalise_object(value, limits, depth.saturating_add(1))?;
+            }
+        }
+        Object::Stream(stream) => {
+            for (_, value) in &mut stream.dict {
+                normalise_object(value, limits, depth.saturating_add(1))?;
+            }
+        }
+        Object::Array(items) => {
+            for item in items {
+                normalise_object(item, limits, depth.saturating_add(1))?;
             }
         }
         _ => {}

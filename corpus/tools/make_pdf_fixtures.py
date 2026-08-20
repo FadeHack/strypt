@@ -207,6 +207,28 @@ def main() -> None:
     strict = build(page_objects(), b"/Root 1 0 R")
     write("malformed/xref-19-byte-entries.pdf", strict.replace(b" n \n", b" n\n").replace(b" f \n", b" f\n"))
 
+    # 10. A negative zero in a MediaBox. This file is perfectly valid — it lives here rather
+    #     than in malformed/ for that reason — and it broke byte-identical idempotence.
+    #
+    #     lopdf writes Real(-0.0) as "-0", without the decimal point that made it a real.
+    #     Re-parsing "-0" therefore yields Integer(0), which writes as "0", so stripping once
+    #     and stripping twice produced different bytes. Found by the pdf fuzz target at 6985s
+    #     of a two-hour run; the handler now collapses negative zero before writing.
+    #
+    #     ISO 32000-1 §7.3.3 gives PDF numbers no signed zero, so this rewrite changes no
+    #     meaning — which is what makes normalising defensible in a handler that otherwise
+    #     refuses rather than repairs.
+    #     Both a bare value and one nested in an array are covered, using real page keys so
+    #     they stay reachable — an unreferenced object would be pruned before the handler ever
+    #     walked it, and the test would pass without exercising anything.
+    write(
+        "negative-zero-real.pdf",
+        build(
+            page_objects(b"/UserUnit -0. /CropBox [-0. 0. -0.0 10] "),
+            b"/Root 1 0 R",
+        ),
+    )
+
 
 if __name__ == "__main__":
     main()

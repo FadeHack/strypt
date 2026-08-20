@@ -241,6 +241,28 @@ fuzz target exists, and it is a specific input to Phase 3's sandboxing decision 
 compromised or merely fragile dependency is one of the few things sandboxing genuinely buys a
 safe-Rust parser.
 
+**One value is rewritten rather than copied: negative zero.** `lopdf` writes `Real(-0.0)` as
+`-0`, dropping the decimal point that made it a real; reading `-0` back therefore yields
+`Integer(0)`, which writes as `0`. Stripping once and stripping twice produced different bytes,
+breaking the byte-identical idempotence invariant, and the value's *type* changed silently as
+well. The handler now collapses negative zero to zero before writing.
+
+Rewriting a number in someone's document deserves justifying in a handler that elsewhere
+refuses rather than repairs. ISO 32000-1 §7.3.3 gives PDF numbers no signed zero: `-0` and `0`
+denote the same value, no operator distinguishes them, and no renderer can. The rejected
+alternative was refusing the file — which would have cost a user their entirely valid document
+to preserve a distinction the format does not make. This is the opposite trade from the
+19-byte-xref gap in §7.5, and deliberately so: there, accepting would have meant rewriting
+untrusted bytes *ahead of the parser* to widen what strypt accepts; here, the document has
+already parsed and the change provably preserves meaning.
+
+Found by the PDF fuzz target 6985 seconds into a two-hour run, through the harness's
+idempotence assertion — the second real PDF defect that one assertion has caught, after the
+stream-length bug in §7.5. Both were invisible to the verification pass, which searches output
+for residual metadata and so cannot see a defect that leaves no metadata behind. The trigger
+was a valid file: negative zero in a `/CropBox` is legal, and nothing about such a document
+would strike a user as unusual.
+
 ### 7.2 JPEG (Phase 1)
 
 **What strypt removes.** Every `APPn` segment except the two named below, and every `COM`

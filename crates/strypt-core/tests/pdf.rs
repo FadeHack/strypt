@@ -44,6 +44,7 @@ const ALL_FIXTURES: &[&str] = &[
     "piece-info.pdf",
     "embedded-file.pdf",
     "clean.pdf",
+    "negative-zero-real.pdf",
 ];
 
 #[test]
@@ -435,4 +436,42 @@ fn a_19_byte_xref_entry_is_refused_as_typed_malformed_not_silently_passed() {
             "expected a typed Malformed refusal, got {err:?}"
         );
     }
+}
+
+#[test]
+fn a_negative_zero_real_survives_a_second_strip_unchanged() {
+    // Regression test. Found by the pdf fuzz target at 6985s of a two-hour run, via the
+    // byte-identical idempotence assertion in the harness — the same invariant that caught the
+    // stream-length bug, and the second real PDF defect it has now found. Nothing in the
+    // production code was checking this property, which is the argument for keeping invariants
+    // in the fuzz targets that duplicate no production check.
+    //
+    // lopdf writes Real(-0.0) as "-0", dropping the decimal point that made it a real. Reading
+    // "-0" back therefore yields Integer(0), which writes as "0" — so one strip and two strips
+    // disagreed by a byte, and the type of the value silently changed as well.
+    //
+    // The fixture is a *valid* PDF: negative zero in a CropBox is entirely legal, so this was
+    // reachable from files no user would consider unusual.
+    let input = fixture("negative-zero-real.pdf");
+
+    let once = strip_bytes(&input, &StripOptions::default()).unwrap().bytes;
+    let twice = strip_bytes(&once, &StripOptions::default()).unwrap().bytes;
+    assert_eq!(once, twice, "strip is not idempotent for a negative zero");
+
+    // Pin the mechanism, not just the symptom: no negative zero may reach the output at all.
+    // Asserting only idempotence would keep passing if some future change made both passes
+    // wrong in the same way.
+    let text = String::from_utf8_lossy(&once);
+    assert!(
+        !text.contains("-0"),
+        "a negative zero reached the output: {text}"
+    );
+
+    // And the value is still there as zero — normalising must not delete the entry. ISO
+    // 32000-1 §7.3.3 gives PDF numbers no signed zero, so this is the same number, not a
+    // substituted one.
+    assert!(
+        text.contains("/CropBox"),
+        "CropBox disappeared instead of being normalised: {text}"
+    );
 }
