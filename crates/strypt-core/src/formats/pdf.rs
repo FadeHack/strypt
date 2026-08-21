@@ -165,6 +165,31 @@ fn load(input: &[u8], limits: &ParseLimits) -> Result<Document> {
         });
     }
 
+    // A trailer with no /Root is refused rather than processed.
+    //
+    // ISO 32000-1 §7.5.5 makes /Root a required trailer entry: it names the document catalogue,
+    // which is the single root every other object hangs off. Without it the file has no defined
+    // entry point, and no viewer will open it.
+    //
+    // strypt used to accept such a file, and the result was worse than a refusal. The rewrite in
+    // `strip` walks reachable objects from the root and drops the rest (ADR-0020); with no root
+    // to walk from, which objects survive is not stable across runs. A fuzz run found a document
+    // whose second strip differed from its first — 609 bytes, then 485 — because the second pass
+    // dropped an annotation object that the page still referenced through /Annots. Renumbering
+    // then filled that slot with the catalogue, so the page's annotation array pointed at the
+    // document catalogue. strypt had introduced that corruption itself, while returning success
+    // both times.
+    //
+    // Refusing is the fail-closed answer and costs nothing real: a PDF this broken is not one
+    // the user can publish anyway.
+    if !doc.trailer.has(b"Root") {
+        return Err(StryptError::Malformed {
+            format: Format::Pdf,
+            offset: None,
+            detail: MalformedDetail::MissingMarker,
+        });
+    }
+
     let too_many = u32::try_from(doc.objects.len()).map_or(true, |count| count > limits.max_items);
     if too_many {
         return Err(StryptError::LimitExceeded {

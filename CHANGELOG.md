@@ -154,6 +154,20 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   bug in strypt. Affects PDFs only. Found by the `pdf` fuzz target during an eight-hour run and
   reported upstream; strypt contains the failure rather than fixing the library (ADR-0024).
 
+- **A PDF with no document catalogue is now refused instead of being rewritten into a corrupt
+  file that strypt called clean.** ISO 32000-1 requires the file trailer to name a `/Root`, the
+  catalogue every other object hangs off. When it was missing, strypt had no root to walk from,
+  so its rewrite kept a different set of objects each time it ran: stripping such a file twice
+  produced two different documents, and the second one had a page whose annotation list pointed
+  at the catalogue object. strypt reported success both times. It now refuses the file — "the
+  parser failed on this file and it was not processed".
+
+  **This corrupted the output rather than leaking anything**: the metadata strypt is asked to
+  remove was still removed on every pass. If you stripped such a file with an earlier build,
+  the result may not open in a viewer — but the input could not open in a viewer either, since
+  a PDF without a catalogue has no entry point. Affects PDFs only. Found by the `pdf` fuzz
+  target; `corpus/pdf/malformed/no-root-trailer.pdf` is the regression test.
+
 - **Error messages no longer print `None` where a position is unknown.** A refusal with no known
   byte offset read "malformed PDF at byte offset None" — debug syntax shown to someone deciding
   whether a document is safe to publish. It now simply omits the position.

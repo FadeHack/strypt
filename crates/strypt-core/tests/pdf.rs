@@ -10,6 +10,7 @@
 // lints police (ADR-0006).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use strypt_core::error::MalformedDetail;
 use strypt_core::formats::StripOptions;
 use strypt_core::report::{InspectOptions, MetadataKind, Note};
 use strypt_core::{Format, StryptError, detect, inspect_bytes, strip_bytes};
@@ -511,6 +512,63 @@ fn a_panic_inside_the_pdf_parser_is_contained_and_reported_as_malformed() {
             ),
             "expected a typed Malformed refusal, got {err:?}"
         );
+    }
+}
+
+#[test]
+fn a_trailer_without_a_root_is_refused_rather_than_processed() {
+    // Regression test. Found by the pdf fuzz target at 2832s, as an idempotence failure rather
+    // than a crash: stripping the input once produced 609 bytes and stripping that produced 485.
+    //
+    // ISO 32000-1 §7.5.5 makes /Root a required trailer entry — it names the document catalogue,
+    // the root every other object hangs off. Without it, the reachability walk that ADR-0020's
+    // full rewrite depends on has no defined starting point, so which objects survive is not
+    // stable between runs. The second pass dropped an annotation object that the page still
+    // referenced through /Annots, and renumbering then moved the catalogue into that slot — so
+    // the page's annotation array pointed at the document catalogue. strypt introduced that
+    // corruption itself while returning success both times, which is the fail-open shape
+    // CLAUDE.md §3.6 calls the most dangerous bug class here.
+    //
+    // The fix refuses instead. This pins the refusal as *typed*, so that a future change which
+    // starts accepting these files has to be a deliberate one.
+    let input = fixture("malformed/no-root-trailer.pdf");
+
+    // Detection is unaffected: this is still recognisably a PDF, and refusing it as "unsupported
+    // format" would tell the user something false about why it was rejected.
+    assert_eq!(detect(&input).unwrap(), Format::Pdf);
+
+    for err in [
+        inspect_bytes(&input, &InspectOptions::names_only()).unwrap_err(),
+        strip_bytes(&input, &StripOptions::default()).unwrap_err(),
+    ] {
+        assert!(
+            matches!(
+                err,
+                StryptError::Malformed {
+                    format: Format::Pdf,
+                    detail: MalformedDetail::MissingMarker,
+                    ..
+                }
+            ),
+            "expected a MissingMarker refusal, got {err:?}"
+        );
+    }
+}
+
+#[test]
+fn a_pdf_that_is_accepted_still_has_a_root_to_walk_from() {
+    // The guard above is only as good as its reach: if some other path into the handler skipped
+    // it, the instability would come back through that path. Every fixture strypt accepts must
+    // therefore have a /Root, and the ones it refuses are refused for a stated reason rather
+    // than by accident.
+    for name in ALL_FIXTURES {
+        let input = fixture(name);
+        if strip_bytes(&input, &StripOptions::default()).is_ok() {
+            assert!(
+                input.windows(5).any(|w| w == b"/Root"),
+                "{name} was accepted but has no /Root — the refusal was bypassed"
+            );
+        }
     }
 }
 

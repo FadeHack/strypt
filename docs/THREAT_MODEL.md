@@ -232,6 +232,19 @@ rather than rewriting it leaves them there while reporting the file clean.
 password, and emitting a decrypted copy would strip the user's protection along with their
 metadata — a change to their document's security they did not ask for and might not notice.
 
+A trailer with no `/Root` is also refused, by both `show` and `strip`. ISO 32000-1 §7.5.5 makes
+the entry required: it names the document catalogue, the single root every other object hangs
+off, so without it the file has no defined entry point and no viewer opens it. strypt used to
+accept such a file, and accepting was worse than refusing. The rewrite walks reachable objects
+from the root and drops the rest (ADR-0020); with no root, which objects survive is not stable
+between runs. The `pdf` fuzz target found it: one strip produced 609 bytes and a second produced
+485, because the second pass dropped an annotation object a page still referenced through
+`/Annots`, and renumbering then put the catalogue in that slot — so the page's annotation array
+pointed at the document catalogue. That is corruption strypt introduced itself while reporting
+success both times, which is §6 fail-closed inverted. Refusing costs the user nothing real: a
+PDF this broken cannot be published either way. `corpus/pdf/malformed/no-root-trailer.pdf` pins
+the behaviour, and both the triggering shapes are in the `pdf` seed corpus.
+
 **A panic inside `lopdf` reached the shipped binary, and is now contained.** A sustained fuzz
 run found an integer overflow in `lopdf` 0.44.0's cross-reference parser (`parser/mod.rs:516`,
 computing `start + index` where `start` is read from the file). Because `Cargo.toml`

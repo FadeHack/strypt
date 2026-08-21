@@ -234,6 +234,21 @@ def main() -> None:
         ),
     )
 
+    # 11. A trailer with no /Root. ISO 32000-1 §7.5.5 requires it: it names the document
+    #     catalogue, the single root every other object hangs off. Here the key is /t instead,
+    #     so the file has no defined entry point and no viewer opens it.
+    #
+    #     strypt used to accept this, and accepting was worse than refusing. The rewrite walks
+    #     reachable objects from the root and drops the rest (ADR-0020); with no root, which
+    #     objects survive is not stable between runs. The pdf fuzz target found it at 2832s —
+    #     stripping once gave 609 bytes, stripping again gave 485, because the second pass
+    #     dropped an annotation object the page still referenced via /Annots. Renumbering then
+    #     put the catalogue in that slot, so the page's annotation array pointed at the
+    #     catalogue: corruption strypt introduced itself, while reporting success both times.
+    #
+    #     Refusing costs nothing real — a PDF this broken cannot be published either way.
+    write("malformed/no-root-trailer.pdf", build(page_objects(), b"/t 1 0 R"))
+
 
 if __name__ == "__main__":
     main()
