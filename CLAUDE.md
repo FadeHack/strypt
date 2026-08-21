@@ -32,13 +32,19 @@ four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
 outstanding and none of them is a handler:
 
 - **Sustained fuzzing** — started, nowhere near finished, and still the largest remaining gap.
-  One run has happened (2026-08-20): **37.79 CPU-hours** delivered across five targets via
-  `scripts/fuzz-sustained.sh`. It found three real PDF defects, all fixed. But **only `detect`
-  reached a coverage plateau** — all four format handlers were still finding new edges in the
-  final quarter of an eight-hour run, so ADR-0014's bar is not met and cannot yet be replaced
-  with a measured number. PDF also owes a re-run: it stopped at 5h47m on a crash. Do not
-  report criterion 2 as passed, and do not supersede ADR-0014 until a handler actually
-  plateaus.
+  Two runs have happened via `scripts/fuzz-sustained.sh`: **37.79 CPU-hours** (2026-08-20) and
+  **30.42** (2026-08-21), **68.21 total**. Between them they found four real PDF defects, all
+  fixed with regression tests.
+
+  **JPEG, PNG and WebP reached a coverage plateau in the second run** — last gains at 13845s,
+  16044s and 19442s of 26673s, all outside the final quarter. That is the measured data
+  ADR-0014 was waiting for. **PDF has not plateaued honestly**: its `yes` in that run's summary
+  is an artifact of a run that died at 2834s on the `/Root` crash, and its hours reset to zero
+  on 2026-08-22 when the `/Root` refusal changed `load()`. Roughly 15.4 CPU-hours each stand
+  for JPEG/PNG/WebP/detect and **0 for PDF**, against a provisional bar of 100.
+
+  Do not report criterion 2 as passed. ADR-0014 may now be superseded for the three plateaued
+  handlers, but **not for PDF** until it is driven to a real plateau.
 - **The real-producer corpus is deliberately not committed**: its files carry real names, a
   device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3). The build script and
   manifests are committed and rebuild it. Both WebP coverage gaps closed 2026-08-21 — a

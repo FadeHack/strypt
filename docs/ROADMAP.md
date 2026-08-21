@@ -139,22 +139,32 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
 
   **Still missing:** committed fixtures for real producers, since the fetched files cannot
   serve that role — they carry real names, a device serial and live GPS coordinates.
-- **Sustained fuzzing (exit criterion 2).** Under way, not met. The first sustained run
-  (2026-08-20, `scripts/fuzz-sustained.sh`) delivered **37.79 CPU-hours** — eight hours each on
-  JPEG, PNG, WebP and detect, and 5h47m on PDF, which stopped early on a genuine finding. It
-  earned its keep: three real PDF defects, all fixed with regression tests — negative zero
-  breaking byte-identical idempotence in the object graph and again in the trailer, and an
-  integer-overflow panic inside `lopdf` that reached the shipped binary as exit 101.
+- **Sustained fuzzing (exit criterion 2).** Under way, not met. Two sustained runs have
+  happened, via `scripts/fuzz-sustained.sh`, delivering **68.21 CPU-hours** in total.
 
-  **The coverage data now exists, and it says the run was too short.** Only `detect` plateaued,
-  and legitimately so: 96 edges found in 3 seconds, then nothing in eight hours at 86k exec/s.
-  The four format handlers were all still finding new edges inside the final quarter — PNG
-  gained five in its last 1000 seconds, after 7.7 hours. So this run establishes a floor, not
-  a number. Superseding ADR-0014 needs at least one handler driven to an actual plateau;
-  replacing a provisional 100 with a figure extrapolated from curves that never flattened
-  would swap one guess for another.
+  The first (2026-08-20) delivered **37.79 CPU-hours** — eight hours each on JPEG, PNG, WebP
+  and detect, and 5h47m on PDF, which stopped early on a genuine finding. It earned its keep:
+  three real PDF defects, all fixed with regression tests — negative zero breaking
+  byte-identical idempotence in the object graph and again in the trailer, and an
+  integer-overflow panic inside `lopdf` that reached the shipped binary as exit 101. Only
+  `detect` plateaued in that run, so it established a floor rather than a number.
 
-  PDF additionally owes a re-run, having lost its last 2h13m to the crash.
+  The second (2026-08-21) budgeted 60 CPU-hours and **delivered 30.42**, stopped by hand before
+  its 12-hour target. It found a fourth PDF defect: a document with no `/Root` that strypt
+  rewrote into corruption while reporting success twice over, now refused (`THREAT_MODEL` §7.1).
+  PDF lost the run to that crash at 47 minutes.
+
+  **Three format handlers plateaued for the first time in that second run** — JPEG's last
+  coverage gain at 13845s of 26673s, PNG's at 16044s, WebP's at 19442s, all outside the final
+  quarter ADR-0014 asks about. That is the measured data ADR-0014 said it was waiting for, and
+  it is now sufficient to supersede the provisional 100 for those three. **PDF has never
+  plateaued honestly** — the `yes` in that run's summary table is an artifact of a run that
+  died at 2834s, and PDF's accumulated hours reset to zero on 2026-08-22 when the `/Root`
+  refusal changed `load()`. So PDF is the handler standing between this criterion and a
+  measured policy.
+
+  Against ADR-0014's provisional bar, CPU-hours since each handler's last substantive change
+  stand at roughly: **PDF 0**, JPEG/PNG/WebP/detect **~15.4 each**, versus 100.
 - **Performance numbers.** ✅ Done. `docs/PRD.md` §9 now carries measurements from
   `scripts/measure-performance.sh`, which refuses to run against a debug binary. One machine
   only — Linux and Windows are unmeasured, and none of it is a commitment.

@@ -173,9 +173,11 @@ many targets are selected — but CPU-hours are `-d × targets`, and the script 
 **budget** before it starts. It exits non-zero if any target produced a crash artefact.
 
 The summary reports CPU-hours **budgeted** and **delivered** separately, and you want the
-second one. They diverge whenever a target stops early on a crash — the first sustained run was
-budgeted 40.00 and delivered 37.79, because PDF stopped at 5h47m. ADR-0014's criterion is
-stated in CPU-hours, so quote delivered when arguing that a run met it.
+second one. They diverge whenever a target stops early — on a crash, or because you stopped the
+run by hand. The first sustained run was budgeted 40.00 and delivered 37.79, because PDF stopped
+at 5h47m; the second was budgeted 60.00 and delivered **30.42**, because it was ended early and
+PDF had already died at 47 minutes. ADR-0014's criterion is stated in CPU-hours, so quote
+delivered when arguing that a run met it, and never quote the budget.
 
 Each run writes to `target/fuzz-runs/<timestamp>/` (git-ignored):
 
