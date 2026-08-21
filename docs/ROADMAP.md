@@ -154,17 +154,22 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   rewrote into corruption while reporting success twice over, now refused (`THREAT_MODEL` §7.1).
   PDF lost the run to that crash at 47 minutes.
 
-  **Three format handlers plateaued for the first time in that second run** — JPEG's last
-  coverage gain at 13845s of 26673s, PNG's at 16044s, WebP's at 19442s, all outside the final
-  quarter ADR-0014 asks about. That is the measured data ADR-0014 said it was waiting for, and
-  it is now sufficient to supersede the provisional 100 for those three. **PDF has never
-  plateaued honestly** — the `yes` in that run's summary table is an artifact of a run that
-  died at 2834s, and PDF's accumulated hours reset to zero on 2026-08-22 when the `/Root`
-  refusal changed `load()`. So PDF is the handler standing between this criterion and a
-  measured policy.
+  **What this criterion asks for is a sustained run with no crash artefact — nothing more.**
+  It states no CPU-hour figure and requires no coverage plateau. ADR-0014's 100 CPU-hours plus
+  plateau is a **Phase 3** deliverable and must not be applied here; `scripts/fuzz-sustained.sh`
+  serves both bars and its header used to conflate them, which caused Phase 1 to be assessed
+  against a Phase 3 number.
 
-  Against ADR-0014's provisional bar, CPU-hours since each handler's last substantive change
-  stand at roughly: **PDF 0**, JPEG/PNG/WebP/detect **~15.4 each**, versus 100.
+  **PDF is the only handler that has ever failed this criterion.** JPEG, PNG, WebP and detect
+  recorded zero artefacts in both runs and have not changed since. PDF crashed in both — the
+  `lopdf` xref overflow at 5h47m, then the `/Root` defect at 47 minutes. Both are fixed, and
+  all three stored artefacts replay clean, so the criterion turns on whether PDF now survives
+  a sustained run intact.
+
+  Coverage data from these runs is being kept for Phase 3 rather than discarded — JPEG, PNG
+  and WebP each reached a plateau in the second run (last gains at 13845s, 16044s and 19442s
+  of 26673s). PDF has not plateaued honestly: the `yes` in that run's summary was an artifact
+  of a truncated run, since fixed in the script so it reports `n/a` instead.
 - **Performance numbers.** ✅ Done. `docs/PRD.md` §9 now carries measurements from
   `scripts/measure-performance.sh`, which refuses to run against a debug binary. One machine
   only — Linux and Windows are unmeasured, and none of it is a commitment.

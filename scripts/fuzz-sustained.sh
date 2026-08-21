@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
-# strypt — sustained fuzzing runner (docs/ROADMAP.md Phase 1 exit criterion 2)
+# strypt — sustained fuzzing runner
+#
+# This script serves TWO DIFFERENT BARS IN TWO DIFFERENT PHASES. Do not conflate them; an
+# earlier version of this header did, and it led to Phase 1 being assessed against a Phase 3
+# number.
+#
+#   Phase 1, exit criterion 2 — "Zero panics, crashes, hangs, or OOMs across all four fuzz
+#   targets after a sustained run — no known-failing input set aside as 'not worth fixing'."
+#   That is the whole criterion. It names no CPU-hour figure and requires no plateau. What
+#   satisfies it is a sustained run that produces NO CRASH ARTEFACT. This script's exit code
+#   answers it directly: exit 0 means criterion 2 held for the targets that ran.
+#
+#   Phase 3, ADR-0014 — a per-handler CPU-hour budget AND a coverage plateau (no new edge
+#   coverage in the final 25% of the run), both required, because CPU-hours alone can be burned
+#   on a target that stopped exploring long ago and a plateau alone can mean a harness too
+#   narrow to reach anything new. The `plateau` column and the coverage curves exist for THIS
+#   bar. They are Phase 3 evidence and are not needed to leave Phase 1.
 #
 # The 300-second commands in INSTRUCTIONS.md are smoke tests: they prove a target still builds
-# and runs. They are NOT the exit criterion. ADR-0014 asks for two conditions together —
-# a per-handler CPU-hour budget AND a coverage plateau (no new edge coverage in the final 25%
-# of the run) — because CPU-hours alone can be burned on a target that stopped exploring long
-# ago, and a plateau alone can mean a harness too narrow to reach anything new.
+# and runs. They satisfy neither bar.
 #
 # ADR-0014's 100 CPU-hours per handler is explicitly PROVISIONAL: it was written before any
 # parser existed, and the ADR itself says it is a hypothesis to revise once real coverage data
@@ -141,6 +154,7 @@ done
 # ---------------------------------------------------------------------------
 # Analysis. Two questions per target: where did coverage end up, and had it stopped
 # climbing? The second is ADR-0014's plateau condition and is the reason for the timestamps.
+# It is PHASE 3 evidence — Phase 1 criterion 2 is answered by the crash count alone.
 # ---------------------------------------------------------------------------
 # Budgeted CPU-hours are what was asked for; DELIVERED is what the targets actually ran. They
 # differ whenever a target stops early on a crash — and ADR-0014's exit criterion is stated in
@@ -178,8 +192,16 @@ delivered_cpu_hours() {
       }
       END {
         if (tmax == 0) { printf "| %s | — | — | — | — | — | no data | %s |\n", t, art; exit }
-        # Plateau: no new edge coverage in the final 25% of the run.
-        plateau = (lastgain < 0.75 * tmax) ? "yes" : "NO — still climbing"
+        # Plateau: no new edge coverage in the final 25% of the run (ADR-0014, Phase 3).
+        #
+        # Only meaningful over a run that actually finished. A target killed early by a crash
+        # is measured against the truncated length, so a short run trivially "plateaus": PDF
+        # died at 2834s on 2026-08-21 with its last gain at 1912s and this column said "yes",
+        # which was read as evidence and was not. Refuse to answer rather than mislead.
+        if (tmax < 0.9 * dur)
+          plateau = "n/a — ran " int(tmax) "s of " int(dur) "s"
+        else
+          plateau = (lastgain < 0.75 * tmax) ? "yes" : "NO — still climbing"
         printf "| %s | %s | %s | %s | %s | %ds of %ds | %s | %s |\n",
                t, maxcov, ft, cp, (eps == "" ? "—" : eps), lastgain, tmax, plateau, art
       }
@@ -188,8 +210,14 @@ delivered_cpu_hours() {
   echo
   echo "Coverage curves: cov-<target>.tsv (elapsed_seconds<TAB>cov), one row per increase."
   echo
-  echo "A 'NO — still climbing' plateau means this target needs a longer run before its"
-  echo "number can be set; it does not mean the run failed."
+  echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across all four"
+  echo "handlers after a sustained run, with nothing set aside as not worth fixing. Nothing"
+  echo "else in this table is needed to leave Phase 1."
+  echo
+  echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
+  echo "'NO — still climbing' means this target needs a longer run before its number can be"
+  echo "set; it does not mean the run failed. An 'n/a' means the target ended early, so the"
+  echo "question cannot be answered from this run at all — do not read it as either result."
 } > "$OUT_DIR/summary.md"
 
 # Per-target coverage curve, thinned to the points where coverage actually moved.

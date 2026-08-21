@@ -36,15 +36,21 @@ outstanding and none of them is a handler:
   **30.42** (2026-08-21), **68.21 total**. Between them they found four real PDF defects, all
   fixed with regression tests.
 
-  **JPEG, PNG and WebP reached a coverage plateau in the second run** — last gains at 13845s,
-  16044s and 19442s of 26673s, all outside the final quarter. That is the measured data
-  ADR-0014 was waiting for. **PDF has not plateaued honestly**: its `yes` in that run's summary
-  is an artifact of a run that died at 2834s on the `/Root` crash, and its hours reset to zero
-  on 2026-08-22 when the `/Root` refusal changed `load()`. Roughly 15.4 CPU-hours each stand
-  for JPEG/PNG/WebP/detect and **0 for PDF**, against a provisional bar of 100.
+  **Know which bar you are measuring against.** Phase 1 exit criterion 2 is *"zero panics,
+  crashes, hangs, or OOMs across all four fuzz targets after a sustained run"* — no CPU-hour
+  figure, no plateau. ADR-0014's 100 CPU-hours plus plateau is a **Phase 3** deliverable.
+  `scripts/fuzz-sustained.sh` serves both and its header used to conflate them; do not
+  re-import that error by citing ADR-0014 as a Phase 1 gate.
 
-  Do not report criterion 2 as passed. ADR-0014 may now be superseded for the three plateaued
-  handlers, but **not for PDF** until it is driven to a real plateau.
+  **PDF is the only handler that has ever failed criterion 2** — the `lopdf` xref overflow at
+  5h47m, then the `/Root` defect at 47 minutes. Both fixed. JPEG, PNG, WebP and detect have
+  zero artefacts across both runs and are unchanged since. So the criterion turns on one clean
+  sustained PDF run.
+
+  Kept for Phase 3, not needed for Phase 1: JPEG, PNG and WebP each plateaued in the second run
+  (last gains 13845s, 16044s, 19442s of 26673s). PDF has not — its `yes` was an artifact of a
+  truncated run, now reported as `n/a`. Do not report criterion 2 as passed until a sustained
+  run comes back clean.
 - **The real-producer corpus is deliberately not committed**: its files carry real names, a
   device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3). The build script and
   manifests are committed and rebuild it. Both WebP coverage gaps closed 2026-08-21 — a
