@@ -21,6 +21,26 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **The WebP comparison against mat2 now runs, and passes.** It had been recorded since
+  2026-08-19 as *not run* rather than as a pass — mat2 reaches WebP through GdkPixbuf, and
+  without a WebP pixbuf loader it failed on the original files too, so the comparison said
+  nothing about strypt. With the loader installed, `scripts/webp-differential.sh` finds no tag
+  that mat2 removes surviving in strypt's output, across the 14 synthetic fixtures and 30 files
+  from real producers. The script refuses to run when the loader is missing, because a sweep
+  both tools failed identically looks like evidence and is not.
+
+  It also records two differences that are **not** faults in either tool. mat2 decodes and
+  re-encodes, so it returns an animated WebP as a single still frame; strypt keeps every frame.
+  The reverse of that trade is that re-encoding removes the encoder's fingerprint, which strypt
+  deliberately leaves alone. If you need the fingerprint gone more than you need the animation,
+  mat2 is the better tool for that file.
+
+- **Two WebP coverage gaps closed.** The corpus had nothing testing metadata that survives a
+  change of file format, and nothing written by an actual browser. Both now exist: a
+  JPEG→WebP conversion carrying real Canon Exif across — **including the embedded thumbnail,
+  which is a small copy of the original photograph** — and a WebP encoded by Chrome's own
+  encoder. strypt strips both clean; the conversion file goes from 92 readable tags to none.
+
 - **Measured performance numbers in `docs/PRD.md` §9, replacing estimates.** Startup is 2.5 ms,
   a 3.3 MB JPEG strips in 10.9 ms, and a 3000-file batch peaks at 3.0 MB of memory against
   2.4 MB for 200 files — fifteen times the work for 0.6 MB more, so memory tracks the largest

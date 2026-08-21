@@ -89,10 +89,12 @@ handler reusing both again, fuzz targets for PDF, JPEG, PNG, WebP, and detection
 generated fixture corpus for all four formats. Differential testing against ExifTool 13.55 and
 mat2 0.15.0 over that corpus shows nothing surviving in strypt's output, with two recorded and
 deliberate gaps: strypt keeps the JPEG `APP14` Adobe colour-transform marker, which mat2
-removes (ADR-0021), and the **mat2 comparison for WebP was not run at all** — mat2's WebP path
-needs a GdkPixbuf WebP loader that the verification machine does not have, so mat2 fails on the
-original fixtures too and the comparison says nothing (`docs/THREAT_MODEL.md` §7.4). It must be
-run before release on a machine with the loader.
+removes (ADR-0021), and the mat2 comparison for WebP, which **was not run at all until
+2026-08-21** — mat2's WebP path needs a GdkPixbuf WebP loader the verification machine did not
+have, so mat2 failed on the original fixtures too and the comparison said nothing. Installing
+`webp-pixbuf-loader` 0.2.7 closed that; `scripts/webp-differential.sh` now passes with no gaps
+over both fixture sets (`docs/THREAT_MODEL.md` §7.4). One recorded gap therefore remains: the
+`APP14` marker.
 
 Exit criterion 4 is met for JPEG and by a stronger check than it asks for — the entropy-coded
 data is byte-identical after stripping, and ImageMagick reports zero differing pixels where
@@ -109,7 +111,7 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
 **Remaining in this phase — none of it is a handler:**
 
 - **Real-producer corpus.** *Substantially addressed 2026-08-20; two gaps remain.* A
-  fetch-on-demand corpus of 101 files now exists in `real-producer-corpus/`, assembled by
+  fetch-on-demand corpus of 102 files now exists in `real-producer-corpus/`, assembled by
   `build_real_corpus.py` from three public sample sets: 23 camera and phone JPEGs with real
   maker notes (Canon, Nikon, Sony, Samsung, HMD, Jolla, Apple), 23 PDFs (pdfLaTeX,
   LibreOffice, Google Docs, Acrobat, ImageMagick), 27 PNGs and 28 WebPs. All four handlers
@@ -128,10 +130,15 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   a malformed stream length caused strypt to discard a page's contents and report a clean
   copy. Both are now fixed or documented, with regression tests.
 
-  **Still missing:** WebPs written by a browser, and WebPs from a JPEG→WebP conversion
-  pipeline that carries an Exif block across — the path where metadata survives a format
-  conversion is still untested against real output. Committed fixtures for real producers
-  also remain absent, since the fetched files cannot serve that role.
+  **Both WebP gaps closed 2026-08-21** (`docs/THREAT_MODEL.md` §7.5): a `cwebp -metadata all`
+  JPEG→WebP conversion carrying real Canon Exif — IFD1 thumbnail included — across a change of
+  container, and a Chrome 151 `canvas.toDataURL('image/webp')` export. Both strip clean; the
+  conversion fixture goes from 92 ExifTool tags to none. The browser fixture is opt-in via
+  `build_real_corpus.py --with-browser`, because a browser's bytes change on every auto-update
+  and would otherwise churn the committed manifest.
+
+  **Still missing:** committed fixtures for real producers, since the fetched files cannot
+  serve that role — they carry real names, a device serial and live GPS coordinates.
 - **Sustained fuzzing (exit criterion 2).** Under way, not met. The first sustained run
   (2026-08-20, `scripts/fuzz-sustained.sh`) delivered **37.79 CPU-hours** — eight hours each on
   JPEG, PNG, WebP and detect, and 5h47m on PDF, which stopped early on a genuine finding. It
@@ -151,7 +158,9 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
 - **Performance numbers.** ✅ Done. `docs/PRD.md` §9 now carries measurements from
   `scripts/measure-performance.sh`, which refuses to run against a debug binary. One machine
   only — Linux and Windows are unmeasured, and none of it is a commitment.
-- **The mat2 differential for WebP**, on a machine with a GdkPixbuf WebP loader.
+- ~~**The mat2 differential for WebP**, on a machine with a GdkPixbuf WebP loader.~~ ✅ Done
+  2026-08-21: `webp-pixbuf-loader` 0.2.7 installed, `scripts/webp-differential.sh` run over the
+  14 synthetic fixtures and 30 real-producer WebPs, no gaps. Exit criterion 3 is met for WebP.
 - **CI green on all three platforms.**
 
 **Deliverables.**

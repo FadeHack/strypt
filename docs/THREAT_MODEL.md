@@ -442,12 +442,32 @@ tells readers to ignore them.
 
 **Measured against other tools on 2026-08-19.** ExifTool 13.55 finds nothing but structural
 image properties — dimensions, flags, animation timing — in strypt's output for every fixture
-in `corpus/webp`. **The mat2 differential for WebP was not run**, and this is a gap rather than
-a pass: mat2 0.15.0 lists `image/webp` as supported, but its WebP path goes through
-GdkPixbuf, and the machine used for verification has no WebP pixbuf loader installed — mat2
-fails identically on the *original* fixtures, so the comparison says nothing about strypt.
-Recorded here rather than quietly omitted; it should be run before release on a machine with
-the loader present.
+in `corpus/webp`.
+
+**The mat2 differential for WebP is now run, and it passes.** From 2026-08-19 to 2026-08-21
+this section recorded it as *not run*: mat2 0.15.0 lists `image/webp` as supported but reaches
+it through GdkPixbuf, and the verification machine had no WebP pixbuf loader, so mat2 failed
+identically on the *original* fixtures and the comparison said nothing about strypt.
+Installing `webp-pixbuf-loader` 0.2.7 resolved it. On **2026-08-21**,
+`scripts/webp-differential.sh` compared strypt against mat2 0.15.0 across all 14 fixtures in
+`corpus/webp` and all 30 WebPs in the real-producer corpus: **no tag that mat2 removes survives
+in strypt's output**, in either set. The script refuses to run when the loader is absent, rather
+than reporting a clean sweep that would prove nothing.
+
+Two results are worth recording, neither of them a strypt finding:
+
+- **mat2 flattens an animation.** Its WebP path decodes and re-encodes through GdkPixbuf, so a
+  two-frame `animated.webp` returns as a single still `VP8` chunk with no `ANIM`, no `ANMF` and
+  no frame timing; a six-frame real-producer file likewise. strypt keeps every frame and removes
+  only the `EXIF` chunk. This is the other face of "the encoder's fingerprint" below:
+  re-encoding destroys the fingerprint strypt deliberately leaves alone, and destroys the
+  animation with it. **Neither behaviour is wrong** — they are different answers to whether a
+  metadata tool may alter the picture. A user who needs the encoder fingerprint gone, and does
+  not need the animation, is better served by mat2.
+- **Re-encoding can expose properties the input did not.** On `1_webp_ll.webp`, mat2's output
+  carries `ALPH` parameters absent from the input. These are bitstream encoding choices, not
+  metadata, and leak nothing the user had — noted because a differential that merely counts
+  tags would misread it as mat2 *adding* metadata.
 
 **What remains, and why.**
 
@@ -500,7 +520,7 @@ crash, hang, or timeout; that is a smoke test, not the Phase 3 budget (ADR-0014)
 
 The findings in §7.1–7.4 were reached against synthetic fixtures — files built to the
 specification. On 2026-08-20 all four handlers were run over the fetch-on-demand corpus in
-`real-producer-corpus/`: 101 files, comprising 23 camera and phone JPEGs (Canon, Nikon, Sony,
+`real-producer-corpus/`: 102 files, comprising 23 camera and phone JPEGs (Canon, Nikon, Sony,
 Samsung, HMD, Jolla, Apple), 23 PDFs (pdfLaTeX, LibreOffice, Google Docs, Acrobat,
 ImageMagick), 27 PNGs and 28 WebPs. Each was put through `show`, then `strip`, then `show`
 again on the output.
@@ -553,17 +573,36 @@ of the committed corpus. The accompanying test pins the refusal as a *typed* `Ma
 error, so that if a future `lopdf` becomes tolerant here, the change is noticed rather than
 absorbed silently.
 
-**What this sweep does not establish.** The corpus has no WebP written by a browser and none
-produced by a JPEG→WebP conversion that carries an Exif block across, so the path in §7.4
-where metadata survives a format conversion is still untested against real output. Every
-category directory beneath `real-producer-corpus/real-corpus/` is a coverage bucket, not a
-verified producer claim; 29 of the 101 files are marked `LOW` provenance in the manifest, and
-the file above is one of them — its "scanner" bucket is unverified.
+**Both WebP coverage gaps were closed on 2026-08-21**, and both passed.
+
+- **The format-conversion path** — metadata surviving a change of container — is now exercised
+  by `generated/webp/from-jpeg-exif.webp`, produced by `cwebp -metadata all` from the real
+  `Canon_40D.jpg` already in the corpus. It carries 2468 bytes of genuine Canon Exif and a
+  3144-byte ICC profile across into WebP, **including the IFD1 thumbnail — a small picture of
+  the original scene**, which is the most under-appreciated leak in this class. strypt removes
+  all of it: 92 ExifTool tags before, none after, and the output holds only `VP8X` with an
+  empty flags byte and `VP8`. Every other WebP in the corpus was born a WebP, so nothing else
+  tested this.
+- **A genuinely browser-encoded WebP** is now `webp/browser/chrome-canvas.webp`, produced by
+  Chrome 151's own encoder via `canvas.toDataURL('image/webp')`. Chrome writes an extended file
+  with an `ICCP` chunk; the profile is a generic sRGB one stamped `1998:02:09` and naming no
+  device, which is Chrome declining to fingerprint the display rather than an oversight.
+  strypt removes it and clears the flag. This file is built only under
+  `build_real_corpus.py --with-browser`, because browsers auto-update and its bytes would
+  otherwise churn the committed manifest on every contributor's machine.
+
+**What this sweep still does not establish.** Every category directory beneath
+`real-producer-corpus/real-corpus/` is a coverage bucket, not a verified producer claim — the
+`chrome/`, `firefox/` and `android/` WebP directories hold reference-encoder conformance files,
+and the manifest says so per row. 29 of the files are marked `LOW` provenance, and the file
+above is one of them: its "scanner" bucket is unverified. `chrome-canvas.webp` is the corpus's
+only WebP with a `HIGH`-confidence producer claim, and even it exercises a canvas export rather
+than a browser re-encoding a photograph that arrived with Exif.
 
 The corpus is **not committed** (`.gitignore`), because its files carry real names, a device
 serial number, and live GPS coordinates, which §3 of `docs/TESTING_STRATEGY.md` keeps out of
 this repository. `build_real_corpus.py` and the manifests are committed, and a rebuild
-reproduces all 101 fixtures byte-identically, so this sweep is repeatable by anyone.
+reproduces all 102 fixtures byte-identically, so this sweep is repeatable by anyone.
 
 ---
 

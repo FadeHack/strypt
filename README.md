@@ -4,9 +4,10 @@
 >
 > **PDF, JPEG, PNG, and WebP are implemented.** Everything else is recognised and reported as
 > unsupported; it is not processed. There has been no external audit and no release. All four
-> handlers have now been run over 101 files from real producers — real camera maker notes
-> included — which found and fixed one genuine bug and one documented limitation; two coverage
-> gaps remain (see [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.5). Sustained fuzzing has
+> handlers have now been run over 102 files from real producers — real camera maker notes
+> included — which found and fixed one genuine bug and one documented limitation
+> (see [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.5). The differential against mat2 is
+> complete for all four formats as of 2026-08-21, WebP included. Sustained fuzzing has
 > begun — 37.8 CPU-hours across five targets, which found three real PDF defects, all fixed —
 > but only the format-detection target has stopped finding new code paths, so the budget the
 > roadmap calls for is not yet met. Performance numbers in the PRD are now measured rather than

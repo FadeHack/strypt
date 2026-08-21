@@ -110,8 +110,28 @@ GENERATED_NAMES = (
     "jpeg/progressive.jpg", "jpeg/subsampling-444.jpg", "jpeg/progressive-truncated.jpg",
     "png/interlaced.png", "png/palette.png", "png/interlaced-truncated.png",
     "webp/lossless-alpha.webp", "webp/lossy.webp", "webp/lossy-truncated.webp",
+    "webp/from-jpeg-exif.webp",
     "pdf/minimal-xref-table.pdf",
 )
+
+# Produced only with --with-browser, but listed here unconditionally so prune() never deletes
+# it: regenerating needs a browser on the machine, which a later plain rebuild may not have.
+BROWSER_NAMES = ("webp/browser/chrome-canvas.webp",)
+
+# generated() files whose producer is worth stating precisely. Without this every generated
+# fixture is manifested as the same anonymous "generated locally", which would hide the whole
+# point of the two WebP entries below — that a named real encoder produced them.
+GENERATED_META = {
+    "generated/webp/from-jpeg-exif.webp": (
+        "libwebp cwebp (JPEG->WebP conversion)", "GENERATED",
+        "Real Canon Exif and ICC carried across a format conversion by cwebp -metadata all; "
+        "closes the conversion-path gap in docs/THREAT_MODEL.md 7.4",
+    ),
+}
+
+# Set by browser_webp() so MANIFEST.md can name the encoder without putting the file in
+# MANIFEST.csv. See manifests().
+BROWSER_NOTE = ""
 
 
 def write_minimal_xref_pdf(path):
@@ -153,14 +173,101 @@ def generated():
         src=CORPUS/"generated"/f; (src.parent/(src.stem+"-truncated"+src.suffix)).write_bytes(src.read_bytes()[:max(8,src.stat().st_size//2)])
     base.unlink(missing_ok=True)
 
+    # The format-conversion path: metadata surviving a change of container. Every other WebP
+    # here was born a WebP, so none of them exercises the case where a camera's Exif — and its
+    # embedded thumbnail, which is a picture of the original scene — is carried into a new
+    # format by a converter. cwebp -metadata all does exactly that, and it is the reference
+    # libwebp encoder rather than a synthetic stand-in.
+    #
+    # The source is a real Canon JPEG already in the corpus, so the Exif is genuine (Make,
+    # Model, DateTimeOriginal, IFD1 thumbnail). That also means this file inherits the same
+    # do-not-commit status as the rest of real-corpus/.
+    src_jpeg = CORPUS/"jpeg/canon/Canon_40D.jpg"
+    if src_jpeg.exists():
+        run("cwebp","-quiet","-metadata","all","-q","80",str(src_jpeg),
+            "-o",str(CORPUS/"generated/webp/from-jpeg-exif.webp"))
+    else:
+        print("SKIP generated/webp/from-jpeg-exif.webp — source JPEG missing")
+
+
+CHROME_PATHS = (
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser",
+)
+# Canvas export is synchronous, so the DOM carries the finished data: URL by dump time.
+BROWSER_PAGE = """<!doctype html><body><script>
+var c=document.createElement('canvas');c.width=120;c.height=80;
+var x=c.getContext('2d');
+var g=x.createLinearGradient(0,0,120,80);
+g.addColorStop(0,'#204060');g.addColorStop(1,'#e0c080');
+x.fillStyle=g;x.fillRect(0,0,120,80);
+for(var i=0;i<400;i++){x.fillStyle='rgba('+(i*7%256)+','+(i*13%256)+','+(i*29%256)+',0.8)';
+x.fillRect((i*17)%120,(i*31)%80,3,3);}
+document.body.textContent=c.toDataURL('image/webp',0.8);
+</script></body>"""
+
+
+def browser_webp():
+    """Produce a WebP actually encoded by a browser.
+
+    OFF BY DEFAULT, and the reason is manifest churn. MANIFEST.csv is committed and is supposed
+    to round-trip, but browsers auto-update every few weeks and a new encoder build changes the
+    bytes. Wiring this into every rebuild would leave `git status` dirty on any machine whose
+    Chrome differs from whoever regenerated the manifest last — the file would be recording the
+    contributor's browser version rather than the corpus.
+
+    So it is opt-in, and prune() is told to leave the result alone.
+    """
+    import base64, re, signal, tempfile
+    exe = next((p for p in CHROME_PATHS if os.path.exists(p)), None)
+    if not exe:
+        print("SKIP browser WebP — no Chrome/Chromium found"); return
+    ver = subprocess.run([exe,"--version"],stdout=subprocess.PIPE,text=True).stdout.strip()
+    with tempfile.TemporaryDirectory() as tmp:
+        page = Path(tmp)/"gen.html"; page.write_text(BROWSER_PAGE)
+        # --headless does not always exit on its own after --dump-dom; kill it rather than
+        # letting a rebuild hang forever on a machine where it does not.
+        proc = subprocess.Popen(
+            [exe,"--headless=old","--disable-gpu","--no-sandbox","--disable-background-networking",
+             "--no-first-run","--disable-default-apps","--virtual-time-budget=3000",
+             f"--user-data-dir={tmp}/profile","--dump-dom",page.as_uri()],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        try: dom,_ = proc.communicate(timeout=90)
+        except subprocess.TimeoutExpired:
+            proc.kill(); dom,_ = proc.communicate()
+    m = re.search(r"data:image/webp;base64,([A-Za-z0-9+/=]+)", dom or "")
+    if not m:
+        print("SKIP browser WebP — browser produced no WebP data URL"); return
+    out = CORPUS/"webp/browser/chrome-canvas.webp"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(base64.b64decode(m.group(1)))
+    global BROWSER_NOTE
+    BROWSER_NOTE = f"{ver} canvas.toDataURL('image/webp'), {out.stat().st_size} bytes"
+    print(f"browser WebP written by {ver} ({out.stat().st_size} bytes)")
+
 def manifests():
+    # BROWSER_NAMES are deliberately excluded from MANIFEST.csv. The manifest is committed and
+    # is meant to round-trip: a rebuild on any machine should reproduce it. A browser-encoded
+    # file cannot satisfy that — browsers auto-update, and a machine without a browser cannot
+    # produce the row at all, so including it would leave `git status` dirty for everyone whose
+    # setup differs from whoever regenerated it last. MANIFEST.md names the file and its
+    # encoder instead, so the corpus does not silently contain something undocumented.
     rows=[]; hashes={}
-    for p in sorted(x for x in CORPUS.rglob("*") if x.is_file() and x.name not in {"MANIFEST.csv","MANIFEST.md","SOURCES.md","README.md"}):
+    skip={"MANIFEST.csv","MANIFEST.md","SOURCES.md","README.md"}
+    for p in sorted(x for x in CORPUS.rglob("*") if x.is_file() and x.name not in skip
+                    and x.relative_to(CORPUS).as_posix() not in BROWSER_NAMES):
         rel=p.relative_to(CORPUS).as_posix(); f=fmt_for(p); parts=rel.split("/"); gen=parts[0]=="generated"; meta=exif(p); w,h=dimensions(p,f); status=validate(p,f); source="locally generated" if gen else "https://github.com/"+("ianare/exif-samples" if "jpeg/" in rel else "imazen/codec-corpus" if f in {"PNG","WebP"} else "py-pdf/sample-files")
         producer="generated locally" if gen else "upstream sample"; confidence="GENERATED" if gen else "LOW"; note="clearly labelled generated edge case" if gen else ""
         source_path="generated locally" if gen else "not mapped"
         for d,s,prod,c,n in FILES:
             if d==rel: producer,confidence,note,source_path=prod,c,n,s; break
+        # Overrides FILES as well as the defaults: these files are produced here, so the
+        # upstream URL inferred from their format above would name a repository they never
+        # came from.
+        if rel in GENERATED_META:
+            producer,confidence,note = GENERATED_META[rel]
+            source=source_path="locally generated"
         digest=sha(p); hashes.setdefault(digest,[]).append(rel)
         rows.append(dict(path=rel,format=f,producer=producer,producer_model="",producer_version="",source=source,source_path=source_path,license="see upstream repository",provenance_confidence=confidence,sha256=digest,size_bytes=p.stat().st_size,width=w,height=h,metadata_summary=meta,validation_status=status,notes=note))
     fields=list(rows[0]) if rows else []
@@ -170,9 +277,13 @@ def manifests():
     with (CORPUS/"MANIFEST.csv").open("w",newline="") as out:
         w=csv.DictWriter(out,fieldnames=fields,lineterminator="\n"); w.writeheader(); w.writerows(rows)
     counts=Counter(r["format"] for r in rows); cats=Counter("/".join(r["path"].split("/")[:2]) for r in rows); prov=Counter(r["provenance_confidence"] for r in rows)
-    (CORPUS/"MANIFEST.md").write_text("# Real-producer corpus manifest\n\n- Total fixtures: %d\n- Total size: %d bytes\n- By format: %s\n- By category: %s\n- Provenance: %s\n- Malformed-but-useful: %d\n- Duplicate hashes: %d\n\nMetadata and validation details are in `MANIFEST.csv`. Generated fixtures are never presented as producer output.\n"%(len(rows),sum(int(r['size_bytes']) for r in rows),dict(counts),dict(cats),dict(prov),sum('malformed-but-useful' in r['validation_status'] for r in rows),sum(len(v)-1 for v in hashes.values() if len(v)>1)))
+    # The browser fixture is described statically in README.md below, not here: naming it with
+    # its version would move the churn problem from MANIFEST.csv to MANIFEST.md, and omitting
+    # it only when absent would churn too. The build prints the version to stdout instead.
+    browser_line = ""
+    (CORPUS/"MANIFEST.md").write_text("# Real-producer corpus manifest\n\n- Total fixtures: %d\n- Total size: %d bytes\n- By format: %s\n- By category: %s\n- Provenance: %s\n- Malformed-but-useful: %d\n- Duplicate hashes: %d\n\nMetadata and validation details are in `MANIFEST.csv`. Generated fixtures are never presented as producer output.\n%s"%(len(rows),sum(int(r['size_bytes']) for r in rows),dict(counts),dict(cats),dict(prov),sum('malformed-but-useful' in r['validation_status'] for r in rows),sum(len(v)-1 for v in hashes.values() if len(v)>1),browser_line))
     (CORPUS/"SOURCES.md").write_text("# Sources\n\n- [ianare/exif-samples](https://github.com/ianare/exif-samples): camera/device JPEG samples; upstream licensing/provenance applies.\n- [imazen/codec-corpus](https://github.com/imazen/codec-corpus): imageflow, image-rs, PNG/WebP conformance and real-world assets; see per-dataset licenses.\n- [py-pdf/sample-files](https://github.com/py-pdf/sample-files): PDF producer samples, CC-BY-SA-4.0.\n\nExact source-relative paths and confidence notes are represented in the collector table and manifest.\n")
-    (CORPUS/"README.md").write_text("# Local real-producer corpus\n\nA fetched-on-demand engineering corpus for strypt, separate from the committed synthetic fixture corpus. It exercises producer quirks and makes no claim that generated files are real. Run `python3 build_real_corpus.py` from this directory to acquire sources (if absent), copy curated fixtures, validate them, and regenerate manifests. Files with weak provenance are explicitly marked LOW; categories are coverage buckets, not unsupported producer assertions.\n")
+    (CORPUS/"README.md").write_text("# Local real-producer corpus\n\nA fetched-on-demand engineering corpus for strypt, separate from the committed synthetic fixture corpus. It exercises producer quirks and makes no claim that generated files are real. Run `python3 build_real_corpus.py` from this directory to acquire sources (if absent), copy curated fixtures, validate them, and regenerate manifests. Files with weak provenance are explicitly marked LOW; categories are coverage buckets, not unsupported producer assertions.\n\n`webp/browser/chrome-canvas.webp` is built only by `--with-browser` and is deliberately absent from `MANIFEST.csv`: it is encoded by the local browser, whose output changes on every auto-update, so a committed row for it could not round-trip on another machine. The build prints the exact browser version when it writes the file.\n")
     return rows, hashes
 def prune():
     """Delete corpus files this script no longer produces.
@@ -185,7 +296,7 @@ def prune():
 
     A rebuild should reproduce the corpus exactly, not accumulate it.
     """
-    expected={d for d,*_ in FILES} | {f"generated/{n}" for n in GENERATED_NAMES}
+    expected={d for d,*_ in FILES} | {f"generated/{n}" for n in GENERATED_NAMES} | set(BROWSER_NAMES)
     for p in sorted(CORPUS.rglob("*")):
         if not p.is_file(): continue
         rel=p.relative_to(CORPUS).as_posix()
@@ -201,5 +312,7 @@ def main():
         out.parent.mkdir(parents=True, exist_ok=True)
         if inp.exists() and (not out.exists() or sha(inp)!=sha(out)): shutil.copy2(inp,out)
         elif not inp.exists(): print("SOURCE FAILURE",src)
-    generated(); prune(); rows, hashes=manifests(); print(f"fixtures={len(rows)} bytes={sum(int(r['size_bytes']) for r in rows)} duplicates={sum(len(v)-1 for v in hashes.values() if len(v)>1)}")
+    generated()
+    if "--with-browser" in sys.argv: browser_webp()
+    prune(); rows, hashes=manifests(); print(f"fixtures={len(rows)} bytes={sum(int(r['size_bytes']) for r in rows)} duplicates={sum(len(v)-1 for v in hashes.values() if len(v)>1)}")
 if __name__ == "__main__": main()

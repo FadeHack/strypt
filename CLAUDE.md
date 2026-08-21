@@ -25,7 +25,7 @@ is reported as unsupported and never passed through untouched. Landed: bounded i
 content-sniffing detection, the handler registry and trait, the post-strip verification pass,
 structured reports, typed errors, the atomic write path, the full CLI, four handlers with
 shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for all four
-formats, and — as of 2026-08-20 — a fetch-on-demand real-producer corpus of 101 files that all
+formats, and — as of 2026-08-20 — a fetch-on-demand real-producer corpus of 102 files that all
 four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
 
 **Do not read "all four handlers exist" as "Phase 1 is nearly done".** These exit criteria are
@@ -39,15 +39,18 @@ outstanding and none of them is a handler:
   with a measured number. PDF also owes a re-run: it stopped at 5h47m on a crash. Do not
   report criterion 2 as passed, and do not supersede ADR-0014 until a handler actually
   plateaus.
-- **Two corpus gaps remain** — no WebP written by a browser, and none from a JPEG→WebP
-  conversion carrying an Exif block across, so the format-conversion path is still untested
-  against real output. The real-producer corpus is deliberately **not committed**: its files
-  carry real names, a device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3).
-  The build script and manifests are committed and rebuild it byte-identically.
+- **The real-producer corpus is deliberately not committed**: its files carry real names, a
+  device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3). The build script and
+  manifests are committed and rebuild it. Both WebP coverage gaps closed 2026-08-21 — a
+  `cwebp -metadata all` JPEG→WebP conversion carrying real Canon Exif and its IFD1 thumbnail
+  across, and a Chrome 151 `canvas.toDataURL` export. The browser file is built only under
+  `build_real_corpus.py --with-browser`, since browsers auto-update and its bytes would
+  otherwise churn the committed manifest.
 
-One differential-testing gap is also open and must not be reported as a pass: the mat2
-comparison for WebP has never run, because mat2's WebP path needs a GdkPixbuf WebP loader the
-verification machine lacks (`docs/THREAT_MODEL.md` §7.4).
+The mat2 WebP differential — recorded as never run from 2026-08-19 — **ran on 2026-08-21 and
+passes**, after installing `webp-pixbuf-loader`. `scripts/webp-differential.sh` covers the 14
+synthetic fixtures and 30 real-producer WebPs with no gaps, and refuses to run without the
+loader rather than reporting a meaningless clean sweep (`docs/THREAT_MODEL.md` §7.4).
 
 One known capability gap is recorded and deliberate: a PDF with 19-byte cross-reference
 entries is refused by `lopdf`, where mat2 strips it. Refusing is correct fail-closed

@@ -23,6 +23,8 @@ commit as any change to the build, test, or lint workflow.**
 | `cargo-fuzz` | fuzzing | `cargo install cargo-fuzz` — **Linux/macOS only**, x86-64 and aarch64. Not supported on Windows. |
 | `cargo-deny` | supply-chain gate | `cargo install cargo-deny` |
 | ExifTool, mat2 | differential testing | Optional locally, required for release verification. **Never runtime dependencies.** Verified working 2026-08-19 with ExifTool 13.55 and mat2 0.15.0. |
+| `webp-pixbuf-loader`, `webpinfo` | WebP differential | Required for `scripts/webp-differential.sh`. Without the pixbuf loader mat2 cannot read WebP and the comparison is meaningless; the script refuses to run. Verified 2026-08-21 with loader 0.2.7 and libwebp 1.6.0. |
+| Chrome or Chromium | optional corpus fixture | Only for `build_real_corpus.py --with-browser`. Verified 2026-08-21 with Chrome 151. |
 | `qpdf` | fixture validation | Optional. `qpdf --check` confirms a generated PDF fixture is structurally sound. |
 | ImageMagick | fixture validation | Optional. `magick identify` confirms a JPEG, PNG, or WebP fixture still decodes; `magick compare -metric AE` confirms stripping changed no pixels. |
 | Python 3 | fixture generation | Optional. Only needed to regenerate `corpus/`. |
@@ -245,12 +247,52 @@ mat2 --show /tmp/strypt-diff/*.stripped.pdf
 Anything either tool still reports is **either a bug or a documented limitation**, and that
 decision must be explicit and recorded — never made by silence.
 
-**mat2's WebP path needs a GdkPixbuf WebP loader**, which is not present on every machine. Where
-it is missing, mat2 fails on the *original* fixtures as well as on strypt's output, so the
-comparison says nothing and must be recorded as not run rather than as a pass. Check with
-`mat2 --show corpus/webp/all-metadata.webp` before drawing any conclusion from a WebP run.
-Verified 2026-08-19: not available on the macOS machine used, so the WebP mat2 differential is
-outstanding (`docs/THREAT_MODEL.md` §7.4).
+### WebP differential
+
+**mat2's WebP path needs a GdkPixbuf WebP loader**, absent on many machines. Where it is
+missing, mat2 fails on the *original* fixtures as well as on strypt's output, so the comparison
+says nothing and must be recorded as not run rather than as a pass. That was the state from
+2026-08-19 until 2026-08-21.
+
+```sh
+brew install webp-pixbuf-loader          # macOS; Debian/Ubuntu: apt install webp-pixbuf
+gdk-pixbuf-query-loaders | grep -i webp  # must print a line, or mat2 cannot read WebP
+
+./scripts/webp-differential.sh                     # the 14 synthetic fixtures
+./scripts/webp-differential.sh /path/to/other/dir  # any directory of .webp files
+```
+
+The script exits 2 without running if the loader is missing — a clean sweep that both tools
+failed identically is worse than no result, because it looks like evidence. Exit 0 means no tag
+mat2 removes survives in strypt's output; exit 1 lists the gaps.
+
+Two expected notes in its output are **not** strypt findings: mat2 re-encodes through GdkPixbuf,
+so it flattens animations to a single frame, and it can expose `ALPH` bitstream parameters the
+input did not have. Both are recorded in `docs/THREAT_MODEL.md` §7.4.
+
+### Real-producer corpus
+
+Files from real cameras, converters and producers, kept **out of this repository** because they
+carry real names, a device serial and live GPS coordinates
+([`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §3). The build script and manifests are
+committed; the files are fetched on demand.
+
+```sh
+cd real-producer-corpus
+python3 build_real_corpus.py                  # 102 fixtures; clones upstreams into .cache/ once
+python3 build_real_corpus.py --with-browser   # + a WebP encoded by the local browser (103)
+```
+
+The first run needs network to clone three public repositories; later runs are offline, since
+`acquire()` only clones what is absent. **This is corpus tooling, not strypt** — ADR-0004's
+no-network rule constrains the shipped dependency graph, not a developer script that fetches
+test data.
+
+`--with-browser` is opt-in on purpose. It drives headless Chrome through
+`canvas.toDataURL('image/webp')` to get a genuinely browser-encoded file, but browsers
+auto-update, so its bytes would otherwise churn the committed `MANIFEST.csv` on every
+contributor's machine. Without a browser installed it prints `SKIP` and carries on. `prune()`
+never deletes the result, because regenerating it needs a browser the next machine may lack.
 
 **Every crash, hang, or OOM requires a regression test and the offending input added to the
 corpus before the fix is accepted** ([`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md)
