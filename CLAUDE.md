@@ -28,29 +28,34 @@ shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for a
 formats, and — as of 2026-08-20 — a fetch-on-demand real-producer corpus of 102 files that all
 four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
 
-**Do not read "all four handlers exist" as "Phase 1 is nearly done".** These exit criteria are
-outstanding and none of them is a handler:
+**All seven numbered Phase 1 exit criteria are now met** — criterion 2 on 2026-08-22 and
+criterion 6 the same day. **The phase is still open**, on one non-numbered item: committed
+real-producer fixtures. Do not announce Phase 1 as complete until that closes, and do not start
+Phase 2 work on the assumption that it has.
 
-- **Sustained fuzzing** — started, nowhere near finished, and still the largest remaining gap.
-  Two runs have happened via `scripts/fuzz-sustained.sh`: **37.79 CPU-hours** (2026-08-20) and
-  **30.42** (2026-08-21), **68.21 total**. Between them they found four real PDF defects, all
-  fixed with regression tests.
+Status of the items that were outstanding, kept because the detail matters:
 
-  **Know which bar you are measuring against.** Phase 1 exit criterion 2 is *"zero panics,
-  crashes, hangs, or OOMs across all four fuzz targets after a sustained run"* — no CPU-hour
-  figure, no plateau. ADR-0014's 100 CPU-hours plus plateau is a **Phase 3** deliverable.
+- ~~**Sustained fuzzing**~~ — ✅ **exit criterion 2 met 2026-08-22.** Three runs via
+  `scripts/fuzz-sustained.sh`: **37.79 CPU-hours** (08-20), **30.42** (08-21), **12.00** (08-22),
+  **80.21 total**. They found four real PDF defects, all fixed with regression tests. The third
+  run was PDF alone and came back **clean — zero crashes, hangs or OOMs over a full 12.00
+  delivered CPU-hours**, the first sustained run in which PDF did not die partway.
+
+  **Know which bar you are measuring against.** Criterion 2 is *"zero panics, crashes, hangs,
+  or OOMs across all four fuzz targets after a sustained run"* — no CPU-hour figure, no plateau.
+  ADR-0014's 100 CPU-hours plus plateau is a **Phase 3** deliverable.
   `scripts/fuzz-sustained.sh` serves both and its header used to conflate them; do not
   re-import that error by citing ADR-0014 as a Phase 1 gate.
 
-  **PDF is the only handler that has ever failed criterion 2** — the `lopdf` xref overflow at
-  5h47m, then the `/Root` defect at 47 minutes. Both fixed. JPEG, PNG, WebP and detect have
-  zero artefacts across both runs and are unchanged since. So the criterion turns on one clean
-  sustained PDF run.
+  One caveat is recorded in `docs/ROADMAP.md`: no single run has yet had all four targets clean
+  at once. The 08-22 run rests on standing evidence for JPEG, PNG, WebP and detect, which have
+  zero artefacts across both earlier runs and unchanged handlers since. Assessed as met; a
+  five-target clean run would remove the interpretation and is not a blocker.
 
-  Kept for Phase 3, not needed for Phase 1: JPEG, PNG and WebP each plateaued in the second run
-  (last gains 13845s, 16044s, 19442s of 26673s). PDF has not — its `yes` was an artifact of a
-  truncated run, now reported as `n/a`. Do not report criterion 2 as passed until a sustained
-  run comes back clean.
+  **Phase 3 evidence, not a Phase 1 gate:** JPEG, PNG and WebP plateaued inside 8h; **PDF did
+  not plateau in 12h** (last gain 40919s of 43203s, 4324 → 4366 edges). That argues ADR-0014's
+  flat 100 should become per-handler numbers — but PDF still owes a run long enough to flatten,
+  so do not supersede the ADR on this data alone.
 - **The real-producer corpus is deliberately not committed**: its files carry real names, a
   device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3). The build script and
   manifests are committed and rebuild it. Both WebP coverage gaps closed 2026-08-21 — a

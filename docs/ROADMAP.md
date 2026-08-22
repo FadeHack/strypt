@@ -139,8 +139,8 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
 
   **Still missing:** committed fixtures for real producers, since the fetched files cannot
   serve that role — they carry real names, a device serial and live GPS coordinates.
-- **Sustained fuzzing (exit criterion 2).** Under way, not met. Two sustained runs have
-  happened, via `scripts/fuzz-sustained.sh`, delivering **68.21 CPU-hours** in total.
+- **Sustained fuzzing (exit criterion 2).** ✅ **Met 2026-08-22**, on the third sustained run.
+  Three runs via `scripts/fuzz-sustained.sh` have delivered **80.21 CPU-hours** in total.
 
   The first (2026-08-20) delivered **37.79 CPU-hours** — eight hours each on JPEG, PNG, WebP
   and detect, and 5h47m on PDF, which stopped early on a genuine finding. It earned its keep:
@@ -160,23 +160,45 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   serves both bars and its header used to conflate them, which caused Phase 1 to be assessed
   against a Phase 3 number.
 
-  **PDF is the only handler that has ever failed this criterion.** JPEG, PNG, WebP and detect
-  recorded zero artefacts in both runs and have not changed since. PDF crashed in both — the
-  `lopdf` xref overflow at 5h47m, then the `/Root` defect at 47 minutes. Both are fixed, and
-  all three stored artefacts replay clean, so the criterion turns on whether PDF now survives
-  a sustained run intact.
+  The third (2026-08-22) is the one that met it: **PDF alone, 12.00 CPU-hours budgeted and
+  12.00 delivered — zero crashes, zero hangs, zero OOMs**, 3100 corpus files at 7590 exec/s.
+  Budget and delivered matching is itself the headline: it is the first sustained run in which
+  PDF did not die partway.
 
-  Coverage data from these runs is being kept for Phase 3 rather than discarded — JPEG, PNG
-  and WebP each reached a plateau in the second run (last gains at 13845s, 16044s and 19442s
-  of 26673s). PDF has not plateaued honestly: the `yes` in that run's summary was an artifact
-  of a truncated run, since fixed in the script so it reports `n/a` instead.
+  **PDF was the only handler that ever failed this criterion**, and it no longer does. JPEG,
+  PNG, WebP and detect recorded zero artefacts across both earlier runs and are unchanged
+  since. The four defects that ended the earlier runs — negative zero in the object graph and
+  again in the trailer, the `lopdf` xref overflow, and the `/Root` corruption — are each fixed
+  with a regression test, and none recurred.
+
+  **One caveat, recorded rather than glossed.** The criterion says "across all four fuzz
+  targets after *a* sustained run", and no single run has yet had all four clean at once: this
+  one was PDF alone, resting on standing evidence for the other three. That evidence is current
+  — their handlers have not changed since their clean runs — so the criterion is assessed as
+  met. A single five-target clean run would remove the interpretation entirely and is cheap to
+  do; it is not treated as a blocker.
+
+  **Coverage data is kept for Phase 3, and it already says ADR-0014's flat number is the wrong
+  shape.** JPEG, PNG and WebP each plateaued inside eight hours (last gains at 13845s, 16044s
+  and 19442s of 26673s). **PDF did not plateau in twelve** — its last gain came at 40919s of
+  43203s, deep inside the final quarter, climbing 4324 → 4366 edges over the run. So after
+  roughly 29 cumulative CPU-hours PDF is still exploring while three handlers stopped at eight.
+  That is the measurement ADR-0014 asked for, and it argues for per-handler numbers rather than
+  one flat 100. Do not supersede ADR-0014 on this alone — PDF still owes a run long enough to
+  actually flatten — but this is the evidence that revision should start from.
 - **Performance numbers.** ✅ Done. `docs/PRD.md` §9 now carries measurements from
   `scripts/measure-performance.sh`, which refuses to run against a debug binary. One machine
   only — Linux and Windows are unmeasured, and none of it is a commitment.
 - ~~**The mat2 differential for WebP**, on a machine with a GdkPixbuf WebP loader.~~ ✅ Done
   2026-08-21: `webp-pixbuf-loader` 0.2.7 installed, `scripts/webp-differential.sh` run over the
   14 synthetic fixtures and 30 real-producer WebPs, no gaps. Exit criterion 3 is met for WebP.
-- **CI green on all three platforms.**
+- **CI green on all three platforms.** ✅ Done 2026-08-22 on `99feed2`: all seven jobs green —
+  `test (ubuntu-latest)`, `test (macos-latest)`, `test (windows-latest)`, clippy, rustfmt, fuzz
+  smoke, and MSRV (ADR-0013). Exit criterion 6 is met for the current tree, not merely for an
+  older commit.
+
+**Remaining before Phase 1 can close:** the committed real-producer fixtures above. Every
+numbered exit criterion is now met.
 
 **Deliverables.**
 - `strypt-core`: bounded ingest, content-sniffing format detection, handler registry, the
