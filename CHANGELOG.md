@@ -141,6 +141,19 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - Test corpus with a manifest and a deterministic generator (`corpus/tools/`). No fixture
   contains real personal data, by construction.
 
+- **The real-producer test corpus no longer carries anyone's real personal data.** The files it
+  fetches from public sample repositories held four real names in Canon owner-name fields, two
+  more in PDF author fields, a camera serial number, and live GPS coordinates for five
+  photographs — Helsinki, Hämeenlinna, Kansas City and Madrid. `sanitise_corpus.py` now replaces
+  every one with a synthetic value on each build, keeping the producer's file structure intact
+  so the fixtures still test what they were collected to test. The build refuses to write its
+  manifests if verification finds anything real surviving.
+
+  This never affected anyone using strypt — the corpus is a development-only, fetch-on-demand
+  set that ships in no release and was never committed. It matters because those files were a
+  step away from being committed, and a metadata-removal tool publishing a stranger's home
+  coordinates is the exact failure it exists to prevent.
+
 ### Fixed
 
 - **A malicious PDF could crash strypt instead of being refused.** A flaw in the underlying PDF

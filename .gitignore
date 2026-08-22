@@ -45,15 +45,29 @@ AGENTS.md
 # and `build_real_corpus.py` fetches them again on demand.
 /real-producer-corpus/.cache/
 #
-# The fixtures themselves stay out of history too, and this one is not about size.
-# `docs/TESTING_STRATEGY.md` §3 is absolute: no committed file may carry real personal data,
-# because the corpus is public and permanent. A sweep on 2026-08-20 found four real names in
-# Canon MakerNote OwnerName fields, two more in PDF Author fields, a device serial number,
+# The fixtures themselves stay out of history too. The reasons have changed, so read them
+# again before assuming this rule still rests on what it originally did.
+#
+# ORIGINALLY, and no longer: real personal data. A sweep on 2026-08-20 found four real names
+# in Canon MakerNote OwnerName fields, two more in PDF Author fields, a device serial number,
 # and live GPS coordinates for five photographs — Helsinki, Hämeenlinna, Kansas City and
-# Madrid. That the same files are public upstream does not make it this project's business to
-# republish them, least of all in a tool whose entire purpose is removing that data. The
-# second rule in §3 — large fixtures belong in a fetched-on-demand corpus — applies as well,
-# at 32 MB.
+# Madrid. **`sanitise_corpus.py` now replaces all of it with synthetic values on every build**,
+# verified, with the build aborting rather than writing a manifest if any real value survives.
+# So `docs/TESTING_STRATEGY.md` §3's first rule no longer blocks committing these files.
+#
+# STILL STANDING, and why the rule remains:
+#
+#   1. Size. §3's second rule — large fixtures belong in a fetched-on-demand corpus, not in
+#      git history forever — applies at 32 MB regardless of what the files contain.
+#   2. Licensing, which is unresolved. `SOURCES.md` pins down exactly one of three upstreams
+#      (py-pdf/sample-files, CC-BY-SA-4.0 — copyleft, which would put share-alike assets in an
+#      MIT-OR-Apache-2.0 tree). ianare/exif-samples says "upstream licensing applies" and
+#      imazen/codec-corpus says "see per-dataset licenses". Redistributing 91 files of
+#      undetermined licence is a separate problem from redistributing personal data, and
+#      sanitising fixed only the latter.
+#
+# Committing the corpus therefore needs the licensing question answered first, and probably a
+# curated subset rather than all 32 MB.
 #
 # Nothing is lost by this. `build_real_corpus.py` reproduces all 101 fixtures into these exact
 # directories, verified byte-identical on rebuild, so the corpus is a command away for anyone

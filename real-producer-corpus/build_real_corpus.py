@@ -11,6 +11,8 @@ import csv, hashlib, json, os, shutil, subprocess, sys
 from collections import Counter
 from pathlib import Path
 
+import sanitise_corpus
+
 ROOT = Path(__file__).resolve().parent
 CORPUS = ROOT / "real-corpus"
 CACHE = ROOT / ".cache"
@@ -283,7 +285,7 @@ def manifests():
     browser_line = ""
     (CORPUS/"MANIFEST.md").write_text("# Real-producer corpus manifest\n\n- Total fixtures: %d\n- Total size: %d bytes\n- By format: %s\n- By category: %s\n- Provenance: %s\n- Malformed-but-useful: %d\n- Duplicate hashes: %d\n\nMetadata and validation details are in `MANIFEST.csv`. Generated fixtures are never presented as producer output.\n%s"%(len(rows),sum(int(r['size_bytes']) for r in rows),dict(counts),dict(cats),dict(prov),sum('malformed-but-useful' in r['validation_status'] for r in rows),sum(len(v)-1 for v in hashes.values() if len(v)>1),browser_line))
     (CORPUS/"SOURCES.md").write_text("# Sources\n\n- [ianare/exif-samples](https://github.com/ianare/exif-samples): camera/device JPEG samples; upstream licensing/provenance applies.\n- [imazen/codec-corpus](https://github.com/imazen/codec-corpus): imageflow, image-rs, PNG/WebP conformance and real-world assets; see per-dataset licenses.\n- [py-pdf/sample-files](https://github.com/py-pdf/sample-files): PDF producer samples, CC-BY-SA-4.0.\n\nExact source-relative paths and confidence notes are represented in the collector table and manifest.\n")
-    (CORPUS/"README.md").write_text("# Local real-producer corpus\n\nA fetched-on-demand engineering corpus for strypt, separate from the committed synthetic fixture corpus. It exercises producer quirks and makes no claim that generated files are real. Run `python3 build_real_corpus.py` from this directory to acquire sources (if absent), copy curated fixtures, validate them, and regenerate manifests. Files with weak provenance are explicitly marked LOW; categories are coverage buckets, not unsupported producer assertions.\n\n`webp/browser/chrome-canvas.webp` is built only by `--with-browser` and is deliberately absent from `MANIFEST.csv`: it is encoded by the local browser, whose output changes on every auto-update, so a committed row for it could not round-trip on another machine. The build prints the exact browser version when it writes the file.\n")
+    (CORPUS/"README.md").write_text("# Local real-producer corpus\n\nA fetched-on-demand engineering corpus for strypt, separate from the committed synthetic fixture corpus. It exercises producer quirks and makes no claim that generated files are real. Run `python3 build_real_corpus.py` from this directory to acquire sources (if absent), copy curated fixtures, validate them, and regenerate manifests. Files with weak provenance are explicitly marked LOW; categories are coverage buckets, not unsupported producer assertions.\n\n**Every build sanitises before it writes manifests** (`sanitise_corpus.py`). The upstream files carry real named people, a real camera serial and live GPS; those values are replaced with synthetic ones while the producer's structure is preserved, because the structure is the whole reason to keep a real-producer fixture. The build aborts rather than write a manifest if verification fails. Do not disable this: the copy step restores pristine upstream bytes on every run, so skipping sanitisation silently reinstates the real data.\n\n`webp/browser/chrome-canvas.webp` is built only by `--with-browser` and is deliberately absent from `MANIFEST.csv`: it is encoded by the local browser, whose output changes on every auto-update, so a committed row for it could not round-trip on another machine. The build prints the exact browser version when it writes the file.\n")
     return rows, hashes
 def prune():
     """Delete corpus files this script no longer produces.
@@ -314,5 +316,13 @@ def main():
         elif not inp.exists(): print("SOURCE FAILURE",src)
     generated()
     if "--with-browser" in sys.argv: browser_webp()
+    # Sanitisation runs BEFORE manifests, and cannot be skipped.
+    #
+    # The copy loop above restores the pristine upstream bytes whenever they differ from what is
+    # on disk, so without this the next build would quietly reinstate the real names, the camera
+    # serial and the live GPS. Manifests must also be generated afterwards, or every sha256 in
+    # MANIFEST.csv would describe a file that no longer exists on disk.
+    if sanitise_corpus.sanitise(): sys.exit("sanitisation failed; refusing to write manifests")
+    if sanitise_corpus.verify(): sys.exit("sanitisation verification failed; refusing to write manifests")
     prune(); rows, hashes=manifests(); print(f"fixtures={len(rows)} bytes={sum(int(r['size_bytes']) for r in rows)} duplicates={sum(len(v)-1 for v in hashes.values() if len(v)>1)}")
 if __name__ == "__main__": main()

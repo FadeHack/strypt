@@ -146,6 +146,24 @@ an unfixed bug with a delay.
 - Keep binaries small. Large fixtures belong in a fetched-on-demand corpus, not in git
   history forever.
 
+**Sanitising a real-producer file, in practice.** `real-producer-corpus/sanitise_corpus.py`
+runs on every corpus build and replaces real names, the camera serial, and live GPS with
+synthetic values while preserving the producer's structure — a Canon's maker-note layout,
+LaTeX's object numbering. Structure is the entire reason to keep a real-producer fixture; a
+regenerated file would not carry the quirks it exists to test. Two findings from writing it are
+worth knowing before sanitising anything else:
+
+- **Never use `exiftool` to sanitise a PDF.** It writes an incremental update and leaves the
+  superseded object in place, so the original value stays in the bytes while `exiftool` reports
+  the new one. Verified on `GeoTopo-komprimiert.pdf`: after setting `Author`, `Martin Thoma` was
+  still present. This is exactly the defect class strypt exists to catch, and it would have
+  shipped a corpus that looked clean. Same-length byte substitution is used instead, which keeps
+  every offset and the cross-reference table valid; `qpdf --check` confirms it.
+- **A silent no-op looks like success.** `-Canon:OwnerName` on a CIFF-format file and
+  `-XMP-exif:SerialNumber` on a PNG both exit 0 and change nothing. Any sanitiser needs an
+  independent verification pass that re-reads the bytes; do not trust the writing tool's exit
+  code.
+
 ---
 
 ## 4. CI
