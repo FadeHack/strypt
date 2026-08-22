@@ -936,3 +936,65 @@ criterion satisfied by redefining the failure as acceptable is not satisfied.
   and CLAUDE.md §3.8 forbids printing metadata values.
 - It is a general mechanism rather than a PDF one. Any future handler wrapping a third-party
   parser should use it, and Phase 2's ZIP-container work is the obvious next candidate.
+
+---
+
+## ADR-0025 — The real-producer corpus stays fetched, not committed
+
+**Status:** Accepted (2026-08-22)
+
+**Context.** Phase 1 carried an outstanding item reading *"committed fixtures for real
+producers, since the fetched files cannot serve that role — they carry real names, a device
+serial and live GPS coordinates."* It was the last thing standing between the phase and done,
+and the question of how to close it kept recurring, so it is settled here rather than in a
+`.gitignore` comment.
+
+Two things changed since it was written. `sanitise_corpus.py` (2026-08-22) now replaces every
+real name, the camera serial, and the live GPS with synthetic values on every build, verified,
+with the build aborting rather than writing a manifest if anything real survives — so the
+item's own stated reason no longer holds. And the upstream licences were checked properly
+rather than assumed:
+
+| Upstream | Files | Licence |
+|---|---|---|
+| py-pdf/sample-files | 22 PDFs, 7.6 MB | CC BY-SA 4.0 — determinate, copyleft |
+| codec-corpus/image-rs | 9 PNG/WebP, 96 KB | MIT |
+| codec-corpus/{png-conformance, imageflow, webp-conformance} | 20 files | "Various" — undetermined |
+| ianare/exif-samples | 20 JPEGs, 19 MB | **no LICENSE file exists**; archived 2025-04-22 |
+
+**Decision.** The real-producer corpus is **not** committed. `build_real_corpus.py`,
+`sanitise_corpus.py`, `MANIFEST.csv` and `MANIFEST.md` are committed and reproduce it on
+demand. What lands in `corpus/` is what it always has been: synthetic fixtures, and small
+synthetic reproductions of anything the real corpus finds.
+
+**Why not commit a licence-clean subset.** It was proposed and rejected, because the value is
+inverted. The files at real risk of vanishing are exactly the ones that cannot be committed —
+`exif-samples` is archived and carries no licence at all. The files that *could* be committed
+come from active repositories at low risk of disappearing. Committing would take on licensing
+obligations and permanent git weight for the fixtures that need it least, while doing nothing
+for the fragile ones.
+
+The discovery-to-fixture workflow also already works without redistribution, and
+`docs/TESTING_STRATEGY.md` §3 already prescribes it: *"if a reporter's file cannot be
+sanitised, reproduce the structure synthetically instead."* `corpus/pdf/malformed/xref-19-byte-entries.pdf`
+exists because the real corpus hit that limitation against a real scanner PDF and a synthetic
+reproduction was committed; `stream-length-mismatch.pdf` came the same way. Those synthetic
+files are what the regression tests actually run against. No third-party file needed to enter
+git history for any of it.
+
+Committing would also breach §3's own size rule — large fixtures belong in a fetched-on-demand
+corpus — at 32 MB, or 2.5 MB even for the licence-clean subset.
+
+**Consequences.**
+
+- Phase 1 exit criteria are met and the phase closes on this decision.
+- **`exif-samples` being archived is an unmitigated risk, stated plainly.** JPEG real-producer
+  coverage depends on a repository nobody maintains, and it cannot be reconstituted if it
+  disappears, because there is no licence under which to keep a copy. The available mitigation
+  is first-party photographs, whose licence is the project's own; none exist yet.
+- **There is no offline real-producer sweep.** Running one requires a fetch. This is the single
+  concrete thing committing would have bought, and it is given up knowingly.
+- Anything the real corpus finds must still be reproduced synthetically and committed, per
+  §3. A finding that lives only in the fetched corpus is a finding that will be lost.
+- If a future phase does commit real-producer files, the licence table above is the starting
+  point, and `exif-samples` is not an option without an upstream grant.

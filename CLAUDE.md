@@ -17,7 +17,7 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 1 — Core engine + CLI**
+## 2. Current phase: **Phase 1 complete (2026-08-22) — Phase 2 not started**
 
 **Phase 0 is complete. All four Phase 1 handlers exist and work — but the phase does not end
 there.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, and WebP; every other format
@@ -28,10 +28,21 @@ shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for a
 formats, and — as of 2026-08-20 — a fetch-on-demand real-producer corpus of 102 files that all
 four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
 
-**All seven numbered Phase 1 exit criteria are now met** — criterion 2 on 2026-08-22 and
-criterion 6 the same day. **The phase is still open**, on one non-numbered item: committed
-real-producer fixtures. Do not announce Phase 1 as complete until that closes, and do not start
-Phase 2 work on the assumption that it has.
+**Phase 1 closed on 2026-08-22.** All seven numbered exit criteria are met, and the last
+non-numbered item — committed real-producer fixtures — is resolved by ADR-0025, which decided
+*not* to commit them. **Phase 2 has not started.** Nothing beyond Phase 1 exists, and the scope
+lock in ADR-0005 still holds until a superseding ADR opens Phase 2 deliberately.
+
+**Closed does not mean unqualified.** Read these before repeating "Phase 1 is done" anywhere
+user-facing — each is a real limit, not a formality:
+
+- No single fuzz run has had all four targets clean simultaneously; criterion 2 rests on a
+  12h PDF-only run plus standing evidence for the other three.
+- No committed real-producer fixture exists, and JPEG real-producer coverage depends on
+  `ianare/exif-samples`, which is archived and has no licence, so it cannot be mirrored.
+- The recorded limitations stand: the JPEG `APP14` marker mat2 removes, and the 19-byte-xref
+  PDF that strypt refuses and mat2 strips.
+- Performance is measured on one machine. Linux and Windows are unmeasured.
 
 Status of the items that were outstanding, kept because the detail matters:
 

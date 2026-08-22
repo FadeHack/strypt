@@ -141,6 +141,16 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - Test corpus with a manifest and a deterministic generator (`corpus/tools/`). No fixture
   contains real personal data, by construction.
 
+- **Phase 1 is complete.** `strypt show` and `strypt strip` handle PDF, JPEG, PNG and WebP;
+  every other format is reported as unsupported and never passed through untouched. All seven
+  exit criteria are met, including a 12-hour fuzz run of the PDF parser with no crashes, hangs
+  or memory exhaustion, and a green build and test run on Linux, macOS and Windows.
+
+  What that does **not** mean: no tool can guarantee total metadata removal, and the documented
+  limitations still apply — strypt keeps the JPEG `APP14` colour-transform marker that mat2
+  removes, and refuses a PDF with 19-byte cross-reference entries that mat2 strips, where mat2
+  is the better recommendation for that file. Performance figures come from one machine.
+
 - **The real-producer test corpus no longer carries anyone's real personal data.** The files it
   fetches from public sample repositories held four real names in Canon owner-name fields, two
   more in PDF author fields, a camera serial number, and live GPS coordinates for five

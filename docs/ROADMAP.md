@@ -73,7 +73,7 @@ it exists, how it is built, what phase it is in, and what to do next, without as
 
 ---
 
-## Phase 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) *(in progress)*
+## Phase 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) *(complete 2026-08-22)*
 
 **Goal.** A person can strip metadata from the four highest-risk formats with a tool that is
 correct, honest about what it did, and demonstrably does not crash on hostile input.
@@ -137,8 +137,17 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   `build_real_corpus.py --with-browser`, because a browser's bytes change on every auto-update
   and would otherwise churn the committed manifest.
 
-  **Still missing:** committed fixtures for real producers, since the fetched files cannot
-  serve that role — they carry real names, a device serial and live GPS coordinates.
+  ~~**Still missing:** committed fixtures for real producers, since the fetched files cannot
+  serve that role — they carry real names, a device serial and live GPS coordinates.~~
+  ✅ **Resolved 2026-08-22 by ADR-0025 — deciding *not* to commit them.** The stated reason for
+  this item was the personal data, and `sanitise_corpus.py` now replaces all of it on every
+  build. A licence-clean subset was proposed and rejected: the files at real risk of vanishing
+  (`ianare/exif-samples`, archived, **no LICENSE file at all**) are exactly the ones that cannot
+  be committed, while the ones that could be come from healthy repositories. The
+  discovery-to-synthetic-reproduction workflow already covers this without redistributing
+  anything — see `corpus/pdf/malformed/xref-19-byte-entries.pdf`. Two costs recorded in the
+  ADR rather than glossed: JPEG real-producer coverage depends on an unmaintained upstream that
+  cannot be mirrored, and there is no offline real-producer sweep.
 - **Sustained fuzzing (exit criterion 2).** ✅ **Met 2026-08-22**, on the third sustained run.
   Three runs via `scripts/fuzz-sustained.sh` have delivered **80.21 CPU-hours** in total.
 
@@ -197,8 +206,12 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   smoke, and MSRV (ADR-0013). Exit criterion 6 is met for the current tree, not merely for an
   older commit.
 
-**Remaining before Phase 1 can close:** the committed real-producer fixtures above. Every
-numbered exit criterion is now met.
+**Phase 1 is complete as of 2026-08-22.** All seven numbered exit criteria are met — criterion 2
+by a clean 12.00-CPU-hour PDF fuzz run and criterion 6 by all seven CI jobs green on `99feed2`
+— and the last non-numbered item is resolved by ADR-0025. What is *not* claimed: no tool
+guarantees total metadata removal, the recorded limitations stand (the JPEG `APP14` marker, the
+19-byte-xref refusal), performance is measured on one machine, and the caveats above about
+fuzz-run composition and real-producer coverage are real rather than decorative.
 
 **Deliverables.**
 - `strypt-core`: bounded ingest, content-sniffing format detection, handler registry, the

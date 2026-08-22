@@ -1,22 +1,25 @@
 # strypt
 
-> ## Status: Phase 1 in progress — all four handlers exist, the phase does not end here
+> ## Status: Phase 1 done (2026-08-22) — no audit, no release, no hardening phase yet
 >
 > **PDF, JPEG, PNG, and WebP are implemented.** Everything else is recognised and reported as
-> unsupported; it is not processed. There has been no external audit and no release. All four
-> handlers have now been run over 102 files from real producers — real camera maker notes
-> included — which found and fixed one genuine bug and one documented limitation
-> (see [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.5). The differential against mat2 is
-> complete for all four formats as of 2026-08-21, WebP included. Sustained fuzzing has
-> begun — 37.8 CPU-hours across five targets, which found three real PDF defects, all fixed —
-> but only the format-detection target has stopped finding new code paths, so the budget the
-> roadmap calls for is not yet met. Performance numbers in the PRD are now measured rather than
-> estimated, on one machine.
+> unsupported; it is not processed. All seven Phase 1 exit criteria are met: the handlers were
+> swept over 102 files from real producers — real camera maker notes included — the mat2
+> differential covers all four formats, performance is measured, CI is green on Linux, macOS and
+> Windows, and 80 CPU-hours of fuzzing across five targets found four real PDF defects, each
+> fixed with a regression test, ending in a 12-hour PDF run with no crashes, hangs or OOMs.
+>
+> **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
+> tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
+> and has not started, so the 100-CPU-hour-per-handler fuzzing budget is *not* met — PDF was
+> still finding new code paths at hour 12. Two limitations are documented rather than fixed: the
+> JPEG `APP14` marker mat2 removes, and a PDF with 19-byte cross-reference entries that strypt
+> refuses and mat2 handles. Performance is one machine; Linux and Windows are unmeasured.
 >
 > | Phase | Status |
 > |---|---|
-> | 0 — Foundation: docs, workspace, CI gates | ✅ Complete |
-> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | 🟡 All four handlers done, swept over a real-producer corpus, performance measured; sustained fuzzing under way but short of the budget |
+> | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
+> | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
 > | 2 — Expanded formats · 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
