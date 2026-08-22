@@ -5,19 +5,20 @@ reports are treated accordingly.
 
 ---
 
-> ## ⚠️ Placeholder — requires owner action before this policy is real
+> ## What this policy can and cannot deliver today
 >
-> **The contact details below are not yet configured.** Until the project owner fills them
-> in, there is no working private reporting channel and this document promises something the
-> project cannot currently deliver.
+> **This is a single-maintainer project with no external audit.** Be aware of three limits
+> before relying on anything below. They are stated here rather than discovered later:
 >
-> **Owner checklist:**
-> - [ ] Create a dedicated security contact address, and publish a PGP key for it.
-> - [ ] Enable GitHub Private Vulnerability Reporting on the repository (preferred primary
->       channel — it requires no key management from the reporter).
-> - [ ] Name a **backup contact**, so reports do not depend on one person being reachable.
->       `docs/ROADMAP.md` Phase 7 makes this an exit criterion.
-> - [ ] Replace this block with the real details and remove the placeholder warning.
+> - **There is no backup contact.** If the maintainer is unreachable, a report waits. Naming
+>   one is a `docs/ROADMAP.md` Phase 7 exit criterion and it is not met.
+> - **Reports arrive over ordinary email, unencrypted.** No PGP key is published, because a
+>   key the maintainer cannot reliably use would be worse than none — a reporter would encrypt
+>   a real finding into something unreadable. Assume the mail provider can read what you send,
+>   and see the note below on what not to attach.
+> - **GitHub Private Vulnerability Reporting is not available.** GitHub offers it on public
+>   repositories only, and this repository is private. It will be enabled if and when that
+>   changes, and will become the preferred channel at that point.
 
 ---
 
@@ -25,16 +26,17 @@ reports are treated accordingly.
 
 **Do not open a public issue for a security vulnerability.**
 
-Preferred: GitHub's private vulnerability reporting on this repository *(to be enabled — see
-above)*.
-
-Alternative: email `[SECURITY CONTACT — TO BE CONFIGURED]`, encrypted to
-`[PGP KEY FINGERPRINT — TO BE CONFIGURED]` if the report is sensitive.
+Email **`fadehack.dev@gmail.com`**, with `strypt security` in the subject line.
 
 Please include: affected version and platform, what you observed and what you expected, steps
 to reproduce, and a sample file if one is involved — **sanitised of any real personal data**,
 or reproduced synthetically. We will not ask you to send a file containing someone's real
 location or identity.
+
+That request matters more than usual here, because the channel is unencrypted. If a finding
+can only be demonstrated with a file carrying someone's real data, say so in the mail and send
+the description alone; we will work out a safer way to exchange the sample rather than have it
+sitting in two mailboxes.
 
 ## What counts as a vulnerability
 
@@ -67,9 +69,10 @@ document that causes over-trust is its own hazard (threat model §5.6).
 | Fix or documented mitigation for high severity | 30 days |
 | Public disclosure | Coordinated with the reporter, normally after a fix ships |
 
-These targets reflect a small volunteer maintainer team. If you have not heard back within
-the acknowledgement window, please chase — assume an unread message rather than a decision to
-ignore you.
+**These are targets, not guarantees, and they rest on one person being reachable.** strypt has
+a single maintainer and no backup contact, so a holiday or an illness is the realistic failure
+mode for the acknowledgement window — not a decision about your report. If you have not heard
+back within it, please chase; assume an unread message rather than a judgement.
 
 Every accepted security fix ships with a regression test and its triggering input in the test
 corpus, per [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §2.6.
@@ -87,8 +90,10 @@ requests for anonymity are honoured without question or explanation.
 
 ## Supported versions
 
-Until v1.0, only the latest release receives security fixes. A support policy for older
-releases will be defined at v1.0.
+There have been no releases. `strypt` and `strypt-core` are published on crates.io at `0.0.1`,
+which exists to hold the names and is not a release — see the [README](README.md) status block.
+Only the latest published version receives fixes; a support policy for older releases will be
+defined at v1.0.
 
 ## Scope
 

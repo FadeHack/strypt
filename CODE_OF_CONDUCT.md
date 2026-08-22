@@ -81,13 +81,19 @@ Conduct reinforces encouraged behaviors and norms that can help avoid conflicts 
 harm.
 
 When an incident does occur, it is important to report it promptly. To report a possible
-violation, contact the project maintainers at
-**`[CODE OF CONDUCT CONTACT — TO BE CONFIGURED BY THE PROJECT OWNER]`**.
+violation, contact the project maintainer at **`fadehack.dev@gmail.com`**.
 
-> ⚠️ **Placeholder.** This address is not yet configured. Until the owner supplies it, this
-> policy has no working reporting channel. It should be an address distinct from the security
-> contact in [`SECURITY.md`](SECURITY.md), and ideally monitored by more than one person so
-> that a report about a maintainer does not go only to that maintainer.
+> ⚠️ **Know this before you write.** That is the sole maintainer's own address, and it is the
+> same one used for security reports in [`SECURITY.md`](SECURITY.md). strypt has one
+> maintainer, so **a report about the maintainer goes to the maintainer** — there is no
+> independent moderator to escalate to, and the references below to "Community Moderators" and
+> to an appeals process describe a structure this project does not yet have.
+>
+> This is a real limitation, not a formality. If that makes reporting unsafe or pointless for
+> you, saying nothing here is a reasonable choice, and raising it in public — in an issue, or
+> anywhere else you can be heard — is legitimate rather than a breach of this document. A
+> separate address monitored by someone other than the maintainer is a `docs/ROADMAP.md`
+> Phase 7 deliverable and is not in place.
 
 Community Moderators take reports of violations seriously and will make every effort to
 respond in a timely manner. They will investigate all reports of code of conduct violations,
