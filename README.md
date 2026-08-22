@@ -51,9 +51,9 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 ## Trying it
 
 ```sh
-cargo run -p strypt-cli -- show corpus/pdf/info-dictionary.pdf
-cargo run -p strypt-cli -- show corpus/jpeg/exif-gps.jpg
-cargo run -p strypt-cli -- strip corpus/jpeg/exif-gps.jpg
+cargo run -p strypt -- show corpus/pdf/info-dictionary.pdf
+cargo run -p strypt -- show corpus/jpeg/exif-gps.jpg
+cargo run -p strypt -- strip corpus/jpeg/exif-gps.jpg
 ```
 
 `show` never writes. `strip` writes a copy beside the input and leaves the original alone
@@ -110,7 +110,7 @@ that matters.
 ## Installation
 
 ```sh
-cargo install strypt-cli    # requires a Rust toolchain
+cargo install strypt    # requires a Rust toolchain
 ```
 
 **That is the only install path, and `0.0.1` is not a release.** The crate was published early
@@ -118,6 +118,10 @@ to hold the name, not because the project is ready to be depended on — Phase 3
 not started and there has been no external audit. Prebuilt binaries, checksums, signing,
 reproducible builds, and a Homebrew formula are Phase 4 and do not exist yet. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+`strypt-cli` on crates.io is the same tool under its original name, published and then yanked
+on 2026-08-23 (ADR-0026). It is not a separate project and it will not be updated; if you have
+it installed, replace it with `strypt`.
 
 ## Documentation
 

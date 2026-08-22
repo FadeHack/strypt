@@ -10,7 +10,7 @@
       "Bash(cargo tree:*)",
       "Bash(cargo metadata:*)",
       "Bash(cargo deny check:*)",
-      "Bash(cargo run -p strypt-cli:*)",
+      "Bash(cargo run -p strypt:*)",
       "Bash(rustc --version)",
       "Bash(rustup show)",
       "Bash(git status:*)",

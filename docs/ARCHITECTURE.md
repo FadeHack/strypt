@@ -13,7 +13,7 @@ silently diverge.
 ```
                           ┌──────────────────────────────────────┐
                           │  front-ends (thin, interchangeable)  │
-                          │  strypt-cli │ strypt-gui │ strypt-ffi│
+                          │    strypt   │ strypt-gui │ strypt-ffi│
                           │   (P1)      │   (P5)     │  (later)  │
                           └────────────────┬─────────────────────┘
                                            │  structured types only
@@ -97,7 +97,7 @@ strypt/
 │   │   │       └── pdf.rs
 │   │   ├── tests/              # integration tests + corpus-driven tests
 │   │   └── fuzz/               # cargo-fuzz targets, one per handler
-│   └── strypt-cli/             # thin: args, orchestration, presentation, exit codes
+│   └── strypt/                 # thin: args, orchestration, presentation, exit codes
 ├── corpus/                     # test fixtures + seed corpora (see TESTING_STRATEGY.md)
 └── docs/
 ```

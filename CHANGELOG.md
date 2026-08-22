@@ -21,17 +21,29 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
-- **`strypt-core` and `strypt-cli` published to crates.io at `0.0.1`**, ahead of the Phase 4
-  work they belong to, so the names are held by this project rather than by whoever registers
-  them first. Names are not reservable on crates.io and a stub crate that only holds one
-  violates its policy, so the crates carry the real code.
+- **strypt is installable: `cargo install strypt`.** `strypt` and `strypt-core` are published
+  to crates.io at `0.0.1`, ahead of the Phase 4 work they belong to, so the names are held by
+  this project rather than by whoever registers them first. Names are not reservable on
+  crates.io and a stub crate that only holds one violates its policy, so the crates carry the
+  real code.
 
   **This is not a release.** `0.0.1` means what it says: Phase 3 hardening has not happened,
-  there has been no external audit, and the limits in the README apply unchanged. `cargo
-  install strypt-cli` works from now on, which is the point at which the install path stops
-  being hypothetical — for anything that matters, mat2 and ExifTool remain the right
-  recommendation. The bare `strypt` name was deliberately left unregistered: there is no crate
-  behind it, and claiming it would be the squatting the policy exists to prevent.
+  there has been no external audit, and the limits in the README apply unchanged. What changed
+  is that the install path stopped being hypothetical — for anything that matters, mat2 and
+  ExifTool remain the right recommendation.
+
+### Changed
+
+- **The CLI crate is now `strypt`, renamed from `strypt-cli` (ADR-0026).** The binary was
+  always called `strypt`, so `cargo install strypt` is the command people will type — and
+  leaving that name unregistered meant the most guessable install path for a metadata-removal
+  tool could later resolve to a stranger's code under the name this project's own
+  documentation prints. The built binary is unchanged.
+
+  `strypt-cli` `0.0.1` is published and **yanked**. Yanking keeps the name registered here, so
+  it cannot be used to impersonate the tool, while stopping anyone installing a version that
+  will never be updated. If you installed `strypt-cli`, replace it with `strypt`; it is the
+  same program.
 
 - **The WebP comparison against mat2 now runs, and passes.** It had been recorded since
   2026-08-19 as *not run* rather than as a pass — mat2 reaches WebP through GdkPixbuf, and

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/strypt-core", "crates/strypt-cli"]
+members = ["crates/strypt-core", "crates/strypt"]
 
 [workspace.package]
 # 0.0.x deliberately: the crates.io names are held by real code, not a stub (docs/ROADMAP.md

@@ -92,7 +92,8 @@ releases will be defined at v1.0.
 
 ## Scope
 
-In scope: `strypt-core`, `strypt-cli`, this repository's CI and release tooling, and the
+In scope: `strypt-core`, `strypt` (the CLI crate, published as `strypt-cli` before
+2026-08-23), this repository's CI and release tooling, and the
 published release artefacts.
 
 Out of scope: vulnerabilities in third-party dependencies (report upstream, and tell us so we

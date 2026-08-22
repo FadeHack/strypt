@@ -59,7 +59,7 @@ rustup show              # confirm the active toolchain is what you think it is
 cargo build                      # debug build, whole workspace
 cargo build --release            # optimised
 cargo build -p strypt-core       # library only
-cargo build -p strypt-cli        # CLI only
+cargo build -p strypt        # CLI only
 ```
 
 ## Test
@@ -84,8 +84,8 @@ cargo clippy --all-targets --all-features -- -D warnings
 ## Running strypt
 
 ```sh
-cargo run -p strypt-cli -- show corpus/pdf/info-dictionary.pdf
-cargo run -p strypt-cli -- strip corpus/pdf/info-dictionary.pdf
+cargo run -p strypt -- show corpus/pdf/info-dictionary.pdf
+cargo run -p strypt -- strip corpus/pdf/info-dictionary.pdf
 ./target/debug/strypt --help
 ```
 

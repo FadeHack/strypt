@@ -2,7 +2,7 @@
 # strypt — no-network guard (ADR-0004)
 #
 # PreToolUse hook. Blocks edits that look like they introduce a networking dependency
-# or a network call into strypt-core / strypt-cli.
+# or a network call into strypt-core / strypt.
 #
 # THIS IS AN EARLY WARNING, NOT THE REAL GATE. See .claude/HOOKS.md for its limits.
 # The authoritative gate is the CI dependency-graph check.

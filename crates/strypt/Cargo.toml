@@ -1,5 +1,5 @@
 [package]
-name = "strypt-cli"
+name = "strypt"
 description = "Strip hidden identifying metadata from files so they are safer to share"
 version.workspace = true
 edition.workspace = true
@@ -17,7 +17,8 @@ path = "src/main.rs"
 
 [dependencies]
 # `version` is required alongside `path`: a bare path dependency is a wildcard
-# (deny.toml `wildcards = "deny"`) and cannot be published to crates.io in Phase 4.
+# (deny.toml `wildcards = "deny"`) and cannot be published to crates.io. Bump it in step with
+# the workspace version — a mismatch is only caught at publish time, not by `cargo test`.
 strypt-core = { path = "../strypt-core", version = "0.0.1" }
 clap = { workspace = true }
 # JSON output. Hand-rolling a serialiser to save a dependency would mean hand-rolling string

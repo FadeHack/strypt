@@ -998,3 +998,57 @@ corpus — at 32 MB, or 2.5 MB even for the licence-clean subset.
   §3. A finding that lives only in the fetched corpus is a finding that will be lost.
 - If a future phase does commit real-producer files, the licence table above is the starting
   point, and `exif-samples` is not an option without an upstream grant.
+
+---
+
+## ADR-0026 — The CLI crate is named `strypt`, not `strypt-cli`
+
+**Status:** Accepted (2026-08-23)
+
+**Context.** `strypt-core` and `strypt-cli` were published to crates.io at `0.0.1` on
+2026-08-23, ahead of Phase 4, because crates.io names are not reservable in advance and a
+stub crate that only holds one violates the registry's policy against a crate that "exists
+only to reserve a name ... without having any genuine functionality". Publishing the working
+code was the only policy-compliant way to keep the names.
+
+That left `strypt` unregistered, and the first assessment was to leave it that way on the
+grounds that registering a name with no crate behind it is exactly the squatting the policy
+targets. That assessment missed the consequence that matters:
+
+**The binary is named `strypt`.** Every usage example, every line of `--help`, and the output
+of `--version` print that word. The command a user will type unprompted is `cargo install
+strypt`. While the name is unregistered that command fails harmlessly; once someone else takes
+it, the most guessable install path for a metadata-removal tool silently resolves to a
+stranger's code, under the exact name this project's documentation tells people to use.
+
+For a tool whose users include people for whom a metadata leak is a physical safety event,
+that is an impersonation vector, not a packaging inconvenience — and it is the kind that is
+cheap to close now and impossible to close later.
+
+**Decision.** The CLI crate is named `strypt`. The package was renamed `strypt-cli` →
+`strypt` and its directory moved `crates/strypt-cli/` → `crates/strypt/`; the `[[bin]]` target
+was already `strypt`, so the built binary is unchanged. `cargo install strypt` installs it.
+
+`strypt-cli` `0.0.1` is **yanked, not abandoned**. Yanking keeps the name registered to this
+project — so it cannot be taken and used to impersonate the tool — while preventing anyone
+from installing a version that will never receive a fix. A never-updated `0.0.1` of a security
+tool sitting installable on crates.io indefinitely is the worse outcome of the two.
+
+This is not squatting in either direction. `strypt` carries the actual CLI; `strypt-cli`
+carries a real published version of the same program under its former name.
+
+**Consequences.**
+
+- Both `strypt` and `strypt-core` are held by real code. `strypt-cli` is held by a yanked
+  real version. All three names are out of reach of a squatter.
+- `cargo install strypt-cli` no longer resolves. This is intended. The README says where the
+  name went and that it is the same tool, so the failure is explicable rather than a
+  dead end.
+- The rename cost one publish and a documentation sweep, done the same day the crates went up
+  and while they had no users. The same change after adoption would have broken dependents.
+- Historical ADRs and completed-phase records still say `strypt-cli`, and are deliberately
+  left alone — they record what was true when written. Living documents (`README.md`,
+  `INSTRUCTIONS.md`, `ARCHITECTURE.md`, `SECURITY.md`, `CLAUDE.md`) were updated.
+- Publishing early does not advance Phase 4 and does not imply Phase 3 happened. `0.0.1`
+  means what it says; `docs/ROADMAP.md` Phase 4 records the deliverable as partly done and
+  states what it does not cover.

@@ -366,16 +366,21 @@ do not themselves undermine the trust model.
 
 **Deliverables.**
 - ~~`strypt-cli` (and `strypt-core`) published to crates.io.~~ **Partly done ahead of this
-  phase, 2026-08-23: both published at `0.0.1`.** Names are not reservable in advance, and
-  crates.io policy prohibits a crate that "exists only to reserve a name... without having any
-  genuine functionality" — so the choice was to publish the real code early or risk the names.
-  The real code went up. `strypt` itself was deliberately **not** registered: no crate exists
-  behind that name, so claiming it would be squatting.
+  phase, 2026-08-23: `strypt` and `strypt-core` published at `0.0.1`.** Names are not
+  reservable in advance, and crates.io policy prohibits a crate that "exists only to reserve a
+  name... without having any genuine functionality" — so the choice was to publish the real
+  code early or risk the names. The real code went up.
+
+  All three names are held. The CLI crate was renamed `strypt-cli` → `strypt` the same day
+  (ADR-0026) so that `cargo install strypt` — the command matching the binary, and the one a
+  user will guess — resolves to this project rather than to whoever registered it first.
+  `strypt-cli` `0.0.1` is published and yanked: yanking keeps the name and stops anyone
+  installing a version that will never be updated.
 
   **Publishing is not releasing, and the version says so.** A `0.0.1` on crates.io does not
   mean this phase's remaining deliverables — binaries, checksums, signing, reproducible
   builds — are met, and it does not mean Phase 3 happened. What it does mean is that
-  `cargo install strypt-cli` now works, so the honesty of the README's status block is load-
+  `cargo install strypt` now works, so the honesty of the README's status block is load-
   bearing in a way it was not while the project was unpublished. Re-verify it before every
   subsequent version bump.
 - GitHub Releases with prebuilt binaries: Linux x86_64 and aarch64, macOS Intel and Apple

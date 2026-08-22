@@ -6,7 +6,8 @@ Read this fully before doing anything in this repository.
 
 ## 1. What strypt is
 
-strypt is a metadata removal tool: a Rust library (`strypt-core`) plus a CLI (`strypt-cli`)
+strypt is a metadata removal tool: a Rust library (`strypt-core`) plus a CLI (`strypt`, the
+crate at `crates/strypt/`; it was called `strypt-cli` until ADR-0026)
 that detects and strips hidden identifying metadata — GPS coordinates, device serial numbers,
 author names, timestamps, editing history — from files so they are safer to publish. Its
 users include journalists protecting sources, whistleblowers, domestic violence survivors,
@@ -226,7 +227,7 @@ of them work today — so run them, and **never invent output for a command you 
   absorbs it. Never name a module after the crate it wraps.
 - **Errors are typed.** `thiserror` in `strypt-core`; **never `anyhow` there** — callers must
   distinguish "unsupported format" from "corrupt file" from "I/O error", and `anyhow` erases
-  exactly that. `anyhow` is acceptable in `strypt-cli`.
+  exactly that. `anyhow` is acceptable in the `strypt` CLI crate.
 - **Comments explain why, not what.** In parser code specifically, cite the spec section or
   the real-world quirk being handled. A future contributor cannot re-derive "this vendor
   writes a malformed length field here" from the code.
