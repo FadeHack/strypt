@@ -7,6 +7,12 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories = ["parser-implementations", "multimedia::images"]
+# The integration tests read fixtures from `corpus/`, which lives at the workspace root and is
+# therefore not packageable. Shipping tests that cannot run would be worse than shipping none.
+exclude = ["tests/"]
 
 [dependencies]
 # Typed errors. `anyhow` must never appear here: callers have to distinguish "unsupported

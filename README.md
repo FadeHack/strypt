@@ -109,8 +109,15 @@ that matters.
 
 ## Installation
 
-Not available yet — Phase 4. Prebuilt binaries, checksums, crates.io, and a Homebrew formula
-are planned. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+```sh
+cargo install strypt-cli    # requires a Rust toolchain
+```
+
+**That is the only install path, and `0.0.1` is not a release.** The crate was published early
+to hold the name, not because the project is ready to be depended on — Phase 3 hardening has
+not started and there has been no external audit. Prebuilt binaries, checksums, signing,
+reproducible builds, and a Homebrew formula are Phase 4 and do not exist yet. See
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Documentation
 

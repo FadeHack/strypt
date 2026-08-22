@@ -21,6 +21,18 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **`strypt-core` and `strypt-cli` published to crates.io at `0.0.1`**, ahead of the Phase 4
+  work they belong to, so the names are held by this project rather than by whoever registers
+  them first. Names are not reservable on crates.io and a stub crate that only holds one
+  violates its policy, so the crates carry the real code.
+
+  **This is not a release.** `0.0.1` means what it says: Phase 3 hardening has not happened,
+  there has been no external audit, and the limits in the README apply unchanged. `cargo
+  install strypt-cli` works from now on, which is the point at which the install path stops
+  being hypothetical — for anything that matters, mat2 and ExifTool remain the right
+  recommendation. The bare `strypt` name was deliberately left unregistered: there is no crate
+  behind it, and claiming it would be the squatting the policy exists to prevent.
+
 - **The WebP comparison against mat2 now runs, and passes.** It had been recorded since
   2026-08-19 as *not run* rather than as a pass — mat2 reaches WebP through GdkPixbuf, and
   without a WebP pixbuf loader it failed on the original files too, so the comparison said

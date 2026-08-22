@@ -365,10 +365,19 @@ at-risk users' files. Not "it works" but "we can show why you should believe it 
 do not themselves undermine the trust model.
 
 **Deliverables.**
-- `strypt-cli` (and `strypt-core`) published to crates.io. **Name availability confirmed
-  2026-08-19: `strypt`, `strypt-cli`, and `strypt-core` were all unregistered.** Names are
-  not reservable in advance, so re-check at publish time and consider publishing placeholder
-  versions once the project goes public, to avoid losing the names.
+- ~~`strypt-cli` (and `strypt-core`) published to crates.io.~~ **Partly done ahead of this
+  phase, 2026-08-23: both published at `0.0.1`.** Names are not reservable in advance, and
+  crates.io policy prohibits a crate that "exists only to reserve a name... without having any
+  genuine functionality" — so the choice was to publish the real code early or risk the names.
+  The real code went up. `strypt` itself was deliberately **not** registered: no crate exists
+  behind that name, so claiming it would be squatting.
+
+  **Publishing is not releasing, and the version says so.** A `0.0.1` on crates.io does not
+  mean this phase's remaining deliverables — binaries, checksums, signing, reproducible
+  builds — are met, and it does not mean Phase 3 happened. What it does mean is that
+  `cargo install strypt-cli` now works, so the honesty of the README's status block is load-
+  bearing in a way it was not while the project was unpublished. Re-verify it before every
+  subsequent version bump.
 - GitHub Releases with prebuilt binaries: Linux x86_64 and aarch64, macOS Intel and Apple
   Silicon, Windows x86_64.
 - **SHA256 checksums for every artefact**, published alongside the release.
