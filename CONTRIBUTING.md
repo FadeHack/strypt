@@ -3,10 +3,20 @@
 Thanks for considering it. Please read this first — strypt has a few expectations that differ
 from a typical Rust CLI project, because of who relies on it.
 
-**Current status: Phase 0 complete, Phase 1 not started.** The workspace and CI gates exist;
-no format handler does. The most valuable contributions right now are review of the design
-documents in [`docs/`](docs/) — particularly [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md)
-and [`docs/PRD.md`](docs/PRD.md) §0, which questions the project's own founding premise.
+**Current status: Phase 1 complete (2026-08-22), Phase 2 not started.** JPEG, PNG, WebP and
+PDF handlers work, `strypt` is installable from crates.io at `0.0.1`, and every other format
+is reported as unsupported rather than passed through. There has been no external audit,
+hardening is Phase 3 and has not started, and `0.0.1` is not a release — see the
+[README status block](README.md) for what that does and does not mean.
+
+**Phase 2 has not opened, and its scope is locked** by [ADR-0005](docs/DECISIONS.md) until a
+superseding ADR opens it deliberately. A pull request adding a new format is therefore likely
+to be declined on scope regardless of its quality — please open an issue first.
+
+The most valuable contributions right now are adversarial: review of
+[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md), attempts to find metadata that survives a
+strip, and fuzzing findings. A file strypt reports as clean that still carries identifying
+data is the most valuable bug report this project can receive.
 
 ---
 

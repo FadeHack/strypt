@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 in progress · **Last updated:** 2026-08-21
+**Status:** Phase 1 complete (2026-08-22); Phase 2 not started · **Last updated:** 2026-08-23
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.

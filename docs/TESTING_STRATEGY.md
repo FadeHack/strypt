@@ -1,6 +1,6 @@
 # strypt — Testing Strategy
 
-**Status:** Draft, Phase 0 · **Last updated:** 2026-08-19
+**Status:** Phase 1 complete (2026-08-22) · **Last updated:** 2026-08-23
 
 For strypt, testing is not quality assurance — it is the evidence for the product's central
 claim. A metadata scrubber nobody can verify is a metadata scrubber nobody should use.
@@ -52,9 +52,22 @@ stability, stdout/stderr separation. Safety behaviours specifically:
 That last one deserves a dedicated test per release. It is the failure mode from
 `docs/THREAT_MODEL.md` §5.4 and it is the one a refactor is most likely to reintroduce.
 
-### 2.3 Property-based tests — `proptest` 1.11.0 (verified 2026-08-19, MIT OR Apache-2.0)
+### 2.3 Property-based tests — planned, **not adopted in Phase 1**
 
-Best suited to invariants 3 and 4, and to generated-structure exploration:
+> **`proptest` is not a dependency and no property tests exist.** This section is the Phase 0
+> plan, kept because the reasoning still applies if the layer is added later. Do not read it
+> as describing tests that run.
+>
+> **Invariants 3 and 4 are covered anyway**, by two other layers: every handler's integration
+> tests assert byte-identical idempotence and determinism across the whole committed corpus
+> (`stripping_is_idempotent_byte_for_byte`, `stripping_is_deterministic_for_every_fixture`),
+> and the fuzz targets assert idempotence on *arbitrary* input, which is a stronger generator
+> than a `proptest` strategy hand-written to produce valid files. What is genuinely missing is
+> the structural exploration below — generated metadata of arbitrary size, encoding, and
+> nesting. That gap is real and is a Phase 3 candidate, not a Phase 1 hole to backfill.
+
+The plan, if this layer is added. Best suited to invariants 3 and 4, and to
+generated-structure exploration:
 
 - Idempotence and determinism across generated valid files.
 - Round-trip: parse → serialise without stripping produces an equivalent file.
@@ -201,7 +214,10 @@ satisfied by tests that assert nothing about the invariants in §1.
 
 1. Unit tests for parsing, boundaries, and error paths.
 2. Integration tests through the CLI.
-3. Property tests for idempotence and determinism.
+3. Idempotence and determinism asserted byte-for-byte over every corpus fixture, **and**
+   idempotence asserted on arbitrary input by the handler's fuzz target. (The Phase 0 plan
+   put this on `proptest`; §2.3 records why it is not used and what that does and does not
+   cost.)
 4. A fuzz target with assertions plus a committed seed corpus.
 5. Differential comparison against mat2 and ExifTool, with every gap either fixed or
    documented as a known limitation.
