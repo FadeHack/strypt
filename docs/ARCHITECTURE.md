@@ -1,10 +1,25 @@
 # strypt — Architecture
 
-**Status:** Draft, Phase 0 · **Last updated:** 2026-08-19
+**Status:** Phase 1 built to this design · **Last updated:** 2026-08-23
 
-This document describes the intended architecture. **No implementation exists yet.** Phase 1
-should follow this design or amend it via a new ADR in `docs/DECISIONS.md` — it should not
-silently diverge.
+Phase 1 is implemented and follows the structure below: the pipeline in §1, the layout in §2,
+the `MetadataHandler` trait in §3, and the four handlers behind it. Later work should follow
+this design or amend it via a new ADR in `docs/DECISIONS.md` — it should not silently diverge.
+
+**Two parts of this document are Phase 0 evaluations, not descriptions of the code, and are
+kept for the reasoning rather than the conclusions. Do not read them as current:**
+
+- **§4's dependency tables** recommend crates that were *not* adopted. `img-parts` and
+  `file-format` were both rejected — JPEG, PNG and WebP are parsed in-tree and detection is
+  hand-written, so the only parsing dependency is `lopdf`. No logging crate was taken, so
+  `tracing` is not a dependency either. **`docs/DECISIONS.md` ADR-0018 is the authority on
+  what is actually depended on and why**; the tables record what was considered at the time.
+- **§3's trait** is described below as a sketch. The implemented signatures are in
+  `crates/strypt-core/src/formats/mod.rs`, which is the authority; the invariants stated here
+  did survive.
+
+Anything else that says "Phase 1 will" is a Phase 0 statement about work now finished — read
+`docs/ROADMAP.md` for what is actually done.
 
 ---
 
@@ -86,11 +101,16 @@ strypt/
 │   │   │   ├── lib.rs
 │   │   │   ├── detect.rs       # content sniffing → Format
 │   │   │   ├── registry.rs     # Format → &dyn MetadataHandler
+│   │   │   ├── pipeline.rs     # ingest → detect → dispatch → verify → write
 │   │   │   ├── report.rs       # structured result/report types
 │   │   │   ├── error.rs        # typed errors, no panics
+│   │   │   ├── bytes.rs        # checked reads over untrusted buffers (ADR-0006)
+│   │   │   ├── panic_guard.rs  # contains unwinding panics from `lopdf` (ADR-0024)
 │   │   │   ├── io.rs           # bounded reads, atomic writes
 │   │   │   └── formats/
 │   │   │       ├── mod.rs      # MetadataHandler trait
+│   │   │       ├── exif.rs     # shared Exif reader (JPEG, PNG, WebP)
+│   │   │       ├── xmp.rs      # shared XMP reader
 │   │   │       ├── jpeg.rs
 │   │   │       ├── png.rs
 │   │   │       ├── webp.rs
@@ -98,7 +118,10 @@ strypt/
 │   │   ├── tests/              # integration tests + corpus-driven tests
 │   │   └── fuzz/               # cargo-fuzz targets, one per handler
 │   └── strypt/                 # thin: args, orchestration, presentation, exit codes
-├── corpus/                     # test fixtures + seed corpora (see TESTING_STRATEGY.md)
+├── corpus/                     # committed synthetic fixtures (see TESTING_STRATEGY.md §3)
+├── real-producer-corpus/       # build script + manifests; the files themselves are fetched
+│                               # on demand and never committed (ADR-0025)
+├── scripts/                    # gates and measurement: no-network, fuzz, differentials
 └── docs/
 ```
 
@@ -119,8 +142,11 @@ boundary absorbs it and nothing else in the tree moves.
 
 ## 3. The `MetadataHandler` trait
 
-Sketch, to be refined in Phase 1 — the shape and the invariants matter more than the exact
-signatures:
+> **The implemented trait is in `crates/strypt-core/src/formats/mod.rs`**, which is the
+> authority on signatures. The sketch below is the Phase 0 design; the invariants it states
+> survived Phase 1, the exact signatures did not survive unchanged.
+
+Sketch — the shape and the invariants matter more than the exact signatures:
 
 ```rust
 pub trait MetadataHandler: Send + Sync {
@@ -164,6 +190,13 @@ update `docs/THREAT_MODEL.md`. Core dispatch is untouched. No dynamic plugin loa
 ---
 
 ## 4. Dependency choices
+
+> **Superseded — this section is the Phase 0 evaluation, not the dependency list.** Several
+> crates recommended below were rejected once Phase 1 measured them: `img-parts` and
+> `file-format` were both dropped (image parsing and detection are in-tree), and no logging
+> crate was adopted. The actual direct dependencies are `thiserror` and `lopdf` in
+> `strypt-core`, `clap` and `serde_json` in `strypt`. **See `docs/DECISIONS.md` ADR-0018.**
+> Kept because the alternatives considered are worth having on record.
 
 **Every version below was verified on crates.io on 2026-08-19 and every one of them must be
 re-verified at implementation time.** Crate health changes; a version number in a document is
