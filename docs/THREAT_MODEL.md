@@ -299,6 +299,32 @@ for residual metadata and so cannot see a defect that leaves no metadata behind.
 was a valid file: negative zero in a `/CropBox` is legal, and nothing about such a document
 would strike a user as unusual.
 
+**Renumbering runs to a fixed point, and a document that will not settle is refused.** The
+rewrite renumbers objects so that output depends on the object graph rather than on whatever
+numbering the input happened to use (ADR-0020). `lopdf::renumber_objects` turns out not to be
+idempotent: before renumbering sequentially it checks whether page order matches ascending
+object ids and, if not, permutes the page objects until it does. That check reads the numbering
+the previous step produced, so one pass can leave a document a second pass would reorder again.
+
+The reachable case is a self-referential page tree — a `/Page` whose own `/Kids` array lists
+itself. Pruning and renumbering then changed both which objects `page_iter` yields and their
+order, so the first strip produced pages ordered `[3, 2]` and the second swapped objects 2 and
+3: same length, same content, 145 differing bytes. It converged from the third strip onward,
+so this was never an endless flip — but the invariant is stated byte-for-byte on the *first*
+re-strip, and a user who strips a file twice must not get two different files.
+
+The handler now renumbers until the id set and page order both stop changing, and only then
+serialises, so re-loading that output cannot move anything either. A document still moving
+after four rounds is refused as `CyclicReference` rather than written at whatever state the
+last round left — emitting a file whose numbering strypt could not settle would mean promising
+reproducibility it cannot deliver (`CLAUDE.md` §3 rule 6). Output for documents that were
+already stable is unchanged; for those the extra round is the confirmation, not a permutation.
+
+Found by the PDF fuzz target 5268 seconds into the twelve-hour seven-target run of 2026-08-23,
+through the same idempotence assertion — the third real PDF defect it has caught, after the
+stream-length bug in §7.5 and negative zero above. Unlike negative zero, the trigger here is a
+genuinely malformed file rather than a valid one.
+
 ### 7.2 JPEG (Phase 1)
 
 **What strypt removes.** Every `APPn` segment except the two named below, and every `COM`

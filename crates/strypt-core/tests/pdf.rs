@@ -573,6 +573,38 @@ fn a_pdf_that_is_accepted_still_has_a_root_to_walk_from() {
 }
 
 #[test]
+fn a_self_referential_page_tree_strips_to_the_same_bytes_twice() {
+    // Regression test. Found by the pdf fuzz target at 5268s of a twelve-hour seven-target run
+    // on 2026-08-23, through the byte-identical idempotence assertion in the harness — the third
+    // real defect that one assertion has now caught, after the stream-length bug and negative
+    // zero. Production code checked this property nowhere.
+    //
+    // The fixture's page tree refers to itself: object 2 is a /Page whose own /Kids array lists
+    // object 2. Pruning and renumbering therefore changed both which objects page_iter yields
+    // and the order it yields them in, and `lopdf::renumber_objects` reorders page objects when
+    // page order does not match ascending ids. So the first strip left pages ordered [3, 2] and
+    // the second swapped them: same length, same content, 145 differing bytes.
+    //
+    // It converged from the third strip onward, which is why this is stated as first-versus-
+    // second and not as a loop. "Stable eventually" is not the invariant — a user who strips a
+    // file twice must not get two different files.
+    let input = fixture("malformed/self-referential-page-tree.pdf");
+
+    let once = strip_bytes(&input, &StripOptions::default()).unwrap().bytes;
+    let twice = strip_bytes(&once, &StripOptions::default()).unwrap().bytes;
+    assert_eq!(
+        once, twice,
+        "strip is not idempotent for a self-referential page tree"
+    );
+
+    // Pin the mechanism rather than only the symptom. Asserting idempotence alone would keep
+    // passing if a later change made the numbering stable at some state that still moved a page
+    // between the input and the first output.
+    let thrice = strip_bytes(&twice, &StripOptions::default()).unwrap().bytes;
+    assert_eq!(twice, thrice, "strip stopped converging after two passes");
+}
+
+#[test]
 fn an_unknown_offset_is_not_rendered_as_debug_syntax() {
     // The Malformed message used to format its Option offset with {:?}, so a refusal with no
     // known position read "malformed PDF at byte offset None". That is debug syntax shown to

@@ -45,6 +45,17 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   read, and a document reported clean while part of it went unexamined is the outcome this tool
   must never produce.
 
+### Fixed
+
+- **A PDF whose page tree refers to itself no longer strips to different bytes on the second
+  pass.** Stripping such a document once and stripping it twice produced two files of the same
+  length and content whose object numbering differed — objects 2 and 3 traded identities.
+  Nothing was left unstripped and no metadata survived either pass, so this was a reproducibility
+  failure rather than a leak, but a user who strips a file twice must get the same file. The
+  renumbering step now runs until the numbering stops changing before anything is written, and a
+  document that will not settle is refused instead of written. Found by the PDF fuzz target;
+  regression test and fixture committed.
+
 ### Changed
 
 - **The sustained fuzzing runner covers all seven targets.** `scripts/fuzz-sustained.sh` knew

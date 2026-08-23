@@ -81,7 +81,7 @@ impl MetadataHandler for PdfHandler {
         // input happened to use. Without this, two documents that scrub to the same content
         // serialise differently, and the determinism invariant
         // (`docs/TESTING_STRATEGY.md` §1) fails for no good reason.
-        doc.renumber_objects();
+        renumber_stably(&mut doc)?;
 
         // Collapse negative zero to zero for the same reason renumbering exists above: without
         // it the output is not stable under a second strip. lopdf writes `Real(-0.0)` as `-0`,
@@ -127,6 +127,68 @@ impl MetadataHandler for PdfHandler {
             bytes,
         })
     }
+}
+
+/// How many times `renumber_stably` will renumber before refusing the document.
+///
+/// A well-formed file reaches its fixed point on the second call — the first assigns
+/// `1..=n`, the second confirms nothing moved. The degenerate case below needs a third.
+/// Four is that plus margin; a document still moving after four is not converging, and
+/// looping harder would only delay the refusal.
+const MAX_RENUMBER_ROUNDS: usize = 4;
+
+/// Renumber until the numbering stops changing, or refuse the document.
+///
+/// `lopdf::renumber_objects` is **not idempotent**, which matters because strypt's idempotence
+/// invariant (`docs/TESTING_STRATEGY.md` §1, invariant 3) is stated byte-for-byte on the *first*
+/// re-strip. Before renumbering sequentially, `renumber_objects_with` checks whether the page
+/// order matches ascending object ids and, if it does not, permutes the page objects so that it
+/// does (`lopdf` 0.44.0 `src/processor.rs`). That check reads the numbering the previous step
+/// produced, so one pass can leave a document that a second pass would reorder again.
+///
+/// A sustained fuzz run found the case where that is reachable: a document whose page tree is
+/// self-referential — object 2 is a `/Page` whose own `/Kids` array lists object 2 — so pruning
+/// and renumbering changed which objects `page_iter` yields and in which order. The first strip
+/// produced pages ordered `[3, 2]`, descending; the second saw the mismatch and swapped objects
+/// 2 and 3. Same length, same content, 145 bytes different. It settled from the third strip on,
+/// so this was never an endless flip — but "stable eventually" is not the invariant, and a user
+/// who strips a file twice must not get two different files.
+///
+/// Iterating to a fixed point fixes it by construction rather than by reasoning about a
+/// dependency's internals: the document is only serialised once renumbering has been shown to be
+/// a no-op on it, so re-loading and renumbering that output cannot move anything either.
+///
+/// This does not change the output of any document that was already stable — for those the
+/// second round is the confirmation that would have been skipped, not a second permutation.
+///
+/// Non-convergence is refused rather than accepted at whatever state the last round left, which
+/// is the fail-closed half of the trade (ADR-0018, and `CLAUDE.md` §3 rule 6). Emitting a file
+/// whose numbering strypt could not settle would mean handing the user output it cannot promise
+/// is reproducible.
+fn renumber_stably(doc: &mut Document) -> Result<()> {
+    for _ in 0..MAX_RENUMBER_ROUNDS {
+        // Both the id set and the page order have to be compared. The ids alone are not enough:
+        // the reordering step permutes which object holds which page while leaving the set of
+        // ids exactly as it was, so comparing ids only would report a fixed point on the very
+        // pass that moved something.
+        let ids_before: Vec<ObjectId> = doc.objects.keys().copied().collect();
+        let pages_before: Vec<ObjectId> = doc.page_iter().collect();
+
+        doc.renumber_objects();
+
+        let ids_after: Vec<ObjectId> = doc.objects.keys().copied().collect();
+        let pages_after: Vec<ObjectId> = doc.page_iter().collect();
+
+        if ids_before == ids_after && pages_before == pages_after {
+            return Ok(());
+        }
+    }
+
+    Err(StryptError::Malformed {
+        format: Format::Pdf,
+        offset: None,
+        detail: MalformedDetail::CyclicReference,
+    })
 }
 
 /// Findings and caveats from one pass over a document.
