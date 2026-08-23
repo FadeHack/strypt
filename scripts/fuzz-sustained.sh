@@ -24,7 +24,7 @@
 # parser existed, and the ADR itself says it is a hypothesis to revise once real coverage data
 # exists. That data is what this script produces. Run it, read the curves, then supersede
 # ADR-0014 with measured per-handler numbers — the handlers differ by more than an order of
-# magnitude in both state space and throughput, so one flat number for all five is very
+# magnitude in both state space and throughput, so one flat number for all seven is very
 # unlikely to be the right answer.
 #
 # Every log line is prefixed with elapsed seconds so coverage can be plotted against time.
@@ -38,7 +38,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FUZZ_DIR="$REPO_ROOT/crates/strypt-core/fuzz"
-ALL_TARGETS=(pdf jpeg png webp detect)
+ALL_TARGETS=(pdf jpeg png webp ooxml zip detect)
 
 DURATION=7200
 OUT_DIR=""
@@ -50,13 +50,13 @@ Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
   -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
 
-Targets default to all five: pdf jpeg png webp detect
+Targets default to all seven: pdf jpeg png webp ooxml zip detect
 
 Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of how many
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.
 
 Examples:
-  scripts/fuzz-sustained.sh -d 300                 # smoke test, all five
+  scripts/fuzz-sustained.sh -d 300                 # smoke test, all seven
   scripts/fuzz-sustained.sh -d 28800 pdf           # 8h on PDF alone
   scripts/fuzz-sustained.sh -d 14400 png webp      # 4h each, in parallel
 
@@ -101,6 +101,11 @@ command -v perl >/dev/null 2>&1 || { echo "error: perl is required for log times
 
 [ -n "$OUT_DIR" ] || OUT_DIR="$REPO_ROOT/target/fuzz-runs/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$OUT_DIR"
+# Resolve to an absolute path. This script cd's to the fuzz directory below, so a relative -o
+# — `-o target/fuzz-runs/tonight`, the obvious thing to type from the repo root — would be
+# created here and then written to somewhere else entirely, killing the run at its first
+# redirect.
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 
 # libFuzzer writes discoveries to the FIRST directory given and only reads the rest, so the
 # working corpus must come first and the committed seeds after. WebP carries a second seed
@@ -210,9 +215,11 @@ delivered_cpu_hours() {
   echo
   echo "Coverage curves: cov-<target>.tsv (elapsed_seconds<TAB>cov), one row per increase."
   echo
-  echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across all four"
-  echo "handlers after a sustained run, with nothing set aside as not worth fixing. Nothing"
-  echo "else in this table is needed to leave Phase 1."
+  echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across every"
+  echo "handler after a sustained run, with nothing set aside as not worth fixing. Criterion 2"
+  echo "was written when there were four targets; there are now seven, and the ooxml and zip"
+  echo "targets carry the sustained-run debt recorded against Phase 2 group 1. Nothing else in"
+  echo "this table is needed to leave Phase 1."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
   echo "'NO — still climbing' means this target needs a longer run before its number can be"

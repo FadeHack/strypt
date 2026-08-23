@@ -47,6 +47,16 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Changed
 
+- **The sustained fuzzing runner covers all seven targets.** `scripts/fuzz-sustained.sh` knew
+  only the five Phase 1 targets and rejected `ooxml` and `zip` as unknown, so the two parsers
+  added by Phase 2's first format group could not be included in a sustained run at all. They
+  are now in the default set. Any run recorded before 2026-08-23 covered five targets regardless
+  of how it was invoked.
+- **A live status viewer for a run in progress**, `scripts/fuzz-status.sh`. The runner prints
+  nothing until every target finishes, which makes a twelve-hour run indistinguishable from a
+  hung one. The viewer reads the per-target logs and refreshes a coverage and crash table. It
+  decides nothing — the run's own `summary.md` and exit code remain what answer the exit
+  criterion.
 - **What `strypt show` reports for a document is broken down per part**, so a finding reads
   `word/media/image2.jpeg → APP1 (Exif) GPS IFD /GPSLatitude` rather than being attributed to
   the document as a whole.

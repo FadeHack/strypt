@@ -175,12 +175,21 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all five targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all seven targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
+./scripts/fuzz-sustained.sh -d 43200 ooxml zip    # 12h each on the Phase 2 container targets
 ./scripts/fuzz-sustained.sh -h                    # options
 ```
+
+The default target list is **all seven** — `pdf jpeg png webp ooxml zip detect`. `ooxml` and
+`zip` were added to the runner on 2026-08-23; before that it knew only the five Phase 1 targets
+and rejected the two new ones as unknown. A run that predates that change covered five targets
+whatever its command line looked like.
+
+On macOS, wrap a long run in `caffeinate -is` or the machine will sleep partway through and
+deliver a fraction of the budgeted CPU-hours without saying so.
 
 Targets run **in parallel, one process each**, so wall time is the `-d` value no matter how
 many targets are selected — but CPU-hours are `-d × targets`, and the script prints that
@@ -208,6 +217,23 @@ long enough for its number to be set.
 
 Stopping a run early is safe. libFuzzer writes each discovery to `corpus/<target>/` as it finds
 it, so the next run resumes from what has been found rather than starting over.
+
+### Watching a run in progress
+
+The runner redirects each target to its own log and prints nothing until every target finishes,
+so a twelve-hour run and a hung one look identical from the outside. From a second terminal:
+
+```sh
+./scripts/fuzz-status.sh                          # most recent run, refresh every 10s
+./scripts/fuzz-status.sh -n 30                    # gentler refresh
+./scripts/fuzz-status.sh target/fuzz-runs/<name>  # a specific run
+tail -F target/fuzz-runs/<name>/pdf.log           # raw libFuzzer output for one target
+```
+
+It is a viewer only: Ctrl-C stops watching, not the run, and the run's `summary.md` and exit
+code — not this table — are what answer the exit criterion. Its artefact column counts only
+files newer than the run's `.started` marker, because `artifacts/` still holds triaged findings
+from August 2026 and counting those would flag a long-fixed crash on every run.
 
 ## Performance measurement
 
