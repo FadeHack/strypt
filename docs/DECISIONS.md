@@ -134,7 +134,9 @@ overridden by a flag.
 
 ## ADR-0005 — Phase 1 format scope fixed at images (JPEG/PNG/WebP) + PDF
 
-**Status:** Accepted (2026-08-19)
+**Status:** Accepted (2026-08-19) · scope lock superseded by ADR-0027 (2026-08-23). The
+reasoning below — why these four, and why a shallow handler is worse than no handler — stands
+and is inherited by Phase 2.
 
 **Context.** mat2 supports roughly two dozen formats. Matching that list in a first release
 is achievable only by making every handler shallow. For this tool, a shallow handler is
@@ -1052,3 +1054,298 @@ carries a real published version of the same program under its former name.
 - Publishing early does not advance Phase 4 and does not imply Phase 3 happened. `0.0.1`
   means what it says; `docs/ROADMAP.md` Phase 4 records the deliverable as partly done and
   states what it does not cover.
+
+---
+
+## ADR-0027 — Phase 2 opens, and its format scope is fixed at OOXML first
+
+**Status:** Accepted (2026-08-23)
+
+**Supersedes ADR-0005** for the purpose of the scope lock only. ADR-0005's rationale for
+*why* the Phase 1 four were chosen, and its rule that a shallow handler is worse than no
+handler, both stand unchanged and are inherited by this phase.
+
+**Context.** ADR-0005 locked the supported-format list to JPEG, PNG, WebP, and PDF "for the
+duration of the phase", and required a superseding ADR rather than a judgement call to widen
+it. Phase 1 closed on 2026-08-22 with all seven exit criteria met, so that lock has served
+its purpose and now blocks the work it was written to sequence.
+
+`docs/ROADMAP.md` Phase 2 lists four deliverable groups in priority order — OOXML,
+OpenDocument, additional images, then audio and video containers — ordered by user risk
+rather than by implementation ease. Nothing about closing Phase 1 changes that ordering, and
+this ADR does not revisit it.
+
+**Decision.** Phase 2 is open. The scope lock moves rather than disappearing:
+
+- **The phase's format list is exactly the four groups in `docs/ROADMAP.md` Phase 2.** Adding
+  a format outside them still requires a superseding ADR. "Phase 2 is open" is not "scope is
+  open".
+- **Formats land one group at a time, in the roadmap's order**, and a group is not started
+  until the previous one meets Phase 1's per-format bar in full. Phase 2 exit criterion 1
+  forbids provisional handlers, and the cheapest way to honour that is to never have more
+  than one incomplete handler in the tree.
+- **Office Open XML — `.docx`, `.xlsx`, `.pptx` — is the group in progress.** OpenDocument,
+  the additional image formats, and the audio/video containers are not started, and the same
+  "check before referencing a later artefact" rule that applied across phases now applies
+  within this one.
+
+**The Phase 1 bar is restated here in full, because "meets the Phase 1 bar" is the load-
+bearing phrase in Phase 2's exit criteria** and a reader should not have to reconstruct it:
+handler, fuzz target and seed corpus landing in the same change as the handler, integration
+tests including byte-identical idempotence, differential comparison against mat2 and
+ExifTool, a `docs/THREAT_MODEL.md` section recording what was actually learned about the
+format, and a `CHANGELOG.md` entry.
+
+**Consequences.**
+
+- ADR-0005 is superseded on scope and retained on reasoning. Its warning about the fifth
+  format during Phase 1 now reads as the warning about the fifth *group* during Phase 2.
+- The detection module's Phase 1 comment — that a hand-written magic-number matcher is
+  adequate until "the supported-format count grows and the container types get genuinely
+  ambiguous" — has come due. OOXML and ODF are both ZIP, so the ZIP signature alone can no
+  longer route a file; detection has to look inside the container. That is handled in
+  ADR-0028 rather than by taking the magic-table dependency the comment anticipated, because
+  the ambiguity is not between many formats but between two, and both are resolved by
+  reading an entry name.
+- **The positioning rule in ADR-0012 gets harder to hold in this phase, not easier.** Phase 2
+  is explicitly about moving toward mat2's format list, and every format shipped narrows a
+  gap. That is exactly when "successor" and "replacement" language creeps into a changelog
+  entry. It remains banned, at parity and beyond.
+- Nothing here advances Phase 3. Sustained fuzzing budgets, the known-limitations page, the
+  sandboxing decision, and live-OS validation are all still ahead, and a shipped OOXML
+  handler does not imply any of them.
+
+---
+
+## ADR-0028 — The ZIP container layer is written here, not taken as a dependency
+
+**Status:** Accepted (2026-08-23)
+
+**Context.** Every format in Phase 2's first two groups — OOXML and OpenDocument — is a ZIP
+archive with an agreed directory layout inside it. Reaching their metadata means parsing ZIP:
+the end-of-central-directory record, the central directory, local file headers, ZIP64
+extensions, and the data descriptors that streaming writers leave behind. This is a full
+hostile-input parser, and `docs/ROADMAP.md` Phase 2 names it as such — "treat the ZIP layer
+as a hostile parser in its own right, with its own fuzz target".
+
+Three options were evaluated on 2026-08-23, with versions checked against crates.io the same
+day rather than recalled:
+
+| Option | Version | Licence | Assessment |
+|---|---|---|---|
+| `zip` | 9.0.0-pre3 (2026-08-11) | MIT | The ecosystem default and the most exposed to real-world archive quirks. Two costs: it is a pre-release, and its default feature set turns on `aes-crypto`, `bzip2`, `lzma`, `zstd`, `ppmd`, and `xz`. Several of those are bindings to C libraries. They can be switched off, but a security tool whose central technical claim is memory-safe parsing (`docs/PRD.md` §4) should not be one accidental feature-unification away from linking a C decompressor |
+| `rawzip` | 0.5.1 (2026-07-13) | MIT | Zero dependencies, no `unsafe`, edition 2024, ~355k downloads. Genuinely the closest fit of the two crates. Still young at 0.x, and it would sit directly on hostile input under someone else's panic policy |
+| Hand-written | — | — | Roughly 600–800 lines against APPNOTE.TXT, under this crate's own no-panic lints, fuzzed as ours |
+
+**Decision.** The ZIP container layer is written in `strypt-core`, as
+`crates/strypt-core/src/container/zip.rs`, reading through `crate::bytes::Reader` like every
+other parser here. It has its own fuzz target, independent of any format handler that sits on
+top of it.
+
+**Rationale, and the honest version of it.** The decisive argument is not "we can write it
+better". It is that **the panic-freedom rule in ADR-0006 is the project's actual safety
+property, and it does not extend across a dependency boundary.** ADR-0018 accepted that gap
+for `lopdf` because writing a PDF parser was not a credible alternative — and then every
+single defect the sustained fuzzing found in Phase 1 was in the PDF path, one of them a panic
+inside `lopdf` itself that reached the shipped binary and had to be contained by
+`panic_guard` (ADR-0024). ZIP's central directory is a far smaller specification than PDF's
+object graph. The alternative that was not credible for PDF is credible here, and taking it
+means the largest new hostile-input surface in Phase 2 is covered by the rule rather than
+excepted from it.
+
+Two things are **not** claimed. First, this is not a general-purpose ZIP implementation and
+must never be described as one: it reads the subset that OOXML and ODF actually use and
+refuses the rest — see the refusal list below. Second, hand-written does not mean bug-free.
+It means the bugs are ours to find with our own fuzz target and to fix without waiting on an
+upstream, which is a different property from correctness.
+
+**What it refuses rather than handles.** Each of these is a deliberate fail-closed refusal,
+not a gap to be quietly tolerated:
+
+- **Encrypted entries** (general-purpose bit 0), including the AES extensions. strypt cannot
+  inspect what it cannot read, and a "cleaned" encrypted document would be a success message
+  about a file whose metadata was never examined.
+- **Any compression method other than stored (0) and deflate (8).** These are the two OOXML
+  and ODF use. Refusing the rest keeps bzip2, LZMA, zstd, XZ, and PPMd — the exact decoders
+  that made the `zip` crate's default features a problem — out of the tree entirely.
+- **Multi-disk and spanned archives.**
+- **Entry names that are absolute, contain a `..` component, or contain a backslash.** No
+  entry is ever written to the filesystem by name, so path traversal is not directly
+  exploitable here; the names are refused anyway, because a document containing one is not a
+  document and treating it as ordinary is how the assumption "we never write these out"
+  silently stops being true in a later phase.
+
+**Consequences.**
+
+- **`flate2` becomes a direct dependency of `strypt-core`, for decompression only**, pinned
+  to `default-features = false, features = ["rust_backend"]` so the backend is `miniz_oxide`
+  and never a C zlib. It is already in the resolved graph at 1.1.9 by way of `lopdf`, so this
+  adds no new crate — it promotes an existing transitive one to declared, which ADR-0008
+  prefers on the grounds that an audited dependency should be visible in the manifest.
+  `crc32fast` 1.5.0 is promoted the same way, for the CRC-32 every ZIP entry header carries.
+  The residual risk is feature unification: if any future dependency enables `flate2`'s
+  `zlib` feature, the whole graph gets the C backend regardless of what is declared here.
+  `scripts/check-no-network.sh` does not see that, so it is called out here and belongs in the
+  `deny.toml` bans list when Phase 3 makes `cargo-deny` a hard gate.
+- **strypt gains an inflate path for the first time**, which makes
+  `ParseLimits::max_expanded_bytes` load-bearing rather than reserved. `formats/mod.rs`
+  documented it as reserved specifically against this moment. Decompression is bounded by
+  that ceiling *and* by a per-entry expansion-ratio check, because a limit expressed only in
+  absolute bytes still lets a 1 KB archive cost 256 MB of work.
+- **Nothing is compressed on the way out.** Entries strypt does not modify are copied through
+  with their original compressed bytes, header, and CRC verbatim, so an unmodified entry is
+  byte-identical by construction. Entries strypt rewrites are re-emitted **stored**,
+  uncompressed. This is deliberate: deflate output is implementation-defined, so compressing
+  on output would make byte-identical idempotence depend on a compressor's internal choices
+  staying stable across versions — a property no compressor promises. The cost is a slightly
+  larger output file for the rewritten parts, which is recorded rather than hidden. It also
+  means no deflate *encoder* is needed at all, only the decoder.
+- The ZIP layer lives under `container/`, not `formats/`, because it is not a format anyone
+  hands to strypt on its own — it is machinery two format groups share, in the same way
+  `formats/exif.rs` and `formats/xmp.rs` are shared readers. A bare `.zip` file remains
+  unsupported and is refused as such.
+
+---
+
+## ADR-0029 — strypt descends exactly one level, and only into images
+
+**Status:** Accepted (2026-08-23)
+
+This ADR satisfies Phase 2 exit criterion 4, which requires the recursion decision to be
+recorded rather than defaulted.
+
+**Context.** A `.docx` is a container of other files. Among them are the photographs the
+author pasted in, in `word/media/`, arriving with whatever their camera wrote — GPS
+coordinates, a body serial number, an embedded thumbnail of the uncropped original. The
+document's own `docProps/core.xml` is the obvious target and it is not the dangerous one: a
+user who strips a report and publishes it has published every geotag in every picture inside
+it, while holding a success message that said the document was cleaned.
+
+That is the failure in `CLAUDE.md` §3 rule 6 and `docs/THREAT_MODEL.md` §5.4, arriving by a
+new route. But the opposite extreme is a different hazard: a container that recurses into
+containers without limit is a zip bomb and a stack-exhaustion target, and stack exhaustion
+aborts the process rather than raising a catchable error.
+
+**Decision.** strypt descends **exactly one level**, into **image formats only**.
+
+- An entry inside a ZIP container that content-sniffs as JPEG, PNG, or WebP is routed to that
+  format's existing handler. Its findings are reported with the entry path as their location,
+  so a report says `word/media/image2.jpeg → APP1 (Exif)` rather than attributing the leak to
+  the document as a whole.
+- An entry that sniffs as **any container format — ZIP, or PDF —** is **not** descended into.
+  A nested archive is refused outright, and the file it was found in is refused with it: a
+  `.docx` containing a `.docx` is not something to partially clean.
+- Recursion depth is fixed at 1 in the type system rather than in a counter. The function
+  that processes an embedded entry cannot call itself, and image handlers do not open
+  containers, so a second level is unreachable by construction. A depth counter that could be
+  raised later would be an invitation to raise it.
+
+**Why PDF is excluded from the descent even though a handler exists.** A PDF inside a `.docx`
+goes through `lopdf`, which is the one parser in the tree outside the no-panic rule and the
+one that produced every fuzz defect in Phase 1 (ADR-0018, ADR-0024). Reaching it through a
+decompressed, attacker-chosen ZIP entry composes the project's weakest parser with its newest
+one. That may become reasonable later, with evidence; it is not the thing to do in the change
+that introduces the ZIP layer. Embedded PDFs are reported as `Note::OutOfScopeContent` and the
+document is refused, so the user learns the file is there rather than publishing over it.
+
+**Bounds, all of which refuse rather than truncate.**
+
+- Entry count per archive, against `ParseLimits::max_items`.
+- Total decompressed bytes across the archive, against `ParseLimits::max_expanded_bytes`.
+- Per-entry expansion ratio, because an absolute byte ceiling alone still permits a tiny
+  archive to demand the whole ceiling's worth of work.
+- Decompressed output is bounded *as it is produced*, not checked after the fact. A limit
+  tested after inflating is not a limit.
+
+**Consequences.**
+
+- **This is the honest position, not the comfortable one.** A one-level descent means a
+  photograph inside a document is cleaned, and it means strypt refuses documents that a less
+  careful tool would report as cleaned. The refusals are visible and the leaks would not have
+  been, which is the correct direction for the trade.
+- The embedded image is stripped by the *same* handler code the CLI uses on a loose file, so
+  it inherits Phase 1's verification pass, its byte-identical idempotence, and its recorded
+  limitations. There is no second, weaker implementation of JPEG stripping for the embedded
+  case, which would be exactly the divergence ADR-0003 exists to prevent.
+- The container handler's `inspect` must see embedded image metadata, because the pipeline's
+  verification pass re-inspects the output and fails on any residual finding. Descending in
+  `strip` but not in `inspect` would make every document with a photograph in it fail
+  verification. They share one pass, as the WebP handler already does.
+- Extending the descent — to PDF, to a second level, to nested archives — requires a
+  superseding ADR with fuzzing evidence behind it. It is not a configuration flag, and there
+  is deliberately no CLI option to raise the depth.
+
+---
+
+## ADR-0030 — Office Open XML is edited by part surgery, and three parts are rewritten
+
+**Status:** Accepted (2026-08-23)
+
+**Context.** An OOXML document is a ZIP archive of XML parts described by
+`[Content_Types].xml` and wired together by relationship parts under `_rels/`. Its metadata
+is not in one place:
+
+- `docProps/core.xml` — Dublin Core: `dc:creator`, `cp:lastModifiedBy`, `dcterms:created`,
+  `dcterms:modified`, `cp:revision`, `cp:category`, `cp:keywords`.
+- `docProps/app.xml` — the producing application and its version, `Company`, `Manager`,
+  `TotalTime` (cumulative editing minutes), page and word counts, and the document's heading
+  and title structure.
+- `docProps/custom.xml` — arbitrary named properties, frequently written by document
+  management systems and frequently carrying an internal matter number or a username.
+- `docProps/thumbnail.*` — a rendered preview of the first page, which survives every kind of
+  redaction applied to the text.
+- Revision-save identifiers (`w:rsid` and the `settings.xml` `w:rsids` table) which
+  correlate editing sessions across documents, tracked changes, and comments, each of which
+  names its author inline in the document body.
+
+Removing a part from a ZIP is not enough. `[Content_Types].xml` still declares its type and
+`_rels/.rels` still points at it, and a document referencing parts that are not there is
+invalid — Word repairs it with a prompt, which is a worse outcome for a user trying not to
+draw attention to a file than a slightly larger one.
+
+**Decision.** The handler removes parts and rewrites exactly the parts that referred to them.
+
+**Removed entirely:** `docProps/core.xml`, `docProps/app.xml`, `docProps/custom.xml`,
+`docProps/thumbnail.*`, and any part whose content type is a Core Properties, Extended
+Properties, Custom Properties, or Thumbnail type — matched **by content type, not by path**,
+because the path is a convention and the content type is the contract.
+
+**Rewritten:** `[Content_Types].xml` loses the `Override` entries for the removed parts;
+`_rels/.rels` loses the `Relationship` entries whose `Target` was a removed part; the main
+document part and `word/settings.xml` (and their spreadsheet and presentation equivalents)
+lose revision-save identifiers. Rewritten parts are re-emitted **stored**, per ADR-0028.
+
+**Kept, and declared as kept:** the document body, its styles, its numbering, its embedded
+fonts, and every relationship to a part that still exists. Comments and tracked changes are
+**out of scope for this change and reported, not removed** — see below.
+
+**Comments and tracked changes are reported as `OutOfScopeContent`, not stripped.** Removing
+a tracked insertion means choosing whether the document accepts or rejects it, and that
+changes the document's *text*. `docs/PRD.md` §8.1 and the Phase 1 risk register both say the
+payload wins where thoroughness and payload conflict, and the visible words of a document are
+its payload in the most direct sense available. A tool that silently accepted every pending
+revision would hand a journalist a document that says something different from the one they
+reviewed. The user is told the content is there and left to decide, which is the same position
+strypt takes on text under a redaction rectangle (`docs/THREAT_MODEL.md` §4.3).
+
+**This is a recorded limitation and mat2 is the better recommendation for a document whose
+comments must go.** ADR-0012 requires saying so where it is true, and it is true here.
+
+**Consequences.**
+
+- A stripped `.docx` opens in Word, LibreOffice, and Google Docs without a repair prompt.
+  That is a test, not an aspiration, and it is in the integration suite as a structural
+  validity check plus a manual open recorded in `docs/THREAT_MODEL.md`.
+- **Output is not byte-identical to input even for a clean document**, because
+  `[Content_Types].xml` is re-emitted stored where it arrived deflated. Idempotence still
+  holds byte-identically — `strip(strip(x)) == strip(x)` — because the second pass finds
+  nothing to remove and copies every entry through verbatim. The Phase 1 handlers can promise
+  the stronger property for a clean file and this one cannot, which is stated rather than
+  glossed.
+- ZIP entry order and the archive's internal offsets change. Nothing in OOXML depends on
+  entry order except that `mimetype` conventions apply to ODF rather than here, so this is
+  safe for this format group and must be re-checked when ODF lands — ODF *does* require
+  `mimetype` first and stored.
+- Every timestamp in every ZIP entry header is a metadata field of its own, recording when
+  each part was last written. They are normalised to a fixed value rather than preserved,
+  consistent with ADR-0019's treatment of output timestamps.

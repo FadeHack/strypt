@@ -12,12 +12,25 @@
 //!
 //! # Why this is hand-written rather than a dependency
 //!
-//! `file-format` and `infer` were both evaluated (`docs/ARCHITECTURE.md` §4). Phase 1 needs
+//! `file-format` and `infer` were both evaluated (`docs/ARCHITECTURE.md` §4). Phase 1 needed
 //! to discriminate exactly four supported formats plus a short list of formats worth *naming*
 //! in a refusal, which is under a hundred lines of magic-number matching. Taking a crate with
 //! broad magic tables for that would add supply-chain surface (ADR-0008) to save very little.
-//! Revisit in Phase 2, when the supported-format count grows and the container types get
-//! genuinely ambiguous.
+//!
+//! Phase 2 brought the ambiguity that comment anticipated, and it turned out not to be the kind
+//! a magic table solves. `.docx`, `.xlsx`, `.pptx`, and every `OpenDocument` file share one magic
+//! number, because they are all ZIP archives. Telling them apart means opening the container and
+//! reading the content type the package declares for its own main part — which no magic-number
+//! crate does either, and which the ZIP layer this crate already owns does directly
+//! (ADR-0027, ADR-0028).
+//!
+//! # Why detection opens the container
+//!
+//! It would be cheaper to search the raw bytes for `word/document.xml` and be done. That is
+//! also how a file gets routed to the wrong handler: the string appears verbatim in any archive
+//! that merely *contains* a Word document, and an attacker can put it in a comment. Reading the
+//! declared content type is the format's own answer to "what is this", and it costs one central
+//! directory walk and one small inflate.
 
 use crate::bytes::Reader;
 use crate::error::{Result, StryptError, UnsupportedKind};
@@ -34,6 +47,12 @@ pub enum Format {
     Webp,
     /// PDF.
     Pdf,
+    /// A `WordprocessingML` document — `.docx`.
+    Docx,
+    /// A `SpreadsheetML` workbook — `.xlsx`.
+    Xlsx,
+    /// A `PresentationML` presentation — `.pptx`.
+    Pptx,
 }
 
 impl Format {
@@ -47,6 +66,9 @@ impl Format {
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Pdf => "pdf",
+            Self::Docx => "docx",
+            Self::Xlsx => "xlsx",
+            Self::Pptx => "pptx",
         }
     }
 
@@ -60,6 +82,9 @@ impl Format {
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Pdf => "pdf",
+            Self::Docx => "docx",
+            Self::Xlsx => "xlsx",
+            Self::Pptx => "pptx",
         }
     }
 }
@@ -71,6 +96,9 @@ impl std::fmt::Display for Format {
             Self::Png => "PNG",
             Self::Webp => "WebP",
             Self::Pdf => "PDF",
+            Self::Docx => "DOCX",
+            Self::Xlsx => "XLSX",
+            Self::Pptx => "PPTX",
         })
     }
 }
@@ -124,6 +152,9 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if find_pdf_header(data).is_some() {
         return Some(Format::Pdf);
     }
+    if let Some(Package::Ooxml(format)) = office_package(data) {
+        return Some(format);
+    }
     None
 }
 
@@ -135,6 +166,13 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
         || starts_with(data, b"PK\x05\x06")
         || starts_with(data, b"PK\x07\x08")
     {
+        // A macro-enabled document is named specifically, because the advice differs. It is not
+        // "Phase 2 will get to this": its `vbaProject.bin` is an OLE compound file strypt cannot
+        // read, and a document reported clean while a container inside it went unexamined is the
+        // failure in `docs/THREAT_MODEL.md` §5.4 (ADR-0029).
+        if matches!(office_package(data), Some(Package::MacroEnabled)) {
+            return Some(UnsupportedKind::MacroEnabledOffice);
+        }
         return Some(UnsupportedKind::ZipContainer);
     }
     if starts_with(data, b"GIF87a") || starts_with(data, b"GIF89a") {
@@ -172,6 +210,67 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
         return Some(UnsupportedKind::Xml);
     }
     None
+}
+
+/// What an OOXML-shaped ZIP package turned out to be.
+enum Package {
+    /// A package this release handles.
+    Ooxml(Format),
+    /// A macro-enabled Office document, refused rather than handled.
+    MacroEnabled,
+}
+
+/// The main-part content type each supported format declares for itself.
+///
+/// ECMA-376 Part 2: `[Content_Types].xml` is the package's own statement of what it holds, and
+/// it is the only place in the file that answers the question authoritatively.
+const OOXML_MAIN_TYPES: [(&str, Format); 3] = [
+    ("wordprocessingml.document.main+xml", Format::Docx),
+    ("spreadsheetml.sheet.main+xml", Format::Xlsx),
+    ("presentationml.presentation.main+xml", Format::Pptx),
+];
+
+/// The macro-enabled counterparts, matched only so the refusal can name them.
+const OOXML_MACRO_TYPES: [&str; 3] = [
+    "wordprocessingml.document.macroEnabled.main+xml",
+    "spreadsheetml.sheet.macroEnabled.main+xml",
+    "presentationml.presentation.macroEnabled.main+xml",
+];
+
+/// How much of `[Content_Types].xml` is inflated to answer the question.
+///
+/// The part is a few kilobytes in any real document. Bounding it keeps detection — which sees
+/// every byte of every file the user offers, including files no handler will accept — from
+/// becoming somewhere an attacker can make strypt do work.
+const CONTENT_TYPES_BUDGET: u64 = 4 * 1024 * 1024;
+
+/// Identify a ZIP package by the content type it declares for its main part.
+///
+/// Every failure returns [`None`], which routes the file to the generic ZIP refusal. Detection
+/// is not the place to explain why an archive is malformed; the handler that gets a real
+/// package is.
+fn office_package(data: &[u8]) -> Option<Package> {
+    let entries =
+        crate::container::zip::read(data, &crate::formats::ParseLimits::default()).ok()?;
+    let content_types = entries
+        .iter()
+        .find(|entry| entry.name_str() == Some("[Content_Types].xml"))?;
+    let bytes = content_types.contents(CONTENT_TYPES_BUDGET).ok()?;
+    let text = std::str::from_utf8(bytes.as_ref()).ok()?;
+
+    // Macro-enabled is checked first: its content type contains the plain one's spelling as a
+    // substring in some producers' output, so matching the other way round would silently accept
+    // a document whose VBA project nobody looked at.
+    if OOXML_MACRO_TYPES
+        .iter()
+        .any(|candidate| text.contains(candidate))
+    {
+        return Some(Package::MacroEnabled);
+    }
+    OOXML_MAIN_TYPES
+        .iter()
+        .find(|(candidate, _)| text.contains(candidate))
+        .map(|(_, format)| Package::Ooxml(*format))
 }
 
 /// True when `data` begins with `prefix`.

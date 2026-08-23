@@ -10,6 +10,7 @@
 use crate::detect::Format;
 use crate::formats::MetadataHandler;
 use crate::formats::jpeg::JpegHandler;
+use crate::formats::ooxml::OoxmlHandler;
 use crate::formats::pdf::PdfHandler;
 use crate::formats::png::PngHandler;
 use crate::formats::webp::WebpHandler;
@@ -27,16 +28,34 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         Format::Pdf => Some(&PdfHandler),
         Format::Png => Some(&PngHandler),
         Format::Webp => Some(&WebpHandler),
+        // One handler type serving three formats, instantiated once per format rather than
+        // branching inside itself, so `handler.format()` still answers with the format the
+        // registry dispatched on.
+        Format::Docx => Some(&DOCX),
+        Format::Xlsx => Some(&XLSX),
+        Format::Pptx => Some(&PPTX),
     }
 }
+
+static DOCX: OoxmlHandler = OoxmlHandler::DOCX;
+static XLSX: OoxmlHandler = OoxmlHandler::XLSX;
+static PPTX: OoxmlHandler = OoxmlHandler::PPTX;
 
 /// Every format this release can actually process.
 #[must_use]
 pub fn supported_formats() -> Vec<Format> {
-    [Format::Jpeg, Format::Png, Format::Webp, Format::Pdf]
-        .into_iter()
-        .filter(|f| handler_for(*f).is_some())
-        .collect()
+    [
+        Format::Jpeg,
+        Format::Png,
+        Format::Webp,
+        Format::Pdf,
+        Format::Docx,
+        Format::Xlsx,
+        Format::Pptx,
+    ]
+    .into_iter()
+    .filter(|f| handler_for(*f).is_some())
+    .collect()
 }
 
 #[cfg(test)]
@@ -59,12 +78,20 @@ mod tests {
     }
 
     #[test]
-    fn every_phase_one_format_has_a_handler() {
-        // All four are implemented as of this release. The assertion that matters is not this
-        // one but its absent counterpart: there is deliberately no fallback handler, so a
-        // format added to `Format` without a line in `handler_for` fails to compile rather
-        // than silently "succeeding" by being passed through (`docs/THREAT_MODEL.md` §5.4).
-        for format in [Format::Jpeg, Format::Png, Format::Webp, Format::Pdf] {
+    fn every_shipped_format_has_a_handler() {
+        // The assertion that matters is not this one but its absent counterpart: there is
+        // deliberately no fallback handler, so a format added to `Format` without a line in
+        // `handler_for` fails to compile rather than silently "succeeding" by being passed
+        // through (`docs/THREAT_MODEL.md` §5.4).
+        for format in [
+            Format::Jpeg,
+            Format::Png,
+            Format::Webp,
+            Format::Pdf,
+            Format::Docx,
+            Format::Xlsx,
+            Format::Pptx,
+        ] {
             assert!(handler_for(format).is_some(), "{format} has no handler");
         }
     }

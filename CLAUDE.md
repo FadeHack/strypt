@@ -18,21 +18,49 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 1 complete (2026-08-22) — Phase 2 not started**
+## 2. Current phase: **Phase 2 in progress — OOXML done (2026-08-23)**
 
-**Phase 0 is complete. All four Phase 1 handlers exist and work — but the phase does not end
-there.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, and WebP; every other format
-is reported as unsupported and never passed through untouched. Landed: bounded ingest,
+**Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first format group
+has landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, `.docx`, `.xlsx`,
+and `.pptx`; every other format is reported as unsupported and never passed through untouched. Landed: bounded ingest,
 content-sniffing detection, the handler registry and trait, the post-strip verification pass,
-structured reports, typed errors, the atomic write path, the full CLI, four handlers with
-shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for all four
+structured reports, typed errors, the atomic write path, the full CLI, the four Phase 1 handlers
+with shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for all four
 formats, and — as of 2026-08-20 — a fetch-on-demand real-producer corpus of 102 files that all
 four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
 
 **Phase 1 closed on 2026-08-22.** All seven numbered exit criteria are met, and the last
 non-numbered item — committed real-producer fixtures — is resolved by ADR-0025, which decided
-*not* to commit them. **Phase 2 has not started.** Nothing beyond Phase 1 exists, and the scope
-lock in ADR-0005 still holds until a superseding ADR opens Phase 2 deliberately.
+*not* to commit them.
+
+**Phase 2 opened 2026-08-23 by ADR-0027**, which supersedes ADR-0005's scope lock and replaces
+it with a narrower one. **The scope is still locked**: the phase covers exactly the four format
+groups in `docs/ROADMAP.md` Phase 2, they land one at a time in that order, and a group is not
+started until the previous one meets the Phase 1 bar in full. "Phase 2 is open" is not "scope is
+open" — adding a format outside those groups still needs a superseding ADR.
+
+**Group 1 — Office Open XML — is done (2026-08-23).** Landed: a hand-written ZIP container layer
+under `container/zip.rs` (ADR-0028 — *not* a dependency, and not a general-purpose ZIP
+implementation), a one-level descent into embedded images (ADR-0029), the handler and its XML
+scanner (ADR-0030), `ooxml` and `zip` fuzz targets, 20 fixtures, 26 integration tests, a clean
+mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.6.
+
+**Groups 2–4 — OpenDocument, additional images, audio/video — are NOT started.** The
+"check before referencing a later-phase artefact" rule now applies *within* this phase too.
+
+**Qualifications on the OOXML group, which are real:**
+
+- **Only short fuzz runs so far** — 3.53M executions on `ooxml`, 9.05M on `zip`, both clean.
+  That is the definition-of-done smoke bar, **not** a sustained run and not Phase 1 exit
+  criterion 2's bar. A sustained run across all seven targets is owed.
+- **The text of comments and tracked changes is deliberately kept**, with only its attribution
+  removed. **mat2 is the better recommendation for a document whose comments must not be
+  published**, and ADR-0012 requires saying so.
+- **A document containing a nested archive, an embedded PDF, or an OLE object is refused**, not
+  partly cleaned. This refuses real documents — a chart's cached workbook is common — and that
+  cost is accepted deliberately.
+- **Output is not byte-identical for a clean input** (rewritten parts are stored, entry
+  timestamps normalised). Idempotence *is* byte-identical and is tested.
 
 **Closed does not mean unqualified.** Read these before repeating "Phase 1 is done" anywhere
 user-facing — each is a real limit, not a formality:
@@ -97,7 +125,8 @@ fix — the defect is being reported upstream.
 `scripts/measure-performance.sh`. One machine only; Linux and Windows are unmeasured.
 
 Read `docs/ROADMAP.md` for the full exit criteria before treating any of this as settled, and
-**check before referencing a later-phase artefact** — nothing beyond Phase 1 exists.
+**check before referencing a later-phase artefact** — nothing beyond Phase 2's first format
+group exists.
 
 **Premise correction — settled, and binding (ADR-0012).** The project's founding premise
 was that mat2 is archived and unmaintained. That is wrong: mat2 is actively maintained (last

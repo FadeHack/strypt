@@ -28,6 +28,16 @@ thiserror = "2.0.20"   # ADR-0018. strypt-core only; anyhow is banned there.
 # processing would put deterministic output at risk (docs/TESTING_STRATEGY.md §1, invariant 4)
 # and a metadata scrubber has no business reading the wall clock.
 lopdf = { version = "0.44.0", default-features = false }
+# ADR-0028. Decompression only — the ZIP layer never compresses on output, so no deflate
+# encoder is needed. `default-features = false` plus an explicit `rust_backend` pins the
+# backend to the pure-Rust `miniz_oxide` and never a C zlib: the memory-safety argument in
+# docs/PRD.md §4 is the whole reason this crate is declared rather than a C-backed one.
+# Already in the resolved graph at 1.1.9 by way of `lopdf`; this promotes it to declared.
+# Residual risk recorded in ADR-0028: feature unification means any future dependency
+# enabling flate2's `zlib` feature gets the C backend for the whole graph regardless.
+flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
+# ADR-0028. The CRC-32 every ZIP entry header carries. Also already transitive via `flate2`.
+crc32fast = "1.5.0"
 # Front-end only — never in strypt-core (ADR-0003). Versions verified 2026-08-19.
 clap = { version = "4.6.6", features = ["derive"] }
 serde_json = "1.0.151"

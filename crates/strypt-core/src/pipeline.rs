@@ -110,9 +110,13 @@ fn handler(format: Format) -> Result<&'static dyn crate::formats::MetadataHandle
             // A format strypt recognises but has not implemented yet is still a refusal. The
             // one outcome that must never exist is a success message about a file that was
             // copied through untouched (`docs/THREAT_MODEL.md` §5.4).
-            Format::Jpeg | Format::Png | Format::Webp | Format::Pdf => {
-                crate::error::UnsupportedKind::NotYetImplemented(format)
-            }
+            Format::Jpeg
+            | Format::Png
+            | Format::Webp
+            | Format::Pdf
+            | Format::Docx
+            | Format::Xlsx
+            | Format::Pptx => crate::error::UnsupportedKind::NotYetImplemented(format),
         },
     })
 }

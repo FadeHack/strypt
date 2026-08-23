@@ -29,6 +29,7 @@ use crate::report::{InspectOptions, MetadataReport, StripReport};
 
 mod exif;
 pub mod jpeg;
+pub mod ooxml;
 pub mod pdf;
 pub mod png;
 pub mod webp;
@@ -62,13 +63,17 @@ pub struct ParseLimits {
     pub max_items: u32,
     /// Maximum bytes a single compressed structure may expand to.
     ///
-    /// **Reserved: no handler in this release uses it.** Neither PNG nor WebP decompresses
-    /// anything — PNG's compressed text chunks are removed without being inflated (ADR-0022)
-    /// — and the PDF handler declines to inflate a filtered metadata stream for the same
-    /// reason. It is kept rather than removed because Phase 2's ZIP-container formats cannot
-    /// be attempted without it, and because a limit that exists is easier to review than one
-    /// invented under deadline. It is documented as reserved rather than left looking
-    /// enforced.
+    /// **Load-bearing as of the OOXML handler.** It was reserved through Phase 1, because no
+    /// handler decompressed anything: PNG's compressed text chunks are removed without being
+    /// inflated (ADR-0022), and the PDF handler declines to inflate a filtered metadata stream
+    /// for the same reason. The ZIP container layer is the first code here to inflate, and it
+    /// spends this ceiling as an allowance shared across a whole archive — so that a hundred
+    /// entries each individually within it cannot collectively exceed it, which is the shape of
+    /// every archive bomb that gets past a naive limit (ADR-0028, ADR-0029).
+    ///
+    /// The ceiling is enforced *as output is produced*, never checked afterwards. A limit
+    /// tested after decompressing is not a limit — the memory is already committed by the time
+    /// it fails.
     pub max_expanded_bytes: u64,
 }
 

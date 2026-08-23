@@ -6,12 +6,15 @@ commit as any change to the build, test, or lint workflow.**
 
 ---
 
-> ## ⚠️ Phase 1 — all four handlers work; the phase is not finished
+> ## ⚠️ Phase 1 complete (2026-08-22) · Phase 2 in progress
 >
-> **Every command below was executed and verified on 2026-08-19.** `strypt show` and
-> `strypt strip` work on PDF, JPEG, PNG, and WebP files. Every other format is detected and
-> reported as unsupported — never processed, and never passed through untouched. What remains
-> in the phase is corpus, fuzzing, and performance work, not handlers; see
+> **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19 and the
+> Office Open XML ones on 2026-08-23. `strypt show` and `strypt strip` work on PDF, JPEG, PNG,
+> WebP, `.docx`, `.xlsx`, and `.pptx`. Every other format is detected and reported as
+> unsupported — never processed, and never passed through untouched.
+>
+> Phase 2 opened 2026-08-23 (ADR-0027) and OOXML is its first of four format groups. The rest —
+> OpenDocument, more image formats, audio and video — are not started; see
 > [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
@@ -126,14 +129,16 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/detect  # libFuzzer's working corpus; git-ignored
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, detect
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/detect corpus/ooxml corpus/zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, detect, ooxml, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
 cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
 cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
+cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
+cargo +nightly fuzz run zip corpus/zip seeds/zip -- -max_total_time=300
 cargo +nightly fuzz cmin pdf corpus/pdf                           # minimise the corpus
 ```
 
@@ -142,9 +147,18 @@ Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is 
 machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
 directory given and reads the rest.
 
-The PDF, JPEG, PNG, and WebP seeds are copies of `corpus/pdf/`, `corpus/jpeg/`, `corpus/png/`,
-and `corpus/webp/` (including their `malformed/` subdirectories); refresh them after
-regenerating the fixtures.
+The PDF, JPEG, PNG, WebP, and OOXML seeds are copies of `corpus/pdf/`, `corpus/jpeg/`,
+`corpus/png/`, `corpus/webp/`, and `corpus/ooxml/` (including their `malformed/`
+subdirectories); refresh them after regenerating the fixtures.
+
+`seeds/zip/` holds the same OOXML packages as `seeds/ooxml/`, deliberately. The `zip` target
+exercises the container layer on its own (ADR-0028), and its job is to explore *outward* from a
+real archive into malformed ones — a container fuzzer seeded only with hand-written stubs never
+reaches the structures a real producer writes.
+
+**The `zip` target needs the `fuzzing` feature**, which is why `fuzz/Cargo.toml` enables it. It
+opens a hidden, non-public entry point to the internal ZIP parser (`src/fuzzing.rs`); no
+front-end may use it.
 
 A crash writes its input to `crates/strypt-core/fuzz/artifacts/<target>/`. Reproduce with:
 
@@ -218,11 +232,13 @@ python3 corpus/tools/make_pdf_fixtures.py        # regenerate; deterministic
 python3 corpus/tools/make_jpeg_fixtures.py       # regenerate; deterministic
 python3 corpus/tools/make_png_fixtures.py        # regenerate; reuses the JPEG tool's TIFF builder
 python3 corpus/tools/make_webp_fixtures.py       # regenerate; reuses the JPEG tool's TIFF builder
+python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
 magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still decodes
 magick identify corpus/png/exif-gps.png          # confirm a PNG fixture still decodes
 magick identify corpus/webp/all-metadata.webp    # confirm a WebP fixture still decodes
 exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
+unzip -l corpus/ooxml/everything.docx            # confirm an OOXML fixture is a readable package
 ```
 
 Fixtures are generated rather than collected so that the "no real personal data" rule in
@@ -271,6 +287,33 @@ mat2 removes survives in strypt's output; exit 1 lists the gaps.
 Two expected notes in its output are **not** strypt findings: mat2 re-encodes through GdkPixbuf,
 so it flattens animations to a single frame, and it can expose `ALPH` bitstream parameters the
 input did not have. Both are recorded in `docs/THREAT_MODEL.md` §7.4.
+
+### Office Open XML differential
+
+```sh
+cargo build --release                    # the script refuses to run against a debug binary path
+./scripts/ooxml-differential.sh
+```
+
+Compares **what metadata survives in each tool's output**, not whether the two produce the same
+file. They do not and should not: mat2 rebuilds an OOXML package from a whitelist of parts it
+recognises, while strypt copies through every part it had no reason to change. A byte comparison
+would report a difference on every file and tell you nothing.
+
+Both sides are read with **mat2's own reader**, which takes strypt's report out of the loop
+entirely — a handler that forgot to remove something cannot pass by claiming it did. ExifTool is
+the second opinion and the one that reads into the embedded pictures.
+
+Two fields are excluded from the comparison, each for a stated reason rather than because it was
+inconvenient, and both are values *both* tools normalise to a constant: `date_time` (the ZIP
+entry timestamp) and `create_system` (the host byte — mat2 recognises only 2 and 3, and reports
+strypt's constant 0, which is what Word writes, as "Weird").
+
+Expect one file to be skipped: **mat2 refuses `presentation.pptx`**, because
+`ppt/commentAuthors.xml` is not on its content-type whitelist. That is recorded rather than
+silently passed over (`docs/THREAT_MODEL.md` §7.6).
+
+Last run 2026-08-23 against mat2 0.15.0 and ExifTool 13.55: no gaps across 13 fixtures.
 
 ### Real-producer corpus
 

@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 not started · **Last updated:** 2026-08-23
+**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-08-23
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -260,18 +260,50 @@ fuzz-run composition and real-producer coverage are real rather than decorative.
 
 ---
 
-## Phase 2 — Expanded format coverage
+## Phase 2 — Expanded format coverage *(in progress; opened 2026-08-23)*
 
 **Goal.** Move meaningfully toward mat2's format list without lowering the Phase 1 bar for
 any individual format.
 
+**Opened by ADR-0027**, which supersedes ADR-0005's scope lock and replaces it with a narrower
+one: the phase's format list is exactly the four groups below, they land one group at a time in
+this order, and a group is not started until the previous one meets the Phase 1 bar in full.
+"Phase 2 is open" is not "scope is open".
+
+**Progress.**
+
+- ✅ **Group 1 — Office Open XML, done 2026-08-23.** `.docx`, `.xlsx`, and `.pptx` are handled.
+  Landed: the ZIP container layer written rather than imported (ADR-0028), the one-level descent
+  into embedded images (ADR-0029), the handler and its XML scanner (ADR-0030), two fuzz targets
+  (`ooxml` and `zip`, the latter through a feature-gated entry point so the container is fuzzed
+  independently of any handler), 13 generated fixtures plus 7 malformed ones, 26 integration
+  tests, `scripts/ooxml-differential.sh`, and `docs/THREAT_MODEL.md` §7.6.
+
+  **What is not claimed.** Only *short* fuzz runs have covered the two new targets — 3.53M and
+  9.05M executions, both clean. That is the definition-of-done smoke bar, not a sustained run.
+  A sustained run covering all seven targets is owed. Three limitations are recorded in
+  §7.6 rather than fixed: the text of comments and tracked changes stays (attribution removed),
+  a document containing a nested archive or OLE object is refused rather than partly cleaned,
+  and a damaged package is reported as a generic ZIP refusal.
+
+- ⬜ **Groups 2–4 — not started.** OpenDocument, the additional image formats, and the audio and
+  video containers. The "check before referencing a later artefact" rule now applies *within*
+  this phase as well as across phases.
+
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
-1. Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
+1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
    `app.xml`, custom properties, revision identifiers, comments, tracked changes,
    embedded thumbnails).
 2. OpenDocument — `.odt`, `.ods`, `.odp` (`meta.xml`, editing-cycle and duration statistics).
 3. Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
+
+**Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
+explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level
+and at image formats only, enforced in the type system rather than by a counter, with an
+archive-wide decompression budget, a per-entry expansion-ratio ceiling, and an entry-count
+ceiling. Criteria 1–3 are met for the OOXML group and remain open for the three groups that have
+not started.
 
 Each format ships with: handler, fuzz target and seed corpus, integration tests, differential
 comparison against mat2/ExifTool, a `docs/THREAT_MODEL.md` update, and a `CHANGELOG.md` entry.

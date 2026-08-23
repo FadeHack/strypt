@@ -2,10 +2,14 @@
 //!
 //! # Status
 //!
-//! **Phase 1 — in progress.** Format detection, the report types, and the typed error set
-//! exist, along with the PDF and JPEG handlers. PNG and WebP are still to land, each with its
-//! own fuzz target and seed corpus (scope locked by ADR-0005). A format with no handler is
-//! reported as unsupported and is never passed through untouched.
+//! **Phase 1 complete (2026-08-22); Phase 2 in progress.** JPEG, PNG, WebP, and PDF are
+//! handled, each with its own fuzz target and seed corpus. Phase 2 opened on 2026-08-23
+//! (ADR-0027) and its first format group — Office Open XML — is landing; the rest of that
+//! phase's scope is not started. A format with no handler is reported as unsupported and is
+//! never passed through untouched.
+//!
+//! What is *not* claimed: no tool guarantees total metadata removal, and the recorded
+//! per-format limitations in `docs/THREAT_MODEL.md` are real. Read them before relying on this.
 //!
 //! # Invariants
 //!
@@ -23,9 +27,16 @@
 //!   file that was not actually processed.
 
 mod bytes;
+mod container;
 pub mod detect;
 pub mod error;
 pub mod formats;
+// Behind a non-default feature, and not part of the public API: it exists so the ZIP container
+// layer can be fuzzed directly, which ADR-0028 requires and which reaching it only through the
+// OOXML handler would not achieve.
+#[cfg(feature = "fuzzing")]
+#[doc(hidden)]
+pub mod fuzzing;
 pub mod io;
 pub mod panic_guard;
 pub mod pipeline;

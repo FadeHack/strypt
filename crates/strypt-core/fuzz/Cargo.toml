@@ -9,7 +9,9 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-strypt-core = { path = ".." }
+# `fuzzing` opens the hidden entry point the ZIP target needs (ADR-0028). It is a non-default
+# feature and is enabled here and nowhere else.
+strypt-core = { path = "..", features = ["fuzzing"] }
 
 [[bin]]
 name = "pdf"
@@ -35,6 +37,20 @@ bench = false
 [[bin]]
 name = "webp"
 path = "fuzz_targets/webp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ooxml"
+path = "fuzz_targets/ooxml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "zip"
+path = "fuzz_targets/zip.rs"
 test = false
 doc = false
 bench = false

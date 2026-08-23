@@ -1,10 +1,17 @@
 # strypt — Architecture
 
-**Status:** Phase 1 built to this design · **Last updated:** 2026-08-23
+**Status:** Phase 1 built to this design; Phase 2's first format group extends it ·
+**Last updated:** 2026-08-23
 
 Phase 1 is implemented and follows the structure below: the pipeline in §1, the layout in §2,
-the `MetadataHandler` trait in §3, and the four handlers behind it. Later work should follow
-this design or amend it via a new ADR in `docs/DECISIONS.md` — it should not silently diverge.
+the `MetadataHandler` trait in §3, and the handlers behind it. Later work should follow this
+design or amend it via a new ADR in `docs/DECISIONS.md` — it should not silently diverge.
+
+**Phase 2's OOXML group added one thing this design did not anticipate: a `container/` layer.**
+A ZIP archive is not a format anyone hands to strypt on its own; it is machinery that two format
+groups share, in the way `formats/exif.rs` is a shared reader rather than a format. It sits
+below `formats/` and implements no trait (ADR-0028). The `MetadataHandler` trait itself did not
+change, which was the point of designing it for extension from day one (ADR-0005).
 
 **Two parts of this document are Phase 0 evaluations, not descriptions of the code, and are
 kept for the reasoning rather than the conclusions. Do not read them as current:**
@@ -107,6 +114,10 @@ strypt/
 │   │   │   ├── bytes.rs        # checked reads over untrusted buffers (ADR-0006)
 │   │   │   ├── panic_guard.rs  # contains unwinding panics from `lopdf` (ADR-0024)
 │   │   │   ├── io.rs           # bounded reads, atomic writes
+│   │   │   ├── fuzzing.rs      # feature-gated, non-public: lets `zip` be fuzzed on its own
+│   │   │   ├── container/      # NOT formats: machinery that formats sit on top of
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── zip.rs      # hand-written ZIP reader/writer (ADR-0028)
 │   │   │   └── formats/
 │   │   │       ├── mod.rs      # MetadataHandler trait
 │   │   │       ├── exif.rs     # shared Exif reader (JPEG, PNG, WebP)
@@ -114,9 +125,13 @@ strypt/
 │   │   │       ├── jpeg.rs
 │   │   │       ├── png.rs
 │   │   │       ├── webp.rs
-│   │   │       └── pdf.rs
+│   │   │       ├── pdf.rs
+│   │   │       ├── ooxml.rs    # .docx/.xlsx/.pptx: part classification (ADR-0030)
+│   │   │       └── ooxml/
+│   │   │           └── xml.rs  # tag scanner; edits by deleting byte ranges,
+│   │   │                       # never by re-serialising
 │   │   ├── tests/              # integration tests + corpus-driven tests
-│   │   └── fuzz/               # cargo-fuzz targets, one per handler
+│   │   └── fuzz/               # cargo-fuzz targets: one per handler, plus `detect` and `zip`
 │   └── strypt/                 # thin: args, orchestration, presentation, exit codes
 ├── corpus/                     # committed synthetic fixtures (see TESTING_STRATEGY.md §3)
 ├── real-producer-corpus/       # build script + manifests; the files themselves are fetched
@@ -137,6 +152,12 @@ quietly less safe.
 `formats/` is organised **by file format, not by dependency**. A reader looking for how WebP
 is handled opens `formats/webp.rs`. If the underlying crate is swapped later, the module
 boundary absorbs it and nothing else in the tree moves.
+
+`container/` is the one thing under `strypt-core/src/` that is deliberately *not* a format. It
+holds parsers for things that stand between strypt and what the user asked to have cleaned, and
+its code exists to get through them safely rather than to implement them faithfully. Nothing in
+it implements `MetadataHandler`, and a bare `.zip` handed to strypt is still refused as
+unsupported.
 
 ---
 

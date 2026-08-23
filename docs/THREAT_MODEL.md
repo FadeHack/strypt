@@ -617,6 +617,121 @@ serial number, and live GPS coordinates, which §3 of `docs/TESTING_STRATEGY.md`
 this repository. `build_real_corpus.py` and the manifests are committed, and a rebuild
 reproduces all 102 fixtures byte-identically, so this sweep is repeatable by anyone.
 
+### 7.6 Office Open XML — `.docx`, `.xlsx`, `.pptx` (Phase 2)
+
+*Written 2026-08-23, from what the handler, the fuzz targets, and the mat2/ExifTool differential
+actually showed — not from the specification.*
+
+**The structural difference from every Phase 1 format.** A JPEG is one file with metadata
+segments in it. An OOXML document is a ZIP archive of XML parts, and one class of part is *whole
+files with their own metadata* — the photographs the author pasted in, arriving with whatever
+their cameras wrote. Phase 1's mental model, "walk the container and drop the metadata regions",
+covers about half of what this format needs.
+
+**The leak that matters most here is the one that is not in the document's own metadata.** A
+user strips a report, publishes it, and has published every geotag in every picture inside it,
+while holding a success message saying the document was cleaned. That is the failure in §5.4
+arriving by a new route, and it is why ADR-0029 descends one level into embedded images rather
+than stopping at `docProps/`.
+
+**Where the metadata was, in the order a user would be surprised by it:**
+
+| Location | What it carries |
+|---|---|
+| `word/media/*`, `xl/media/*`, `ppt/media/*` | Whole JPEG/PNG/WebP files with GPS, camera serial numbers, and Exif thumbnails of the uncropped original |
+| `docProps/core.xml` | `dc:creator`, `cp:lastModifiedBy`, `dcterms:created`, `dcterms:modified`, `cp:revision` |
+| `docProps/app.xml` | `Application`, `AppVersion`, `Company`, `Manager`, and `TotalTime` — cumulative editing minutes |
+| `docProps/custom.xml` | Arbitrary named properties; document management systems write internal matter numbers and usernames here |
+| `docProps/thumbnail.*` | A rendered preview of the first page, which survives every redaction applied to the text |
+| `w:rsid*` attributes, `w:rsids` in `settings.xml` | Revision-save identifiers. Two documents sharing one were edited in the same session on the same machine |
+| `w14:paraId`, `w14:textId` | Per-paragraph identifiers, stable across saves *and across copies* |
+| `w:ins`, `w:del`, `w:comment`, `p:cmAuthor`, `xl` `<author>` | Author names, initials, and timestamps sitting inline in the body |
+| ZIP entry headers | A modification time per part — a record of the author's working hours that no application displays |
+| ZIP extra fields | Unix UID/GID (0x7875), NTFS times (0x000A), extended timestamps (0x5455) |
+| External relationships | `file:` and UNC targets. An attached template under someone's home directory names that person |
+
+**What was learned that the specification does not say.**
+
+- **Removing a part is not enough, and the failure is loud.** `[Content_Types].xml` and
+  `_rels/.rels` still refer to what went, and Word offers to *repair* the result. For a user
+  trying not to draw attention to a document, a repair prompt is a worse outcome than a slightly
+  larger file. Both index parts are rewritten (ADR-0030).
+- **Writing an index part twice is silently tolerated.** An early version of the handler emitted
+  `[Content_Types].xml` in the entry loop *and* again in a post-pass. Every reader tried —
+  Python's `zipfile` included — accepted the duplicate without complaint, preferring one copy
+  arbitrarily. Nothing caught it except the byte-identical idempotence check. This is recorded
+  because it generalises: **a ZIP reader's tolerance hides writer bugs**, so a container handler
+  needs an invariant that does not depend on a reader noticing.
+- **The package's own declaration is the only reliable way to tell these formats apart.** `.docx`,
+  `.xlsx`, `.pptx` and every OpenDocument file share one magic number. Searching the raw bytes
+  for `word/document.xml` would work until it did not: the string appears verbatim in any archive
+  that merely *contains* a Word document, and an attacker can put it in a comment. Detection
+  opens the container and reads the declared main-part content type (ADR-0027).
+- **The `create_system` byte is a producer fingerprint that no one thinks about.** strypt writes
+  a constant 0 (MS-DOS/FAT), which is what Word writes. mat2 normalises the same field to 3,
+  which says "made on Linux". Neither leaks the real host; the difference is which constant
+  blends in.
+
+**What is deliberately kept, and why.**
+
+- **The words of comments and tracked changes.** Removing a tracked insertion means deciding
+  whether the document accepts or rejects it, and that changes what the document *says*.
+  `docs/PRD.md` §8.1 gives the payload priority, and a tool that silently accepted every pending
+  revision would hand a journalist a document different from the one they reviewed. Their author
+  names, initials, and dates are removed — those are metadata sitting on content, and removing
+  them changes no words. A `Note` reports that the revision content remains.
+- **Any part strypt does not recognise**, copied through with a `Note::UnparsedRegion` naming it.
+  Unlike WebP's unknown chunks (ADR-0023), an unrecognised OOXML part may be load-bearing —
+  dropping a theme or a font table breaks the document — so the honest move is to copy it and
+  say plainly that nobody looked inside.
+
+**What is refused rather than half-processed.** Each of these produces no output file at all:
+
+- A **macro-enabled** document (`.docm`, `.xlsm`, `.pptm`). Its `vbaProject.bin` is an OLE
+  compound file with its own directory and its own metadata streams that strypt cannot read.
+- A document containing a **nested archive, an embedded PDF, or an OLE object**. ADR-0029 fixes
+  the descent at one level; a `.docx` inside a `.docx` is not something to partially clean. This
+  refuses real documents — a chart's cached workbook at `word/embeddings/*.xlsx` is common — and
+  that cost is accepted, because such a workbook carries its own author names.
+- An **encrypted entry**, any **compression method other than stored or deflate**, a
+  **multi-disk archive**, and an entry name that is absolute or contains `..`.
+
+**Known limitations, stated plainly.**
+
+1. **Comments and tracked changes remain in the document.** Their attribution is removed; their
+   text is not. **For a document whose comments must not be published, mat2 is the better
+   recommendation** — it removes the parts outright. ADR-0012 requires saying so where it is
+   true, and it is true here.
+2. **Output is not byte-identical to input even for a clean document.** A rewritten part is
+   re-emitted stored where it arrived deflated (ADR-0028), and entry timestamps are normalised.
+   Idempotence *is* byte-identical, and is tested. The Phase 1 image handlers can promise the
+   stronger property for a clean file and this one cannot.
+3. **A damaged OOXML package is reported as an unsupported ZIP container, not as a damaged
+   document.** Detection has to read `[Content_Types].xml` to know what the file is; if that part
+   cannot be read, there is nothing to distinguish the file from any other archive. The refusal
+   is correct and fail-closed, but its wording is less useful than it could be.
+4. **`vbaProject.bin`, OLE objects, fonts, and audio are not inspected.** They are refused
+   (containers) or copied with a note (fonts, media strypt has no handler for).
+5. **XML is scanned, not parsed.** Entities are not resolved and nesting is not validated. An
+   attribute is removed on the strength of its name, and a name cannot be spelled with an entity
+   reference — but a producer doing something genuinely unusual with XML could in principle
+   defeat the scanner, in which case the part is copied through unchanged rather than edited on
+   a guess.
+
+**Differential result (2026-08-23).** `scripts/ooxml-differential.sh` over all 13 fixtures,
+against mat2 0.15.0 and ExifTool 13.55: **no gaps** — nothing survives strypt that does not also
+survive mat2, and ExifTool finds no GPS, serial, artist, or owner tag in any output. One finding
+in the other direction, recorded because it is interesting rather than because it flatters:
+**mat2 refuses `presentation.pptx` outright**, because `ppt/commentAuthors.xml` is not on its
+content-type whitelist, and strypt processes it. Two comparison exclusions (`date_time`,
+`create_system`) are justified in the script's own comments; both are values *both* tools
+normalise to a constant.
+
+**Fuzzing (2026-08-23).** Short runs only, and stated as such: 3.53M executions on the `ooxml`
+target and 9.05M on the `zip` target, both clean, no artefacts. That is the definition-of-done
+smoke bar, **not** a sustained run and not Phase 1 exit criterion 2's bar. A sustained run
+covering the two new targets is owed before this format group can be called done.
+
 ---
 
 ## 8. Review triggers

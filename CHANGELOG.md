@@ -21,6 +21,55 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **Office Open XML support — `.docx`, `.xlsx`, and `.pptx`.** `strypt show` and `strypt strip`
+  now process Word documents, Excel workbooks, and PowerPoint presentations. This is the first
+  format group of Phase 2, which opened on 2026-08-23 (ADR-0027).
+
+  What comes out: the core, extended, and custom properties parts (author, last-modified-by,
+  company, manager, cumulative editing time, revision count, and any custom property a document
+  management system left behind); the package thumbnail, which is a rendered preview of the
+  first page and survives every redaction applied to the text; revision-save identifiers
+  (`w:rsid*` and the `w:rsids` table), which link two documents edited in the same session on
+  the same machine; per-paragraph identifiers (`w14:paraId`, `w14:textId`), which are stable
+  across copies; the author names, initials, and dates on comments and tracked changes; per-part
+  ZIP timestamps and host fields such as Unix UID/GID; and external relationships whose target is
+  a local or network path, such as an attached template under someone's home directory.
+
+  **Photographs inside a document are stripped too**, by the same JPEG, PNG, and WebP handlers a
+  loose file goes through — one level deep, images only (ADR-0029). A geotagged photo pasted into
+  a report is the leak most likely to reach publication, because nothing in the document's own
+  properties hints that it is there.
+
+- **A new refusal for macro-enabled documents** (`.docm`, `.xlsm`, `.pptm`), named specifically
+  rather than reported as a generic ZIP. Their `vbaProject.bin` is a container strypt cannot
+  read, and a document reported clean while part of it went unexamined is the outcome this tool
+  must never produce.
+
+### Changed
+
+- **What `strypt show` reports for a document is broken down per part**, so a finding reads
+  `word/media/image2.jpeg → APP1 (Exif) GPS IFD /GPSLatitude` rather than being attributed to
+  the document as a whole.
+
+### Known limitations (new)
+
+- **The text of comments and tracked changes is not removed** — only their author names,
+  initials, and dates. Removing a tracked insertion means deciding whether the document accepts
+  or rejects it, which changes what the document says. A note in the report says the content is
+  still there. **If the comments themselves must not be published, use mat2**, which removes
+  those parts outright.
+- **A document containing a nested archive, an embedded PDF, or an OLE object is refused**
+  rather than partly cleaned. This includes the cached workbook Word embeds behind a chart, which
+  is common in real documents. The refusal is deliberate: that workbook carries its own author
+  names, and strypt does not descend a second level.
+- **A stripped document is not byte-identical to a clean input**, because a rewritten part is
+  stored rather than re-compressed and entry timestamps are normalised. Stripping an
+  already-stripped document *is* byte-identical.
+- **A damaged Office document is reported as an unsupported ZIP container**, not as a damaged
+  document, because identifying it requires reading a part that a damaged package may not have.
+
+### Added
+
 - **strypt is installable: `cargo install strypt`.** `strypt` and `strypt-core` are published
   to crates.io at `0.0.1`, ahead of the Phase 4 work they belong to, so the names are held by
   this project rather than by whoever registers them first. Names are not reservable on

@@ -539,6 +539,8 @@ dependencies = [
 name = "strypt-core"
 version = "0.0.1"
 dependencies = [
+ "crc32fast",
+ "flate2",
  "lopdf",
  "thiserror",
 ]

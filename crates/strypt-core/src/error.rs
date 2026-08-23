@@ -158,6 +158,14 @@ pub enum UnsupportedKind {
     NotYetImplemented(crate::detect::Format),
     /// A ZIP container, which may be an Office document, an ODF document, or an archive.
     ZipContainer,
+    /// A macro-enabled Office document — `.docm`, `.xlsm`, `.pptm`.
+    ///
+    /// Refused rather than handled, and named separately from [`Self::ZipContainer`] because
+    /// the advice differs. This is not "a later phase will get to it": the document carries a
+    /// `vbaProject.bin`, which is an OLE compound file with its own directory and its own
+    /// metadata streams that strypt cannot read. Reporting the document clean while a container
+    /// inside it went unexamined is the failure in `docs/THREAT_MODEL.md` §5.4 (ADR-0029).
+    MacroEnabledOffice,
     /// GIF.
     Gif,
     /// TIFF.
@@ -185,6 +193,9 @@ impl std::fmt::Display for UnsupportedKind {
                 return write!(f, "{format}, whose handler has not landed yet");
             }
             Self::ZipContainer => "a ZIP container (Office, OpenDocument, or archive)",
+            Self::MacroEnabledOffice => {
+                "a macro-enabled Office document, whose embedded VBA project strypt cannot read"
+            }
             Self::Gif => "GIF",
             Self::Tiff => "TIFF",
             Self::IsoBaseMedia => "an ISO base-media file (MP4, HEIF, or AVIF)",

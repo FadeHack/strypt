@@ -14,6 +14,11 @@ categories = ["parser-implementations", "multimedia::images"]
 # therefore not packageable. Shipping tests that cannot run would be worse than shipping none.
 exclude = ["tests/"]
 
+[features]
+# Not enabled by default and never by a front-end. Opens a hidden door to the internal ZIP
+# parser so it can be fuzzed on its own, per ADR-0028. See `src/fuzzing.rs`.
+fuzzing = []
+
 [dependencies]
 # Typed errors. `anyhow` must never appear here: callers have to distinguish "unsupported
 # format" from "corrupt file" from "I/O error", and a boxed error erases exactly that
@@ -22,6 +27,18 @@ thiserror = { workspace = true }
 # PDF object model. See ADR-0018 for the evaluation against `oxidize-pdf` and for the
 # honest accounting of what this dependency costs in transitive surface.
 lopdf = { workspace = true }
+# The ZIP container layer's decompressor and checksum (ADR-0028). Both were already in the
+# resolved graph transitively; declaring them makes what strypt actually calls visible in the
+# manifest, which is what ADR-0008 asks for.
+flate2 = { workspace = true }
+crc32fast = { workspace = true }
+
+[dev-dependencies]
+# The OOXML integration tests read strypt's own output back with a second, independent ZIP
+# reader written in the test file (`tests/ooxml.rs`). Verifying the output with the code that
+# produced it would only prove the parser agrees with itself. `flate2` is already a dependency
+# of this crate (ADR-0028), so this adds nothing to the tree.
+flate2 = { workspace = true }
 
 # Lints are specified explicitly here rather than inherited, because Cargo does not permit a
 # crate to both inherit `workspace.lints` and override them. The workspace set is repeated
