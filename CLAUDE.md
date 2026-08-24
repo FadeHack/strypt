@@ -74,10 +74,13 @@ a later-phase artefact" rule now applies *within* this phase too.
 - **Output is not byte-identical for a clean input** (rewritten parts are stored, entry
   timestamps normalised, and an ODF `mimetype` entry may be moved and re-stored). Idempotence
   *is* byte-identical and is tested.
-- **No stripped ODF package has been opened in LibreOffice.** None was available on the build
-  machine. The structural checks that were run — an independent ZIP reader over every output,
-  the manifest checked against the entries present, `mimetype` checked against ODF Part 2 §3.3 —
-  are not the same claim, and `docs/THREAT_MODEL.md` §7.7 says so.
+- **Stripped ODF packages now import into LibreOffice 26.2.5.2** — 14 fixtures and 2 real
+  LibreOffice-authored documents, stripped, loaded and body-compared by
+  `scripts/odf-libreoffice-validation.sh` on 2026-08-24, no failures. The GUI repair-prompt check
+  was done by hand the same day — seven stripped files opened in the interface, none prompting
+  for repair. **These are two claims, not one**: headless import cannot raise a dialog, so the
+  script covers all 16 documents and the manual pass covers seven.
+  `docs/THREAT_MODEL.md` §7.7 keeps them separate, and a handler change re-owes the manual pass.
 
 **Closed does not mean unqualified.** Read these before repeating "Phase 1 is done" anywhere
 user-facing — each is a real limit, not a formality:

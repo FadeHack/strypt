@@ -366,6 +366,44 @@ its keep list nor its omit list. Recorded rather than silently passed over
 
 Last run 2026-08-24 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures.
 
+### OpenDocument LibreOffice import validation
+
+```sh
+brew install --cask libreoffice          # macOS; any install putting soffice on PATH will do
+cargo build --release
+./scripts/odf-libreoffice-validation.sh
+```
+
+Answers a different question from the differential. The differential asks *what metadata
+survives*; this asks *does the stripped package still open in the application that writes this
+format* — the check `docs/THREAT_MODEL.md` §7.7 recorded as owed. Each fixture is stripped,
+loaded by LibreOffice, and re-exported to flat XML, which forces a full import of every part
+rather than a header sniff; then the document bodies of the original and the stripped copy are
+compared, to catch a file that opens cleanly but lost content.
+
+**`soffice` exits 0 even when the import fails**, so the script gates on whether an output file
+appeared, never on the exit status. Verified against `corpus/odf/malformed/truncated.odt`.
+
+Point it at other files with `CORPUS=`, which is how the real-producer LibreOffice documents were
+covered:
+
+```sh
+CORPUS=/path/to/odf/files ./scripts/odf-libreoffice-validation.sh
+```
+
+`EXPECT_BODY_DIFF` in the script lists the fixtures whose body is *supposed* to change, each with
+its reason. An unexpected difference fails, and so does an unexpected match — a fixture that
+stopped changing means strypt stopped removing something.
+
+**This is not the GUI repair-prompt check.** Headless import cannot raise a dialog, so opening a
+few stripped files by hand in LibreOffice is a separate, manual step — and it is **re-owed
+whenever the handler changes**, since the script cannot cover it. Last done 2026-08-24: seven
+stripped files opened in LibreOffice 26.2.5.2, none prompting for repair
+(`docs/THREAT_MODEL.md` §7.7).
+
+Last run 2026-08-24 against LibreOffice 26.2.5.2 on macOS/arm64: 14 fixtures and 2 real-producer
+documents, no failures.
+
 ### Real-producer corpus
 
 Files from real cameras, converters and producers, kept **out of this repository** because they

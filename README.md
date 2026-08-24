@@ -15,9 +15,10 @@
 > image handler a loose file goes through. Limitations recorded rather than glossed: the *text*
 > of comments and tracked changes stays in both formats (only its attribution is removed, and
 > **mat2 is the better tool if the comments themselves must go**); an Office document containing
-> a nested archive, an embedded PDF, or an OLE object is refused rather than partly cleaned; no
-> stripped OpenDocument package has yet been opened in LibreOffice, so that check is owed; and
-> the `odf` fuzz target has had a short run only, not a sustained one. The additional image
+> a nested archive, an embedded PDF, or an OLE object is refused rather than partly cleaned; and
+> the `odf` fuzz target has had a short run only, not a sustained one. Every stripped
+> OpenDocument file does open in LibreOffice 26.2.5.2 — 16 documents imported and body-compared
+> automatically, seven of them also opened by hand with no repair prompt. The additional image
 > formats and audio/video are **not started**.
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No

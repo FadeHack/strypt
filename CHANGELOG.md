@@ -83,6 +83,17 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   read, and a document reported clean while part of it went unexamined is the outcome this tool
   must never produce.
 
+- **Stripped OpenDocument files are now verified to still open in LibreOffice.** A new check,
+  `scripts/odf-libreoffice-validation.sh`, strips each document, loads it with LibreOffice, and
+  compares the document body before and after — so a file that opens but quietly lost content
+  fails as loudly as one that will not open at all. Run against **LibreOffice 26.2.5.2**: all 14
+  fixtures and 2 real LibreOffice-authored documents pass.
+
+  This closes a gap that was recorded rather than hidden: until now nothing strypt produced for
+  this format had ever been opened in the application that writes it. Seven of the stripped files
+  were also opened by hand in the LibreOffice interface, and **none prompted to repair the
+  file** — a separate check, because that dialog is a GUI prompt no automated import can trigger.
+
 ### Fixed
 
 - **A PDF that cannot be rewritten faithfully is now refused instead of written.** For some

@@ -892,12 +892,35 @@ package and is refused as XML, which is correct but less informative than it cou
    re-emitted stored (ADR-0028), entry timestamps are normalised, and a `mimetype` entry that
    arrived compressed or out of position is moved and re-stored. Idempotence *is* byte-identical
    and is tested over every fixture.
-3. **No stripped package has been opened in LibreOffice.** No LibreOffice was available on the
-   machine this handler was built on, so the "opens without a repair prompt" check that §7.6
-   records for Word is **owed** for this format. What has been checked is structural and is not
-   the same thing: an independent ZIP reader parses every output and verifies every CRC, the
-   manifest is checked against the entries actually present, and the `mimetype` entry is checked
-   against Part 2 §3.3 for position, compression method, and absence of an extra field.
+3. **Every stripped package imports into LibreOffice, and none prompts for repair.**
+   Run 2026-08-24 against **LibreOffice 26.2.5.2** on macOS/arm64 by
+   `scripts/odf-libreoffice-validation.sh`: all **14 committed fixtures** and **2 real
+   LibreOffice-authored documents** from the real-producer corpus were stripped, loaded, and
+   re-exported to flat XML — which forces a full import of every part rather than a header
+   sniff. No failures. The structural checks that previously stood alone still run beside it: an
+   independent ZIP reader parses every output and verifies every CRC, the manifest is checked
+   against the entries actually present, and the `mimetype` entry is checked against Part 2 §3.3.
+
+   **The repair-prompt check was done separately and by hand**, because LibreOffice's recovery
+   dialog is a GUI path that headless conversion cannot raise. **Seven** stripped files —
+   `everything.odt`, `embedded-image.odt`, `comments.odt`, `tracked-changes.odt`,
+   `spreadsheet.ods`, `presentation.odp`, and the real-producer `form.odt` — were opened in the
+   LibreOffice interface on 2026-08-24. **None prompted for repair.** The two claims are kept
+   distinct on purpose: the automated one covers all 16 documents, the manual one covers these
+   seven, and neither stands in for the other. A change to the handler re-runs the script
+   automatically and re-owes the manual pass.
+
+   Two things the run taught us, both about method rather than about the handler:
+
+   - **`soffice` exits 0 even when the import fails outright.** Verified against
+     `corpus/odf/malformed/truncated.odt`, which prints "source file could not be loaded" and
+     still returns 0. The existence of the output file is the only trustworthy signal; a check
+     gated on the exit status would have reported every broken package as a success.
+   - **A body comparison can only see what LibreOffice round-trips.** `embedded-image.odt`
+     carries a picture that `content.xml` never references, so the export drops it and the
+     bodies match despite strypt having stripped the picture's GPS, body serial and `Artist`
+     name. Picture stripping is covered by the differential and the integration tests, not by
+     this script.
 4. **XML is scanned, not parsed.** Entities are not resolved and nesting is not validated. A
    producer doing something genuinely unusual could defeat the scanner, in which case the part
    is copied through unchanged with a note rather than edited on a guess.

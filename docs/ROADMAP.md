@@ -297,9 +297,14 @@ this order, and a group is not started until the previous one meets the Phase 1 
   **What is not claimed.** A *short* fuzz run only: 2.75M executions on `odf`, clean, with
   `ooxml` and `zip` re-run clean after the shared layers moved. That is the definition-of-done
   smoke bar, not a sustained run, and a sustained run covering `odf` — alongside the PDF handler's
-  two most recent fixes — is owed. **No stripped package has been opened in LibreOffice**, because
-  none was available on the build machine; the structural checks that were run are not the same
-  thing, and §7.7 says so. The comments-and-tracked-changes limitation is sharper here than for
+  two most recent fixes — is owed. ~~**No stripped package has been opened in LibreOffice.**~~
+  ✅ **Closed 2026-08-24:** `scripts/odf-libreoffice-validation.sh` strips, imports and
+  body-compares every fixture against **LibreOffice 26.2.5.2** — 14 fixtures and 2 real
+  LibreOffice-authored documents, no failures (§7.7). The GUI repair-prompt check was done
+  separately and by hand the same day — seven stripped files opened in the LibreOffice
+  interface, none prompting for repair. The two are recorded as separate claims rather than one
+  standing in for the other, since headless import cannot raise a dialog.
+  The comments-and-tracked-changes limitation is sharper here than for
   Office: mat2 removes ODF annotations outright, so for a document whose comments must not be
   published it is the better recommendation.
 
