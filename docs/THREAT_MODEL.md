@@ -325,6 +325,37 @@ through the same idempotence assertion — the third real PDF defect it has caug
 stream-length bug in §7.5 and negative zero above. Unlike negative zero, the trigger here is a
 genuinely malformed file rather than a valid one.
 
+**Output is read back before it is returned, and a file that does not round-trip is refused.**
+The rewrite assumes that serialising a parsed document and re-parsing it yields the same
+document (ADR-0020). For a lenient parser on hostile input that does not hold, and when it
+fails it fails silently: `lopdf` accepts a dictionary whose keys came out of mangled bytes and
+then writes it back in a form it cannot itself read, so the object is written and is gone when
+the file is next opened.
+
+The file that found this had exactly one `/Page`, and it was the object that vanished. strypt's
+output was therefore a document whose `/Pages` node still claimed `/Count 1` with a `/Kids`
+array pointing at an object that no longer existed — and strypt reported success. Stripping
+that output pruned what had become unreachable and produced a 230-byte file with a dangling
+page reference, reporting success again.
+
+**The verification pass could not have caught this, and it is worth being precise about why.**
+That pass searches output for residual metadata, and no metadata survived either write. It
+looks for what should be absent; this is a failure of something that should still be present.
+The two are not the same check, and only the idempotence assertion in the fuzz harness was
+positioned to notice.
+
+The handler now re-loads its own output and refuses it as `NotRoundTrippable` unless every
+object written is present on reload and a page tree that existed before writing still exists
+after. A full structural equivalence check would be a second implementation of the rewrite;
+these are the two properties whose failure means the output is not the document. Refusing costs
+the user a file already too damaged to survive a rewrite. Returning it cost them a document
+they believed was clean, which is the trade `CLAUDE.md` §3 rule 6 exists to settle.
+
+Found by the PDF fuzz target 27998 seconds into the twelve-hour seven-target run of 2026-08-24,
+the fourth real PDF defect the idempotence assertion has caught. This one is the same shape as
+the `/Root` corruption above rather than the numbering instability: strypt introduced the
+damage itself and reported success.
+
 ### 7.2 JPEG (Phase 1)
 
 **What strypt removes.** Every `APPn` segment except the two named below, and every `COM`

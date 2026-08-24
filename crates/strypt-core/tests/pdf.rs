@@ -605,6 +605,51 @@ fn a_self_referential_page_tree_strips_to_the_same_bytes_twice() {
 }
 
 #[test]
+fn output_that_does_not_read_back_as_written_is_refused_not_returned() {
+    // Regression test. Found by the pdf fuzz target at 27998s of a twelve-hour seven-target run
+    // on 2026-08-24, through the byte-identical idempotence assertion — the fourth real PDF
+    // defect that one assertion has caught.
+    //
+    // The fixture's page object carries keys built from mangled bytes (`/Annotst 1 /[...`).
+    // lopdf parses that leniently and then writes it back in a form it cannot itself read, so
+    // the object is written and is gone when the file is next opened. strypt's output was
+    // therefore a document whose /Pages node claimed /Count 1 with a /Kids array pointing at an
+    // object that no longer existed — and strypt reported success. Stripping that output pruned
+    // what had become unreachable and produced a 230-byte file with a dangling page reference,
+    // reporting success a second time.
+    //
+    // What this pins is the fail-closed property (CLAUDE.md §3 rule 6). The refusal is a typed
+    // error and *nothing is returned*, which is the part that matters: a user acts on a success
+    // report by publishing, and the previous behaviour handed them a broken document while
+    // telling them it was clean.
+    let input = fixture("malformed/unfaithful-rewrite-page-lost.pdf");
+
+    // It still sniffs as a PDF — the refusal happens at rewrite, not detection.
+    assert_eq!(detect(&input).unwrap(), Format::Pdf);
+
+    let err = strip_bytes(&input, &StripOptions::default()).unwrap_err();
+    assert!(
+        matches!(
+            err,
+            StryptError::Malformed {
+                format: Format::Pdf,
+                detail: MalformedDetail::NotRoundTrippable,
+                ..
+            }
+        ),
+        "expected a round-trip refusal, got {err:?}"
+    );
+
+    // The message a user sees must say nothing was written, since that is the fact they need
+    // in order to know the original is still their only copy.
+    let text = err.to_string();
+    assert!(
+        text.contains("nothing was written"),
+        "refusal does not say the output was withheld: {text}"
+    );
+}
+
+#[test]
 fn an_unknown_offset_is_not_rendered_as_debug_syntax() {
     // The Malformed message used to format its Option offset with {:?}, so a refusal with no
     // known position read "malformed PDF at byte offset None". That is debug syntax shown to

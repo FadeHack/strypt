@@ -115,6 +115,10 @@ impl MetadataHandler for PdfHandler {
             },
         )?;
 
+        // Nothing is handed back until the bytes just written have been read again and shown
+        // to be the document that was written. See `verify_round_trip`.
+        verify_round_trip(&doc, &bytes)?;
+
         Ok(Stripped {
             report: StripReport {
                 format: Format::Pdf,
@@ -127,6 +131,75 @@ impl MetadataHandler for PdfHandler {
             bytes,
         })
     }
+}
+
+/// Refuse output that does not read back as the document that was written.
+///
+/// The rewrite (ADR-0020) assumes serialising a parsed document and re-parsing it returns the
+/// same document. For a lenient parser on hostile input that assumption does not hold, and
+/// when it breaks it breaks silently: `lopdf` will accept a dictionary whose keys came out of
+/// mangled bytes — `/Annotst 1 /[^@018064665...` in the file that found this — and then write
+/// it back in a form it cannot itself read. The object is written, and disappears when the
+/// file is next opened.
+///
+/// That is the failure this guard exists for, and it is the dangerous kind. A document whose
+/// only `/Page` is lost on reload has a `/Pages` node still claiming `/Count 1` and a `/Kids`
+/// array pointing at an object that is no longer there. strypt wrote that file and reported
+/// success; a second strip then pruned what had become unreachable and wrote a 230-byte
+/// document with a dangling page reference, reporting success again. No metadata survived
+/// either pass, so the verification pass — which searches output for residual metadata — saw
+/// nothing wrong. It cannot: it is looking for what should be absent, not for what should
+/// still be present.
+///
+/// Checking a full structural equivalence would be a second implementation of the rewrite, so
+/// this checks the two properties whose failure means the output is not the document:
+///
+/// 1. **Every object written is present on reload.** This is what catches an object that
+///    serialised into something unparseable. Comparing ids alone is enough — an object that
+///    round-trips to a different id is caught by the same comparison.
+/// 2. **The page tree survives.** A document that had pages before writing and none after has
+///    lost the thing it exists to carry, even when every object id happens to match.
+///
+/// A failure refuses the file. That is the fail-closed answer (`CLAUDE.md` §3 rule 6): strypt
+/// cannot faithfully rewrite this document, so it declines to rather than handing back a
+/// broken one with a success report. Refusing costs the user a file that was already too
+/// damaged to survive a rewrite; the alternative cost them a document they believed was clean.
+fn verify_round_trip(written: &Document, bytes: &[u8]) -> Result<()> {
+    let reloaded = crate::panic_guard::guard(
+        || Document::load_mem(bytes).map_err(|e| map_parse_error(&e)),
+        || StryptError::Malformed {
+            format: Format::Pdf,
+            offset: None,
+            detail: MalformedDetail::DependencyPanic,
+        },
+    )
+    .map_err(|_| StryptError::Malformed {
+        format: Format::Pdf,
+        offset: None,
+        detail: MalformedDetail::NotRoundTrippable,
+    })?;
+
+    let written_ids: Vec<ObjectId> = written.objects.keys().copied().collect();
+    let reloaded_ids: Vec<ObjectId> = reloaded.objects.keys().copied().collect();
+    if written_ids != reloaded_ids {
+        return Err(StryptError::Malformed {
+            format: Format::Pdf,
+            offset: None,
+            detail: MalformedDetail::NotRoundTrippable,
+        });
+    }
+
+    // Only an emptied page tree is a failure, not an empty one: a document that had no pages
+    // to begin with is degenerate but not something this rewrite broke.
+    if written.page_iter().next().is_some() && reloaded.page_iter().next().is_none() {
+        return Err(StryptError::Malformed {
+            format: Format::Pdf,
+            offset: None,
+            detail: MalformedDetail::NotRoundTrippable,
+        });
+    }
+
+    Ok(())
 }
 
 /// How many times `renumber_stably` will renumber before refusing the document.

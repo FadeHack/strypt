@@ -230,6 +230,15 @@ pub enum MalformedDetail {
     CyclicReference,
     /// The file uses a feature strypt will not process, such as encryption.
     UnsupportedFeature,
+    /// The rewritten file did not read back as the document that was written.
+    ///
+    /// Distinct from every other variant here because it describes a failure found in
+    /// strypt's *output* rather than in the input: the document parsed, scrubbed, and
+    /// serialised, and the result then did not round-trip. The input is still what caused it
+    /// — a structure lenient enough to parse but not to reproduce — so it belongs with the
+    /// malformed refusals rather than being reported as an internal error, which would tell
+    /// the user to file a bug about a file that is genuinely broken.
+    NotRoundTrippable,
     /// A third-party parser panicked on this file and the panic was contained.
     ///
     /// Reported as malformed input rather than as an internal error because that is what it
@@ -250,6 +259,9 @@ impl std::fmt::Display for MalformedDetail {
             Self::BrokenIndex => "the cross-reference structure is unusable",
             Self::CyclicReference => "objects reference each other in a cycle",
             Self::UnsupportedFeature => "the file uses a feature strypt will not process",
+            Self::NotRoundTrippable => {
+                "the file cannot be rewritten faithfully, so nothing was written"
+            }
             Self::DependencyPanic => "the parser failed on this file and it was not processed",
         };
         f.write_str(s)

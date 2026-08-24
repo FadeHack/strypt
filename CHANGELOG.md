@@ -47,6 +47,21 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
+- **A PDF that cannot be rewritten faithfully is now refused instead of written.** For some
+  damaged documents the rewrite produced a file that did not read back as what was written: an
+  object whose keys came from mangled bytes was written in a form the parser could not read
+  again, so it disappeared when the file was reopened. Where that object was the document's only
+  page, strypt wrote a file whose page tree pointed at an object that was no longer there — and
+  reported success. Stripping that output again produced a further truncated file with a
+  dangling page reference, reporting success a second time.
+
+  strypt now reads its own output back before returning it and refuses the file if the document
+  did not survive the round trip, so nothing is written and the refusal says so. **No metadata
+  survived either write** — the failure was structural damage reported as success, not a leak —
+  but a user acts on a success report by publishing, which is why this is treated as the more
+  serious of the two PDF fixes in this release. Found by the PDF fuzz target; regression test
+  and fixture committed.
+
 - **A PDF whose page tree refers to itself no longer strips to different bytes on the second
   pass.** Stripping such a document once and stripping it twice produced two files of the same
   length and content whose object numbering differed — objects 2 and 3 traded identities.
