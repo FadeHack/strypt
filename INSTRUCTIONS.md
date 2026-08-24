@@ -8,13 +8,14 @@ commit as any change to the build, test, or lint workflow.**
 
 > ## ⚠️ Phase 1 complete (2026-08-22) · Phase 2 in progress
 >
-> **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19 and the
-> Office Open XML ones on 2026-08-23. `strypt show` and `strypt strip` work on PDF, JPEG, PNG,
-> WebP, `.docx`, `.xlsx`, and `.pptx`. Every other format is detected and reported as
-> unsupported — never processed, and never passed through untouched.
+> **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19, the
+> Office Open XML ones on 2026-08-23, and the OpenDocument ones on 2026-08-24. `strypt show` and
+> `strypt strip` work on PDF, JPEG, PNG, WebP, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and
+> `.odp`. Every other format is detected and reported as unsupported — never processed, and
+> never passed through untouched.
 >
-> Phase 2 opened 2026-08-23 (ADR-0027) and OOXML is its first of four format groups. The rest —
-> OpenDocument, more image formats, audio and video — are not started; see
+> Phase 2 opened 2026-08-23 (ADR-0027); OOXML and OpenDocument are the first two of its four
+> format groups. The rest — more image formats, audio and video — are not started; see
 > [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
@@ -129,8 +130,8 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/detect corpus/ooxml corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, detect, ooxml, zip
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/detect corpus/ooxml corpus/odf corpus/zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
@@ -138,6 +139,7 @@ cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
 cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
+cargo +nightly fuzz run odf corpus/odf seeds/odf -- -max_total_time=300
 cargo +nightly fuzz run zip corpus/zip seeds/zip -- -max_total_time=300
 cargo +nightly fuzz cmin pdf corpus/pdf                           # minimise the corpus
 ```
@@ -147,14 +149,16 @@ Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is 
 machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
 directory given and reads the rest.
 
-The PDF, JPEG, PNG, WebP, and OOXML seeds are copies of `corpus/pdf/`, `corpus/jpeg/`,
-`corpus/png/`, `corpus/webp/`, and `corpus/ooxml/` (including their `malformed/`
+The PDF, JPEG, PNG, WebP, OOXML, and ODF seeds are copies of `corpus/pdf/`, `corpus/jpeg/`,
+`corpus/png/`, `corpus/webp/`, `corpus/ooxml/`, and `corpus/odf/` (including their `malformed/`
 subdirectories); refresh them after regenerating the fixtures.
 
-`seeds/zip/` holds the same OOXML packages as `seeds/ooxml/`, deliberately. The `zip` target
-exercises the container layer on its own (ADR-0028), and its job is to explore *outward* from a
-real archive into malformed ones — a container fuzzer seeded only with hand-written stubs never
-reaches the structures a real producer writes.
+`seeds/zip/` holds the same packages as `seeds/ooxml/` and `seeds/odf/`, deliberately. The `zip`
+target exercises the container layer on its own (ADR-0028), and its job is to explore *outward*
+from a real archive into malformed ones — a container fuzzer seeded only with hand-written stubs
+never reaches the structures a real producer writes. The ODF packages earn their place there
+beyond variety: they are the only seeds whose first entry is stored and whose others are
+deflated, which is a shape no OOXML package has.
 
 **The `zip` target needs the `fuzzing` feature**, which is why `fuzz/Cargo.toml` enables it. It
 opens a hidden, non-public entry point to the internal ZIP parser (`src/fuzzing.rs`); no
@@ -259,12 +263,14 @@ python3 corpus/tools/make_jpeg_fixtures.py       # regenerate; deterministic
 python3 corpus/tools/make_png_fixtures.py        # regenerate; reuses the JPEG tool's TIFF builder
 python3 corpus/tools/make_webp_fixtures.py       # regenerate; reuses the JPEG tool's TIFF builder
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
+python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
 magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still decodes
 magick identify corpus/png/exif-gps.png          # confirm a PNG fixture still decodes
 magick identify corpus/webp/all-metadata.webp    # confirm a WebP fixture still decodes
 exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
 unzip -l corpus/ooxml/everything.docx            # confirm an OOXML fixture is a readable package
+unzip -l corpus/odf/everything.odt               # first entry must be a stored `mimetype` (ODF Part 2 §3.3)
 ```
 
 Fixtures are generated rather than collected so that the "no real personal data" rule in
@@ -340,6 +346,25 @@ Expect one file to be skipped: **mat2 refuses `presentation.pptx`**, because
 silently passed over (`docs/THREAT_MODEL.md` §7.6).
 
 Last run 2026-08-23 against mat2 0.15.0 and ExifTool 13.55: no gaps across 13 fixtures.
+
+### OpenDocument differential
+
+```sh
+cargo build --release                    # the script refuses to run against a debug binary path
+./scripts/odf-differential.sh
+```
+
+The same shape as the OOXML one and the same two exclusions, against `corpus/odf`. mat2's
+OpenDocument path removes more than its Office one — `meta.xml`, `settings.xml`, `Thumbnails/`,
+`Configurations2/`, `ObjectReplacements/`, and annotations and tracked changes outright — so this
+is the stricter of the two comparisons.
+
+Expect one file to be skipped: **mat2 refuses `embedded-object.ods`**, because its part patterns
+are anchored at the package root and an embedded chart's `Object 1/settings.xml` matches neither
+its keep list nor its omit list. Recorded rather than silently passed over
+(`docs/THREAT_MODEL.md` §7.7).
+
+Last run 2026-08-24 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures.
 
 ### Real-producer corpus
 

@@ -116,7 +116,10 @@ fn handler(format: Format) -> Result<&'static dyn crate::formats::MetadataHandle
             | Format::Pdf
             | Format::Docx
             | Format::Xlsx
-            | Format::Pptx => crate::error::UnsupportedKind::NotYetImplemented(format),
+            | Format::Pptx
+            | Format::Odt
+            | Format::Ods
+            | Format::Odp => crate::error::UnsupportedKind::NotYetImplemented(format),
         },
     })
 }

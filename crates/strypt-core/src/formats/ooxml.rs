@@ -53,15 +53,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::container::zip::{self, Entry, Method, Output};
+use crate::container::package::{self, Action, Decision, Embedded, Part, as_u64};
+use crate::container::zip::{self, Output};
 use crate::detect::Format;
 use crate::error::{MalformedDetail, Result, StryptError};
+use crate::formats::xml;
 use crate::formats::{MetadataHandler, ParseLimits, StripOptions, Stripped};
 use crate::report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, MetadataValue, Note, StripReport,
 };
 
-mod xml;
+mod rules;
 
 /// The part that describes every other part's type. Required in every OOXML package.
 const CONTENT_TYPES: &str = "[Content_Types].xml";
@@ -115,12 +117,6 @@ const MAIN_PART_TYPES: [(&str, Format); 3] = [
         Format::Pptx,
     ),
 ];
-
-/// The magic number of an OLE2 compound file (`vbaProject.bin`, `oleObject1.bin`).
-///
-/// Its own container format, with its own directory and its own metadata streams. strypt cannot
-/// read it, so a document containing one is refused rather than reported clean (ADR-0029).
-const OLE_MAGIC: [u8; 8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
 
 /// Removal of metadata from Office Open XML documents.
 ///
@@ -193,29 +189,6 @@ struct Processed {
     output: Vec<u8>,
 }
 
-/// An entry, decompressed once and kept for the passes that follow.
-struct Part<'a> {
-    entry: Entry<'a>,
-    /// The decompressed contents. Absent for directory markers, which have none.
-    data: Option<Vec<u8>>,
-}
-
-impl Part<'_> {
-    /// The part's path within the package, when it is valid UTF-8.
-    fn name(&self) -> Option<&str> {
-        self.entry.name_str()
-    }
-
-    /// The contents as text, when they are valid UTF-8.
-    ///
-    /// A part that is not UTF-8 is not XML this handler will edit. It is copied through, and
-    /// the [`Note::UnparsedRegion`] that goes with it says so — silently passing bytes nobody
-    /// looked at is the thing to avoid, not the passing itself.
-    fn text(&self) -> Option<&str> {
-        std::str::from_utf8(self.data.as_deref()?).ok()
-    }
-}
-
 /// Walk the package once and produce both the report and the sanitised archive.
 fn process(
     input: &[u8],
@@ -223,8 +196,7 @@ fn process(
     options: &InspectOptions,
     limits: &ParseLimits,
 ) -> Result<Processed> {
-    let entries = zip::read(input, limits).map_err(|e| e.into_strypt(format))?;
-    let parts = decompress_all(entries, format, limits)?;
+    let parts = package::read_parts(input, format, limits)?;
 
     let types = ContentTypes::parse(&parts, format)?;
     types.confirm_format(format)?;
@@ -236,7 +208,7 @@ fn process(
     let dropped = parts_to_drop(&parts, &types, &rels);
     let dead_rels = dead_relationships(&parts);
 
-    refuse_nested_containers(&parts, format, &mut notes)?;
+    package::refuse_nested_containers(&parts, format, &mut notes)?;
 
     let mut outputs: Vec<Output<'_>> = Vec::with_capacity(parts.len());
     for part in &parts {
@@ -254,7 +226,7 @@ fn process(
         }
     }
 
-    findings.extend(container_findings(&parts));
+    findings.extend(package::container_findings(&parts));
 
     let output = zip::write(&outputs).map_err(|e| e.into_strypt(format))?;
     Ok(Processed {
@@ -262,32 +234,6 @@ fn process(
         notes,
         output,
     })
-}
-
-/// Decompress every entry once, against a budget shared across the whole archive.
-///
-/// Shared rather than per-entry, so that a hundred entries each individually within the ceiling
-/// cannot collectively exceed it — which is the shape of every archive bomb that gets past a
-/// naive limit.
-fn decompress_all<'a>(
-    entries: Vec<Entry<'a>>,
-    format: Format,
-    limits: &ParseLimits,
-) -> Result<Vec<Part<'a>>> {
-    let mut budget = limits.max_expanded_bytes;
-    let mut parts = Vec::with_capacity(entries.len());
-    for entry in entries {
-        let data = if entry.is_directory() {
-            None
-        } else {
-            let contents = entry.contents(budget).map_err(|e| e.into_strypt(format))?;
-            let owned = contents.into_owned();
-            zip::spend(&mut budget, as_u64(owned.len())).map_err(|e| e.into_strypt(format))?;
-            Some(owned)
-        };
-        parts.push(Part { entry, data });
-    }
-    Ok(parts)
 }
 
 /// `[Content_Types].xml`, parsed into the two lookups the rest of this module needs.
@@ -427,71 +373,6 @@ fn parts_to_drop(
     dropped
 }
 
-/// Refuse a package containing something strypt would have to descend into a second time.
-///
-/// ADR-0029 fixes the descent at one level and at images only. A nested archive, an embedded
-/// PDF, and an OLE compound file each carry their own metadata that this pass cannot reach, so
-/// the document is refused rather than reported clean — the user learns the file is there
-/// instead of publishing over it.
-fn refuse_nested_containers(
-    parts: &[Part<'_>],
-    format: Format,
-    notes: &mut Vec<Note>,
-) -> Result<()> {
-    for part in parts {
-        let Some(data) = part.data.as_deref() else {
-            continue;
-        };
-        let name = part.name().unwrap_or("<non-utf8 entry name>");
-        let nested = if data.starts_with(&OLE_MAGIC) {
-            Some("an OLE compound file")
-        } else if data.starts_with(b"PK\x03\x04") {
-            Some("a nested archive")
-        } else if matches!(crate::detect::detect(data), Ok(Format::Pdf)) {
-            // Reaching `lopdf` through a decompressed, attacker-chosen archive entry composes
-            // this project's weakest parser with its newest one. Not in the change that
-            // introduces the ZIP layer (ADR-0029).
-            Some("an embedded PDF")
-        } else {
-            None
-        };
-        if let Some(what) = nested {
-            notes.push(Note::OutOfScopeContent {
-                location: format!("{name} ({what})"),
-            });
-            return Err(malformed(format, MalformedDetail::UnsupportedFeature));
-        }
-    }
-    Ok(())
-}
-
-/// What to do with one part.
-enum Action {
-    /// Copy it through with its compressed bytes untouched.
-    Copy,
-    /// Remove it from the package entirely.
-    Drop,
-    /// Replace its contents, which the writer will store uncompressed (ADR-0028).
-    Rewrite(Vec<u8>),
-}
-
-/// A decision about one part, with what to tell the user about it.
-struct Decision {
-    action: Action,
-    findings: Vec<Finding>,
-    notes: Vec<Note>,
-}
-
-impl Decision {
-    const fn copy() -> Self {
-        Self {
-            action: Action::Copy,
-            findings: Vec::new(),
-            notes: Vec::new(),
-        }
-    }
-}
-
 /// Decide about one part.
 fn decide(
     part: &Part<'_>,
@@ -504,14 +385,10 @@ fn decide(
     let Some(name) = part.name() else {
         // A part whose name is not UTF-8 cannot be one this handler knows, and cannot be
         // referenced by any relationship, whose targets are text. Copied, and declared.
-        return Ok(Decision {
-            action: Action::Copy,
-            findings: Vec::new(),
-            notes: vec![Note::UnparsedRegion {
-                location: "an entry whose name is not valid UTF-8".to_owned(),
-                bytes: as_u64(part.entry.compressed.len()),
-            }],
-        });
+        return Ok(Decision::unexamined(
+            "an entry whose name is not valid UTF-8",
+            part.entry.compressed.len(),
+        ));
     };
     if part.entry.is_directory() {
         return Ok(Decision::copy());
@@ -525,9 +402,9 @@ fn decide(
         let Some(text) = part.text() else {
             return Ok(Decision::copy());
         };
-        let dereferenced = xml::drop_references(text, dropped);
+        let dereferenced = rules::drop_references(text, dropped);
         let base = dereferenced.as_deref().unwrap_or(text);
-        let scrubbed = xml::scrub(base, name, dead_rels.for_part(name), options);
+        let scrubbed = rules::scrub(base, name, dead_rels.for_part(name), options);
         let action = match scrubbed.output.or(dereferenced) {
             Some(rewritten) => Action::Rewrite(rewritten.into_bytes()),
             None => Action::Copy,
@@ -551,74 +428,29 @@ fn decide(
         return Ok(Decision::copy());
     };
 
-    // An embedded image goes through the *same* handler the CLI uses on a loose file, so it
-    // inherits Phase 1's verification, idempotence, and recorded limitations. A second, weaker
-    // implementation of JPEG stripping for the embedded case is exactly the divergence ADR-0003
-    // exists to prevent.
-    if let Ok(embedded) = crate::detect::detect(data)
-        && matches!(embedded, Format::Jpeg | Format::Png | Format::Webp)
-    {
-        return strip_embedded_image(embedded, data, name, options, limits);
+    // An embedded image goes through the *same* handler the CLI uses on a loose file, one level
+    // deep and images only (ADR-0029). The descent itself lives in `container::package` so that
+    // there is exactly one of it.
+    if let Some(embedded) = package::embedded_image_format(data) {
+        return match package::strip_embedded_image(embedded, data, name, options, limits)? {
+            package::Embedded::Unchanged => Ok(Decision::copy()),
+            Embedded::Stripped {
+                bytes,
+                findings,
+                notes,
+            } => Ok(Decision {
+                action: Action::Rewrite(bytes),
+                findings,
+                notes,
+            }),
+        };
     }
 
     match part.text() {
         Some(text) => Ok(scrub_part(text, name, dead_rels.for_part(name), options)),
-        // Not text, not an image strypt handles: a font, an audio clip, a binary blob. Copied
-        // through, and the note says which one, because a user deciding whether to publish
-        // should know what strypt did not look inside.
-        None => Ok(Decision {
-            action: Action::Copy,
-            findings: Vec::new(),
-            notes: vec![Note::UnparsedRegion {
-                location: name.to_owned(),
-                bytes: as_u64(data.len()),
-            }],
-        }),
+        // Not text, not an image strypt handles: a font, an audio clip, a binary blob.
+        None => Ok(Decision::unexamined(name, data.len())),
     }
-}
-
-/// Strip an embedded image through its own format handler.
-fn strip_embedded_image(
-    format: Format,
-    data: &[u8],
-    name: &str,
-    options: &InspectOptions,
-    limits: &ParseLimits,
-) -> Result<Decision> {
-    let Some(handler) = crate::registry::handler_for(format) else {
-        return Err(StryptError::UnsupportedFormat {
-            format: crate::error::UnsupportedKind::NotYetImplemented(format),
-        });
-    };
-    let stripped = handler.strip(
-        data,
-        &StripOptions {
-            inspect: options.clone(),
-            limits: *limits,
-        },
-    )?;
-
-    // A picture that had nothing in it is copied rather than rewritten, which keeps an
-    // already-clean document's entries byte-identical to their originals.
-    if stripped.report.removed.is_empty() {
-        return Ok(Decision::copy());
-    }
-    let findings = stripped
-        .report
-        .removed
-        .into_iter()
-        .map(|mut finding| {
-            // Attribute the leak to the picture rather than to the document as a whole, so a
-            // report reads `word/media/image2.jpeg → APP1 (Exif)`.
-            finding.location = format!("{name} → {}", finding.location);
-            finding
-        })
-        .collect();
-    Ok(Decision {
-        action: Action::Rewrite(stripped.bytes),
-        findings,
-        notes: stripped.report.notes,
-    })
 }
 
 /// Report what a properties part held, before it is dropped.
@@ -699,7 +531,7 @@ fn scrub_part(
     dead_rel_ids: &BTreeSet<String>,
     options: &InspectOptions,
 ) -> Decision {
-    let scrubbed = xml::scrub(text, name, dead_rel_ids, options);
+    let scrubbed = rules::scrub(text, name, dead_rel_ids, options);
     let action = match scrubbed.output {
         // Unchanged parts keep their original compressed bytes, so a document with nothing to
         // remove differs from its input only in its entry headers.
@@ -743,7 +575,7 @@ fn dead_relationships(parts: &[Part<'_>]) -> DeadRelationships {
         if !name.to_ascii_lowercase().ends_with(".rels") {
             continue;
         }
-        let ids = xml::external_local_relationships(text);
+        let ids = rules::external_local_relationships(text);
         if ids.is_empty() {
             continue;
         }
@@ -773,40 +605,6 @@ fn owner_part(rels_name: &str) -> Option<String> {
     Some(format!("{base}{file}"))
 }
 
-/// Findings that belong to the archive itself rather than to any one part.
-fn container_findings(parts: &[Part<'_>]) -> Vec<Finding> {
-    let mut findings = Vec::new();
-
-    let timestamped = parts
-        .iter()
-        .filter(|p| p.entry.modified != zip::NORMALISED_DOS_DATETIME)
-        .count();
-    if timestamped > 0 {
-        // Every entry header records when that part was last written. Across a document's parts
-        // that is a record of an editing session's clock times, which is the same class of
-        // information as `TotalTime` and is not visible in any application.
-        findings.push(Finding::new(
-            MetadataKind::Timestamp,
-            "ZIP entry headers",
-            as_u64(timestamped),
-        ));
-    }
-
-    let host_fields = parts
-        .iter()
-        .filter(|p| zip::extra_names_the_host(p.entry.extra))
-        .count();
-    if host_fields > 0 {
-        findings.push(Finding::new(
-            MetadataKind::DeviceIdentity,
-            "ZIP entry extra fields",
-            as_u64(host_fields),
-        ));
-    }
-
-    findings
-}
-
 /// Strip a leading slash from a part path so that the content-types, relationship, and entry
 /// spellings of the same part compare equal.
 fn normalise_part_name(name: &str) -> String {
@@ -821,14 +619,3 @@ const fn malformed(format: Format, detail: MalformedDetail) -> StryptError {
         detail,
     }
 }
-
-/// Widen a length for a report field.
-///
-/// Saturating rather than fallible: this is only ever a count in a report, and no length that
-/// fits in memory comes close to `u64::MAX`.
-fn as_u64(n: usize) -> u64 {
-    u64::try_from(n).unwrap_or(u64::MAX)
-}
-
-/// Silence the unused-import warning for a type the module uses only through `zip::`.
-const _: Option<Method> = None;

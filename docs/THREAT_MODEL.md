@@ -1,6 +1,6 @@
 # strypt — Threat Model
 
-**Status:** Phase 1 complete (2026-08-22) · **Last updated:** 2026-08-23
+**Status:** Phase 1 complete (2026-08-22); Phase 2 group 2 landed (2026-08-24) · **Last updated:** 2026-08-24
 
 **This document must be revisited every time a format handler is added or substantially
 changed.** A new format brings new places for data to hide, and a threat model that lags the
@@ -788,6 +788,143 @@ normalise to a constant.
 target and 9.05M on the `zip` target, both clean, no artefacts. That is the definition-of-done
 smoke bar, **not** a sustained run and not Phase 1 exit criterion 2's bar. A sustained run
 covering the two new targets is owed before this format group can be called done.
+
+### 7.7 OpenDocument — `.odt`, `.ods`, `.odp` (Phase 2)
+
+*Written 2026-08-24, from what the handler, the fuzz target, and the mat2/ExifTool differential
+actually showed — not from the specification.*
+
+**The structural work is shared with §7.6 and the contents are not.** OpenDocument is a ZIP
+package, so the container layer, the archive-wide decompression budget, the nested-container
+refusal, and the one-level descent into embedded pictures are the same code the Office handler
+uses. Everything above that layer is different, and assuming otherwise would have produced a
+handler that quietly missed most of this format's metadata. ADR-0031 records the four
+differences that changed the design; three of them are findings rather than design taste.
+
+**Finding 1 — an ODF-encrypted package does not look encrypted to ZIP, and that is a
+silent-success hazard.** ODF does not set ZIP's general-purpose encryption bit. It deflates an
+entry, encrypts the result, and records the fact in `META-INF/manifest.xml` (Part 2 §3.4). The
+refusal in the ZIP layer that correctly catches an encrypted `.docx` therefore passes an
+encrypted `.odt` straight through — and then `content.xml` is ciphertext, no rule matches it,
+nothing is found, and the package is reported clean having been examined by nobody. That is
+§5.4 exactly, reached by a route Group 1 did not have. The handler refuses on the manifest
+instead, and `corpus/odf/malformed/encrypted.odt` pins it.
+
+**Finding 2 — ODF puts authorship in element text, so a rule keyed on a name alone is wrong.**
+`<w:ins w:author="A Name">` has no ODF equivalent; the same information is
+`<office:change-info><dc:creator>A Name</dc:creator></office:change-info>`. And `dc:creator` is
+*also* the document's own author in `meta.xml`, and *also* a comment's author inside
+`<office:annotation>`. An implementation that removed `dc:creator` wherever it appeared would
+edit markup it has no business touching; one that removed it nowhere would leave every
+comment's author in the file. The scanner tracks which elements it is inside, which the Office
+rules never needed to.
+
+Two consequences of scanning rather than parsing are worth stating. A `dc:creator` containing
+*child elements* — which the schema forbids and a hostile file may write anyway — has its whole
+element removed rather than being left alone, because leaving it would mean a name surviving in
+a document reported as cleaned. And a part whose markup the scanner cannot follow — mismatched
+tags, or nesting past 256 levels — is copied through untouched with a `Note` saying so, rather
+than edited on a guess about where the scan is.
+
+**Finding 3 — an embedded object is reachable without recursing, and this is the opposite
+outcome from Office.** A `.docx` containing a chart holds a whole `.xlsx` inside itself, which
+ADR-0029 refuses (§7.6). ODF stores the same chart as ordinary entries in the same archive —
+`Object 1/content.xml`, `Object 1/meta.xml`, `Object 1/settings.xml` — so the chart's own author
+and printer metadata is removed in the same pass, with no descent at all, and the document is
+cleaned rather than refused. Same feature in the two formats; opposite outcomes, entirely
+because of how each stores it.
+
+**Where the metadata was, in the order a user would be surprised by it:**
+
+| Location | What it carries |
+|---|---|
+| `Pictures/*` | Whole JPEG/PNG/WebP files with GPS, camera serial numbers, and Exif thumbnails of the uncropped original |
+| `meta.xml` | `meta:initial-creator`, `dc:creator` (in ODF the *last* person to save it), `meta:creation-date`, `dc:date`, `meta:printed-by`, `meta:print-date` |
+| `meta:editing-cycles`, `meta:editing-duration` | The save count, and the total editing time as an ISO 8601 duration **to the second** — `PT4H32M17S` |
+| `meta:generator` | The application, its version, **and its operating system**: `LibreOffice/7.4.2$Linux_X86_64` |
+| `meta:document-statistic` | Page, word, paragraph, and character counts — in **attributes**, not element text |
+| `meta:user-defined` | Arbitrary named properties; the ODF counterpart of `docProps/custom.xml`, and the same place a matter number or a username lands |
+| `meta:template` | An `xlink:href` frequently pointing at a file under the author's home directory |
+| `settings.xml` | The printer's name and its base64 setup blob (driver, port, often a network path), the last cursor position, and a per-release set of configuration keys that fingerprints the producing build |
+| `Thumbnails/thumbnail.png` | A rendered preview of the first page (Part 2 §3.8), which survives every redaction applied to the text |
+| `Configurations2/`, `layout-cache` | The producer's saved user-interface configuration, and a binary cache of the text layout |
+| `office:annotation`, `office:change-info` | Comment and revision authorship, as element text |
+| `text:creator` and its siblings | Fields holding a **cached copy** of the author's name, printed in the document |
+| ZIP entry headers and extra fields | A modification time per part, Unix UID/GID, NTFS times — as for every package format |
+
+**What is deliberately kept, and why.**
+
+- **The words of comments and tracked changes**, with their authors, initials and dates
+  removed — the same call as §7.6, for the same reason. **mat2 is the better recommendation for
+  a document whose comments must not be published**, and the difference is sharper here than for
+  Office: mat2 removes ODF annotations and tracked changes outright, so a user who needs the
+  comments gone and does not need the document to say what they reviewed is better served by it.
+- **A date or time field the document displays.** `text:creation-date` in a letter's header is a
+  date the author chose to print. It stays, and a `Note` says it is there.
+- **Any part strypt does not recognise**, copied through with a `Note::UnparsedRegion` naming
+  it — including `ObjectReplacements/`, which holds a rendered preview of an embedded object in
+  a metafile format strypt cannot read. mat2 drops those; strypt copies them, on the §7.6
+  principle that an unrecognised part may be load-bearing. **This is a recorded difference in
+  thoroughness, not an oversight**: a replacement image is a rendering of document content, and
+  it could in principle carry metadata of its own that strypt has not examined.
+
+**One place strypt edits what a reader sees, stated plainly because it is an exception.** The
+cached values of `text:creator`, `text:initial-creator`, `text:author-name`,
+`text:author-initials`, `text:printed-by`, `text:editing-cycles`, and `text:editing-duration`
+are emptied. These are fields the application filled in from `meta.xml`, so their content is a
+second copy of what is being removed; leaving them would print the author's name in a document
+strypt reported as cleaned. The elements remain, so an application refills them.
+
+**What is refused rather than half-processed.** Each of these produces no output file at all: a
+package with no `META-INF/manifest.xml`; a package whose manifest declares encryption; a package
+whose `mimetype` entry and manifest root disagree about what the document is; a nested archive,
+an embedded PDF, or an OLE object; and — refused at detection and *named* — an OpenDocument type
+outside this group, which is a drawing, a formula, a chart, a database, or any `-template`
+variant. A flat ODF file (`.fodt`, `.fods`, `.fodp`) is a single XML document rather than a
+package and is refused as XML, which is correct but less informative than it could be.
+
+**Known limitations, stated plainly.**
+
+1. **Comments and tracked changes remain in the document.** Their attribution is removed; their
+   text is not. **For a document whose comments must not be published, mat2 is the better
+   recommendation.**
+2. **Output is not byte-identical to input even for a clean document.** Rewritten parts are
+   re-emitted stored (ADR-0028), entry timestamps are normalised, and a `mimetype` entry that
+   arrived compressed or out of position is moved and re-stored. Idempotence *is* byte-identical
+   and is tested over every fixture.
+3. **No stripped package has been opened in LibreOffice.** No LibreOffice was available on the
+   machine this handler was built on, so the "opens without a repair prompt" check that §7.6
+   records for Word is **owed** for this format. What has been checked is structural and is not
+   the same thing: an independent ZIP reader parses every output and verifies every CRC, the
+   manifest is checked against the entries actually present, and the `mimetype` entry is checked
+   against Part 2 §3.3 for position, compression method, and absence of an extra field.
+4. **XML is scanned, not parsed.** Entities are not resolved and nesting is not validated. A
+   producer doing something genuinely unusual could defeat the scanner, in which case the part
+   is copied through unchanged with a note rather than edited on a guess.
+5. **`ObjectReplacements/`, fonts, and binary parts are not inspected**, only copied with a note.
+6. **`manifest.rdf` is scanned as ordinary XML.** ODF 1.2 RDF metadata is not interpreted as
+   RDF, so a statement about the document expressed only in a way the element-name rules do not
+   recognise would be copied through.
+
+**Differential result (2026-08-24).** `scripts/odf-differential.sh` over all 14 fixtures,
+against mat2 0.15.0 and ExifTool 13.55: **no gaps** — nothing survives strypt that does not also
+survive mat2, and ExifTool finds no GPS, serial, artist, or owner tag in any output, including
+inside `Pictures/`. The same two comparison exclusions as §7.6 apply (`date_time`,
+`create_system`), and both are values *both* tools normalise to a constant.
+
+One result in the other direction, recorded because it is interesting rather than because it
+flatters: **mat2 refuses `embedded-object.ods`** — `ERROR: element Object 1/settings.xml's
+format (application/xml) isn't supported`. Its part patterns are anchored at the package root,
+so an embedded chart's own `settings.xml`, one directory down, matches neither its keep list nor
+its omit list. strypt processes that document and removes the object's metadata. A document with
+an embedded chart is an ordinary thing to have, so this is a real difference — and it is one
+data point about one release, not a general claim about either tool.
+
+**Fuzzing (2026-08-24).** A short run only, and stated as such: **2.75M executions on the `odf`
+target, clean, no artefacts**, plus 1.90M on `ooxml` and 6.60M on `zip` re-run after the shared
+container and scanner layers moved — both clean. That is the definition-of-done smoke bar,
+**not** a sustained run. A sustained run covering `odf`, the ZIP layer's new consumer, and the
+PDF handler's two most recent fixes is owed before this format group can be called done.
 
 ---
 

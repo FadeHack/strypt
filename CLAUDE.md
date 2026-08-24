@@ -18,11 +18,12 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML done (2026-08-23)**
+## 2. Current phase: **Phase 2 in progress — OOXML and OpenDocument done (2026-08-24)**
 
-**Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first format group
-has landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, `.docx`, `.xlsx`,
-and `.pptx`; every other format is reported as unsupported and never passed through untouched. Landed: bounded ingest,
+**Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
+groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, `.docx`,
+`.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`; every other format is reported as unsupported and
+never passed through untouched. Landed: bounded ingest,
 content-sniffing detection, the handler registry and trait, the post-strip verification pass,
 structured reports, typed errors, the atomic write path, the full CLI, the four Phase 1 handlers
 with shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for all four
@@ -45,22 +46,38 @@ implementation), a one-level descent into embedded images (ADR-0029), the handle
 scanner (ADR-0030), `ooxml` and `zip` fuzz targets, 20 fixtures, 26 integration tests, a clean
 mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.6.
 
-**Groups 2–4 — OpenDocument, additional images, audio/video — are NOT started.** The
-"check before referencing a later-phase artefact" rule now applies *within* this phase too.
+**Group 2 — OpenDocument — is done (2026-08-24).** `.odt`, `.ods`, `.odp`. Landed: the handler
+and its rules (ADR-0031), an `odf` fuzz target, 14 fixtures plus 8 malformed ones, 33 integration
+tests, a clean mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.7. Two internal
+boundaries moved so the two package formats share rather than duplicate: the XML scanner is now
+`formats/xml.rs` (rules per format beside each handler), and the ZIP-package machinery is now
+`container/package.rs` — which is what keeps ADR-0029's one-level descent existing exactly once.
 
-**Qualifications on the OOXML group, which are real:**
+**Groups 3–4 — additional images, audio/video — are NOT started.** The "check before referencing
+a later-phase artefact" rule now applies *within* this phase too.
 
-- **Only short fuzz runs so far** — 3.53M executions on `ooxml`, 9.05M on `zip`, both clean.
-  That is the definition-of-done smoke bar, **not** a sustained run and not Phase 1 exit
-  criterion 2's bar. A sustained run across all seven targets is owed.
+**Qualifications on the two landed groups, which are real:**
+
+- **OOXML's sustained-run debt is cleared** — `ooxml` and `zip` each ran a clean 12 hours on
+  2026-08-24. **OpenDocument's is not**: `odf` has 2.75M executions from a short run only, which
+  is the definition-of-done smoke bar and **not** a sustained run. A sustained run covering `odf`,
+  the ZIP layer's new consumer, and the PDF handler's two most recent fixes is owed.
 - **The text of comments and tracked changes is deliberately kept**, with only its attribution
   removed. **mat2 is the better recommendation for a document whose comments must not be
-  published**, and ADR-0012 requires saying so.
-- **A document containing a nested archive, an embedded PDF, or an OLE object is refused**, not
-  partly cleaned. This refuses real documents — a chart's cached workbook is common — and that
-  cost is accepted deliberately.
+  published**, and ADR-0012 requires saying so. This is sharper for ODF than for Office: mat2
+  removes ODF annotations and tracked changes outright.
+- **An OOXML document containing a nested archive, an embedded PDF, or an OLE object is
+  refused**, not partly cleaned. This refuses real documents — a chart's cached workbook is
+  common — and that cost is accepted deliberately. **ODF is different and it is not a
+  double standard**: it stores an embedded chart as ordinary entries in the same archive, so
+  that document is cleaned rather than refused, with no recursion involved (ADR-0031).
 - **Output is not byte-identical for a clean input** (rewritten parts are stored, entry
-  timestamps normalised). Idempotence *is* byte-identical and is tested.
+  timestamps normalised, and an ODF `mimetype` entry may be moved and re-stored). Idempotence
+  *is* byte-identical and is tested.
+- **No stripped ODF package has been opened in LibreOffice.** None was available on the build
+  machine. The structural checks that were run — an independent ZIP reader over every output,
+  the manifest checked against the entries present, `mimetype` checked against ODF Part 2 §3.3 —
+  are not the same claim, and `docs/THREAT_MODEL.md` §7.7 says so.
 
 **Closed does not mean unqualified.** Read these before repeating "Phase 1 is done" anywhere
 user-facing — each is a real limit, not a formality:
@@ -125,7 +142,7 @@ fix — the defect is being reported upstream.
 `scripts/measure-performance.sh`. One machine only; Linux and Windows are unmeasured.
 
 Read `docs/ROADMAP.md` for the full exit criteria before treating any of this as settled, and
-**check before referencing a later-phase artefact** — nothing beyond Phase 2's first format
+**check before referencing a later-phase artefact** — nothing beyond Phase 2's second format
 group exists.
 
 **Premise correction — settled, and binding (ADR-0012).** The project's founding premise

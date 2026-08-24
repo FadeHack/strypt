@@ -117,19 +117,28 @@ strypt/
 │   │   │   ├── fuzzing.rs      # feature-gated, non-public: lets `zip` be fuzzed on its own
 │   │   │   ├── container/      # NOT formats: machinery that formats sit on top of
 │   │   │   │   ├── mod.rs
-│   │   │   │   └── zip.rs      # hand-written ZIP reader/writer (ADR-0028)
+│   │   │   │   ├── zip.rs      # hand-written ZIP reader/writer (ADR-0028)
+│   │   │   │   └── package.rs  # what OOXML and ODF do the same way: shared decompression
+│   │   │   │                   # budget, nested-container refusal, and the one-level
+│   │   │   │                   # descent into embedded images — which exists here so that
+│   │   │   │                   # it exists exactly once (ADR-0029)
 │   │   │   └── formats/
 │   │   │       ├── mod.rs      # MetadataHandler trait
 │   │   │       ├── exif.rs     # shared Exif reader (JPEG, PNG, WebP)
 │   │   │       ├── xmp.rs      # shared XMP reader
+│   │   │       ├── xml.rs      # shared tag scanner (OOXML, ODF); edits by deleting byte
+│   │   │       │               # ranges, never by re-serialising
 │   │   │       ├── jpeg.rs
 │   │   │       ├── png.rs
 │   │   │       ├── webp.rs
 │   │   │       ├── pdf.rs
 │   │   │       ├── ooxml.rs    # .docx/.xlsx/.pptx: part classification (ADR-0030)
-│   │   │       └── ooxml/
-│   │   │           └── xml.rs  # tag scanner; edits by deleting byte ranges,
-│   │   │                       # never by re-serialising
+│   │   │       ├── ooxml/
+│   │   │       │   └── rules.rs  # which Office attributes are identifying
+│   │   │       ├── odf.rs      # .odt/.ods/.odp: parts found by name, not by declared
+│   │   │       │               # type — the inversion of ADR-0030 (ADR-0031)
+│   │   │       └── odf/
+│   │   │           └── rules.rs  # which ODF elements are identifying, and in what context
 │   │   ├── tests/              # integration tests + corpus-driven tests
 │   │   └── fuzz/               # cargo-fuzz targets: one per handler, plus `detect` and `zip`
 │   └── strypt/                 # thin: args, orchestration, presentation, exit codes

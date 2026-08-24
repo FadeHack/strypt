@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-08-23
+**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-08-24
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -279,22 +279,41 @@ this order, and a group is not started until the previous one meets the Phase 1 
   independently of any handler), 13 generated fixtures plus 7 malformed ones, 26 integration
   tests, `scripts/ooxml-differential.sh`, and `docs/THREAT_MODEL.md` §7.6.
 
-  **What is not claimed.** Only *short* fuzz runs have covered the two new targets — 3.53M and
-  9.05M executions, both clean. That is the definition-of-done smoke bar, not a sustained run.
-  A sustained run covering all seven targets is owed. Three limitations are recorded in
-  §7.6 rather than fixed: the text of comments and tracked changes stays (attribution removed),
-  a document containing a nested archive or OLE object is refused rather than partly cleaned,
-  and a damaged package is reported as a generic ZIP refusal.
+  **Its sustained-run debt is cleared.** `ooxml` and `zip` each ran a clean twelve hours on
+  2026-08-24 with zero artefacts. Three limitations are recorded in §7.6 rather than fixed: the
+  text of comments and tracked changes stays (attribution removed), a document containing a
+  nested archive or OLE object is refused rather than partly cleaned, and a damaged package is
+  reported as a generic ZIP refusal.
 
-- ⬜ **Groups 2–4 — not started.** OpenDocument, the additional image formats, and the audio and
-  video containers. The "check before referencing a later artefact" rule now applies *within*
-  this phase as well as across phases.
+- ✅ **Group 2 — OpenDocument, done 2026-08-24.** `.odt`, `.ods`, and `.odp` are handled. Landed:
+  the handler and its rules (ADR-0031), an `odf` fuzz target, 14 fixtures plus 8 malformed ones,
+  33 integration tests, `scripts/odf-differential.sh` with a clean result against mat2 0.15.0 and
+  ExifTool 13.55, and `docs/THREAT_MODEL.md` §7.7. Two internal boundaries moved so that the two
+  package formats share rather than duplicate: the XML scanner is now `formats/xml.rs` with
+  per-format rules beside each handler, and the ZIP-package machinery — decompression budget,
+  nested-container refusal, embedded-image descent, entry-header findings — is now
+  `container/package.rs`, which is what keeps ADR-0029's one-level descent existing exactly once.
+
+  **What is not claimed.** A *short* fuzz run only: 2.75M executions on `odf`, clean, with
+  `ooxml` and `zip` re-run clean after the shared layers moved. That is the definition-of-done
+  smoke bar, not a sustained run, and a sustained run covering `odf` — alongside the PDF handler's
+  two most recent fixes — is owed. **No stripped package has been opened in LibreOffice**, because
+  none was available on the build machine; the structural checks that were run are not the same
+  thing, and §7.7 says so. The comments-and-tracked-changes limitation is sharper here than for
+  Office: mat2 removes ODF annotations outright, so for a document whose comments must not be
+  published it is the better recommendation.
+
+- ⬜ **Groups 3–4 — not started.** The additional image formats, and the audio and video
+  containers. The "check before referencing a later artefact" rule now applies *within* this
+  phase as well as across phases.
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
    `app.xml`, custom properties, revision identifiers, comments, tracked changes,
    embedded thumbnails).
-2. OpenDocument — `.odt`, `.ods`, `.odp` (`meta.xml`, editing-cycle and duration statistics).
+2. ✅ OpenDocument — `.odt`, `.ods`, `.odp` (`meta.xml`, editing-cycle and duration statistics,
+   `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
+   attributes).
 3. Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
@@ -302,8 +321,9 @@ this order, and a group is not started until the previous one meets the Phase 1 
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level
 and at image formats only, enforced in the type system rather than by a counter, with an
 archive-wide decompression budget, a per-entry expansion-ratio ceiling, and an entry-count
-ceiling. Criteria 1–3 are met for the OOXML group and remain open for the three groups that have
-not started.
+ceiling. Criteria 1–3 are met for the OOXML and OpenDocument groups and remain open for the two groups
+that have not started. Criterion 4's ADR covers both, since the descent is shared code —
+`container/package.rs` — rather than a rule each handler implements for itself.
 
 Each format ships with: handler, fuzz target and seed corpus, integration tests, differential
 comparison against mat2/ExifTool, a `docs/THREAT_MODEL.md` update, and a `CHANGELOG.md` entry.

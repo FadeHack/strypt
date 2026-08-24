@@ -29,10 +29,12 @@ use crate::report::{InspectOptions, MetadataReport, StripReport};
 
 mod exif;
 pub mod jpeg;
+pub mod odf;
 pub mod ooxml;
 pub mod pdf;
 pub mod png;
 pub mod webp;
+mod xml;
 mod xmp;
 
 /// Sanitised bytes and an account of what was done to produce them.

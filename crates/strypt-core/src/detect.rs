@@ -53,6 +53,12 @@ pub enum Format {
     Xlsx,
     /// A `PresentationML` presentation — `.pptx`.
     Pptx,
+    /// An `OpenDocument` text document — `.odt`.
+    Odt,
+    /// An `OpenDocument` spreadsheet — `.ods`.
+    Ods,
+    /// An `OpenDocument` presentation — `.odp`.
+    Odp,
 }
 
 impl Format {
@@ -69,6 +75,9 @@ impl Format {
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
+            Self::Odt => "odt",
+            Self::Ods => "ods",
+            Self::Odp => "odp",
         }
     }
 
@@ -85,6 +94,9 @@ impl Format {
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
+            Self::Odt => "odt",
+            Self::Ods => "ods",
+            Self::Odp => "odp",
         }
     }
 }
@@ -99,6 +111,9 @@ impl std::fmt::Display for Format {
             Self::Docx => "DOCX",
             Self::Xlsx => "XLSX",
             Self::Pptx => "PPTX",
+            Self::Odt => "ODT",
+            Self::Ods => "ODS",
+            Self::Odp => "ODP",
         })
     }
 }
@@ -152,7 +167,7 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if find_pdf_header(data).is_some() {
         return Some(Format::Pdf);
     }
-    if let Some(Package::Ooxml(format)) = office_package(data) {
+    if let Some(Package::Ooxml(format) | Package::OpenDocument(format)) = zip_package(data) {
         return Some(format);
     }
     None
@@ -170,10 +185,14 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
         // "Phase 2 will get to this": its `vbaProject.bin` is an OLE compound file strypt cannot
         // read, and a document reported clean while a container inside it went unexamined is the
         // failure in `docs/THREAT_MODEL.md` §5.4 (ADR-0029).
-        if matches!(office_package(data), Some(Package::MacroEnabled)) {
-            return Some(UnsupportedKind::MacroEnabledOffice);
-        }
-        return Some(UnsupportedKind::ZipContainer);
+        return Some(match zip_package(data) {
+            Some(Package::MacroEnabled) => UnsupportedKind::MacroEnabledOffice,
+            // A drawing, a formula, a chart, or any `-template` variant: understood, named, and
+            // declined. `docs/ROADMAP.md` Phase 2 group 2 is the three document types, and
+            // widening it is a superseding ADR rather than a judgement call (ADR-0027).
+            Some(Package::OtherOpenDocument) => UnsupportedKind::OtherOpenDocument,
+            _ => UnsupportedKind::ZipContainer,
+        });
     }
     if starts_with(data, b"GIF87a") || starts_with(data, b"GIF89a") {
         return Some(UnsupportedKind::Gif);
@@ -212,12 +231,17 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     None
 }
 
-/// What an OOXML-shaped ZIP package turned out to be.
+/// What a ZIP package turned out to be.
 enum Package {
-    /// A package this release handles.
+    /// An Office Open XML package this release handles.
     Ooxml(Format),
     /// A macro-enabled Office document, refused rather than handled.
     MacroEnabled,
+    /// An `OpenDocument` package this release handles.
+    OpenDocument(Format),
+    /// An `OpenDocument` package of a type this release does not handle — a drawing, a formula,
+    /// a chart, a database, or any of the `-template` variants.
+    OtherOpenDocument,
 }
 
 /// The main-part content type each supported format declares for itself.
@@ -237,26 +261,65 @@ const OOXML_MACRO_TYPES: [&str; 3] = [
     "presentationml.presentation.macroEnabled.main+xml",
 ];
 
-/// How much of `[Content_Types].xml` is inflated to answer the question.
+/// How much of an index part is inflated to answer the question.
 ///
-/// The part is a few kilobytes in any real document. Bounding it keeps detection — which sees
-/// every byte of every file the user offers, including files no handler will accept — from
-/// becoming somewhere an attacker can make strypt do work.
-const CONTENT_TYPES_BUDGET: u64 = 4 * 1024 * 1024;
+/// `[Content_Types].xml` and `META-INF/manifest.xml` are each a few kilobytes in any real
+/// document, and `mimetype` is one line. Bounding the inflate keeps detection — which sees every
+/// byte of every file the user offers, including files no handler will accept — from becoming
+/// somewhere an attacker can make strypt do work.
+const INDEX_PART_BUDGET: u64 = 4 * 1024 * 1024;
 
-/// Identify a ZIP package by the content type it declares for its main part.
+/// Identify a ZIP package by what it declares about itself.
 ///
 /// Every failure returns [`None`], which routes the file to the generic ZIP refusal. Detection
 /// is not the place to explain why an archive is malformed; the handler that gets a real
 /// package is.
-fn office_package(data: &[u8]) -> Option<Package> {
+fn zip_package(data: &[u8]) -> Option<Package> {
     let entries =
         crate::container::zip::read(data, &crate::formats::ParseLimits::default()).ok()?;
-    let content_types = entries
+    // OpenDocument is checked first because its answer is cheaper and unambiguous: a one-line
+    // `mimetype` entry, which no OOXML package has.
+    opendocument_package(&entries).or_else(|| ooxml_package(&entries))
+}
+
+/// The contents of `name`, when the package has such an entry and it is text.
+fn index_part(entries: &[crate::container::zip::Entry<'_>], name: &str) -> Option<String> {
+    let entry = entries
         .iter()
-        .find(|entry| entry.name_str() == Some("[Content_Types].xml"))?;
-    let bytes = content_types.contents(CONTENT_TYPES_BUDGET).ok()?;
-    let text = std::str::from_utf8(bytes.as_ref()).ok()?;
+        .find(|entry| entry.name_str() == Some(name))?;
+    let bytes = entry.contents(INDEX_PART_BUDGET).ok()?;
+    std::str::from_utf8(bytes.as_ref()).ok().map(str::to_owned)
+}
+
+/// Identify an `OpenDocument` package by the media type it declares for itself.
+///
+/// ODF 1.3 Part 2 §3.3 puts that media type in a `mimetype` entry, and §4.3 puts it again on the
+/// manifest's root file-entry. Both are read, because the first is optional in older packages
+/// and the second is what remains when a producer omitted it.
+fn opendocument_package(entries: &[crate::container::zip::Entry<'_>]) -> Option<Package> {
+    let declared = index_part(entries, "mimetype")
+        .map(|text| text.trim().to_owned())
+        .filter(|text| text.starts_with(crate::formats::odf::MEDIA_TYPE_PREFIX))
+        .or_else(|| {
+            let manifest = index_part(entries, "META-INF/manifest.xml")?;
+            crate::formats::odf::root_media_type_of(&manifest)
+        })?;
+
+    if !declared.starts_with(crate::formats::odf::MEDIA_TYPE_PREFIX) {
+        return None;
+    }
+    Some(
+        crate::formats::odf::format_for_media_type(&declared)
+            .map_or(Package::OtherOpenDocument, Package::OpenDocument),
+    )
+}
+
+/// Identify an Office Open XML package by the content type it declares for its main part.
+///
+/// ECMA-376 Part 2: `[Content_Types].xml` is the package's own statement of what it holds, and
+/// it is the only place in the file that answers the question authoritatively.
+fn ooxml_package(entries: &[crate::container::zip::Entry<'_>]) -> Option<Package> {
+    let text = index_part(entries, "[Content_Types].xml")?;
 
     // Macro-enabled is checked first: its content type contains the plain one's spelling as a
     // substring in some producers' output, so matching the other way round would silently accept

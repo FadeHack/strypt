@@ -166,6 +166,14 @@ pub enum UnsupportedKind {
     /// metadata streams that strypt cannot read. Reporting the document clean while a container
     /// inside it went unexamined is the failure in `docs/THREAT_MODEL.md` §5.4 (ADR-0029).
     MacroEnabledOffice,
+    /// An `OpenDocument` package of a type this release does not handle — a drawing, a formula,
+    /// a chart, a database, or any of the `-template` variants.
+    ///
+    /// Named separately from [`Self::ZipContainer`] because the two say different things to a
+    /// user: this one means the file was understood and declined, where the generic refusal
+    /// sounds like it was not recognised at all. `docs/ROADMAP.md` Phase 2 group 2 is `.odt`,
+    /// `.ods`, and `.odp`, and widening that needs a superseding ADR (ADR-0027).
+    OtherOpenDocument,
     /// GIF.
     Gif,
     /// TIFF.
@@ -195,6 +203,9 @@ impl std::fmt::Display for UnsupportedKind {
             Self::ZipContainer => "a ZIP container (Office, OpenDocument, or archive)",
             Self::MacroEnabledOffice => {
                 "a macro-enabled Office document, whose embedded VBA project strypt cannot read"
+            }
+            Self::OtherOpenDocument => {
+                "an OpenDocument type strypt does not handle yet (a drawing, formula, chart, or template)"
             }
             Self::Gif => "GIF",
             Self::Tiff => "TIFF",

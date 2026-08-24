@@ -2,21 +2,23 @@
 
 > ## Status: Phase 2 in progress — no audit, no release, no hardening phase yet
 >
-> **PDF, JPEG, PNG, WebP, and Office Open XML (`.docx`, `.xlsx`, `.pptx`) are implemented.**
+> **PDF, JPEG, PNG, WebP, Office Open XML (`.docx`, `.xlsx`, `.pptx`), and OpenDocument
+> (`.odt`, `.ods`, `.odp`) are implemented.**
 > Everything else is recognised and reported as unsupported; it is not processed. All seven Phase 1 exit criteria are met: the handlers were
 > swept over 102 files from real producers — real camera maker notes included — the mat2
 > differential covers all four formats, performance is measured, CI is green on Linux, macOS and
 > Windows, and 80 CPU-hours of fuzzing across five targets found four real PDF defects, each
 > fixed with a regression test, ending in a 12-hour PDF run with no crashes, hangs or OOMs.
 >
-> **Office Open XML landed 2026-08-23**, as the first of Phase 2's four format groups
-> (ADR-0027). A photograph pasted into a document is stripped by the same image handler a loose
-> file goes through. Three limitations are recorded rather than glossed: the *text* of comments
-> and tracked changes stays (only its attribution is removed, and **mat2 is the better tool if
-> the comments themselves must go**); a document containing a nested archive, an embedded PDF,
-> or an OLE object is refused rather than partly cleaned; and only short fuzz runs have covered
-> the two new targets so far, not a sustained one. OpenDocument, the additional image formats,
-> and audio/video are **not started**.
+> **Office Open XML landed 2026-08-23 and OpenDocument on 2026-08-24**, the first two of Phase
+> 2's four format groups (ADR-0027). A photograph pasted into a document is stripped by the same
+> image handler a loose file goes through. Limitations recorded rather than glossed: the *text*
+> of comments and tracked changes stays in both formats (only its attribution is removed, and
+> **mat2 is the better tool if the comments themselves must go**); an Office document containing
+> a nested archive, an embedded PDF, or an OLE object is refused rather than partly cleaned; no
+> stripped OpenDocument package has yet been opened in LibreOffice, so that check is owed; and
+> the `odf` fuzz target has had a short run only, not a sustained one. The additional image
+> formats and audio/video are **not started**.
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
 > tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
@@ -66,6 +68,7 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 cargo run -p strypt -- show corpus/pdf/info-dictionary.pdf
 cargo run -p strypt -- show corpus/jpeg/exif-gps.jpg
 cargo run -p strypt -- show corpus/ooxml/everything.docx
+cargo run -p strypt -- show corpus/odf/everything.odt
 cargo run -p strypt -- strip corpus/jpeg/exif-gps.jpg
 ```
 
@@ -83,13 +86,16 @@ unless you ask for `--in-place`. Full command reference and exit codes:
 | PDF | Document info dictionary, XMP metadata streams, document IDs, annotation and embedded-file metadata |
 | `.docx` `.xlsx` `.pptx` | The core, extended, and custom properties (author, company, manager, cumulative editing time, revision count), the page thumbnail, revision-save and paragraph identifiers, the author names and dates on comments and tracked changes, per-part timestamps and host fields, and external relationships pointing at a local path. **Photographs inside the document are stripped by the image handlers above.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
 
-Still to come in Phase 2: OpenDocument, more image formats, audio, and video. See
+| `.odt` `.ods` `.odp` | `meta.xml` entire — author, last-saved-by, creation/modification/print dates, the editing-cycle count and the total editing duration, the generator (which names the operating system), page and word statistics, user-defined properties, and a template path — plus `settings.xml` entire, which holds the **printer name and setup blob**; the page thumbnail; the saved user-interface configuration and layout cache; the author names and dates on comments and tracked changes; the cached author-name fields printed in the document; and per-part timestamps and host fields. **Photographs inside the document are stripped by the image handlers above, and an embedded chart's own metadata goes too.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
+
+Still to come in Phase 2: more image formats, audio, and video. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 **Where mat2 is the better tool, this says so.** For a document whose comments must not be
 published at all, use mat2 — it removes those parts, and strypt deliberately keeps their text
-because removing a tracked change alters what the document says. For a PDF with 19-byte
-cross-reference entries, mat2 handles it and strypt refuses.
+because removing a tracked change alters what the document says. That difference is sharpest for
+OpenDocument, where mat2 removes annotations and tracked changes outright. For a PDF with
+19-byte cross-reference entries, mat2 handles it and strypt refuses.
 
 ## Planned usage
 
@@ -99,6 +105,7 @@ strypt strip photo.jpg             # write a sanitised copy
 strypt strip --in-place *.pdf      # overwrite originals (opt-in, never the default)
 strypt show --json ./docs          # machine-readable output for scripting
 strypt strip report.docx           # Office documents too, pictures inside them included
+strypt strip report.odt            # and OpenDocument, charts inside them included
 ```
 
 ## Design commitments

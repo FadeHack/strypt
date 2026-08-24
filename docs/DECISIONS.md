@@ -1349,3 +1349,143 @@ comments must go.** ADR-0012 requires saying so where it is true, and it is true
 - Every timestamp in every ZIP entry header is a metadata field of its own, recording when
   each part was last written. They are normalised to a fixed value rather than preserved,
   consistent with ADR-0019's treatment of output timestamps.
+
+---
+
+## ADR-0031 — OpenDocument is edited by name, and `meta.xml` is not `docProps` in another spelling
+
+**Status:** Accepted (2026-08-24)
+
+**Context.** OpenDocument — `.odt`, `.ods`, `.odp` — is Phase 2's second format group
+(ADR-0027), and it arrives on machinery Group 1 already built: the ZIP container layer
+(ADR-0028) and the one-level, images-only descent into embedded pictures (ADR-0029) are used
+unchanged. The tempting conclusion is that the handler is OOXML with different part names.
+
+It is not, and the differences are the reason this ADR exists. Four of them changed the design:
+
+1. **There is no content type to match on.** ADR-0030 finds Office property parts by their
+   declared content type, deliberately, "because the path is a convention and the content type
+   is the contract". ODF inverts that. `meta.xml`, `settings.xml`, and `META-INF/manifest.xml`
+   are *named* by ODF 1.3 Part 2 §3.1, and the manifest gives `meta.xml` the media type
+   `text/xml` — indistinguishable from every other XML part in the package. The rule that is
+   right for one format cannot be applied to the other at all.
+2. **Authorship is element text, not an attribute.** `<w:ins w:author="A Name">` against
+   `<office:change-info><dc:creator>A Name</dc:creator></office:change-info>`. An attribute is
+   removable on the strength of its name wherever it occurs; `<dc:creator>` is the document's
+   author in `meta.xml`, a comment's author inside `<office:annotation>`, and a revision's
+   author inside `<office:change-info>`. The scanner therefore has to know which element it is
+   inside, where the Office rules never did.
+3. **An encrypted package does not look encrypted to ZIP.** ODF encrypts entry data itself and
+   records it in `META-INF/manifest.xml` (Part 2 §3.4) without setting ZIP's general-purpose
+   encryption bit. The refusal in `container/zip.rs` that catches an encrypted `.docx`
+   therefore passes an encrypted `.odt` straight through — whereupon `content.xml` is
+   ciphertext, no rule matches it, and the package is reported clean having been read by
+   nobody. That is `docs/THREAT_MODEL.md` §5.4 reached by a route the Group 1 work did not
+   have.
+4. **An embedded object is not a nested container.** A `.docx` stores a chart's cached
+   workbook as a whole `.xlsx` inside itself, which ADR-0029 refuses. ODF stores the same
+   thing as ordinary entries in the same archive — `Object 1/content.xml`,
+   `Object 1/meta.xml` — so the chart's own author metadata is reachable in the same pass,
+   with no recursion at all.
+
+**The pair the roadmap named**, and the reason it named them: `meta:editing-cycles` counts
+saves as `cp:revision` does, but `meta:editing-duration` is an ISO 8601 duration written to
+the second — `PT4H32M17S` — where Office's `TotalTime` is cumulative whole minutes. Beside
+`meta:creation-date` and `dc:date`, that is enough to say when somebody sat down, how long
+they worked, and when they stopped. `meta:generator` is likewise stronger than its Office
+counterpart: `LibreOffice/7.4.2$Linux_X86_64` names the operating system, where `Application`
+and `AppVersion` do not. And `meta:document-statistic` keeps its page and word counts in
+**attributes**, so the Office reporting path — which walks elements containing text — sees
+nothing there at all.
+
+**Decision.**
+
+**Removed whole, matched by name** (leaf name, so an embedded object's own copies go by the
+same rule): `meta.xml`, `settings.xml`, `layout-cache`, and everything under `Thumbnails/` and
+`Configurations2/`. Their contents are itemised in the report before they go, because "this
+document names an author and records four and a half hours of editing across 37 saves" is
+actionable where "a metadata part was removed" is not.
+
+`settings.xml` goes whole rather than being scrubbed, which is worth justifying: it holds the
+printer's name and a base64 setup blob that carries the driver and often a network path, and
+the rest of it is window geometry, the last cursor position, and a per-release set of
+configuration keys that fingerprints the producing build. None of that is payload, and no
+application shows any of it. mat2 removes the same part for the same reason.
+
+`layout-cache` is a producer-written binary cache of text layout with an undocumented format.
+Unlike an unrecognised part — which may be load-bearing, and which strypt copies with a note
+(§7.6) — nothing refers to it and it holds nothing the document needs, so there is nothing to
+weigh against removing it.
+
+**Rewritten:** `META-INF/manifest.xml` loses the `manifest:file-entry` elements naming parts
+that went. `content.xml`, `styles.xml`, and any other XML part lose the text of `dc:creator`,
+`dc:date`, and `meta:date-string` *inside* an `office:annotation` or an `office:change-info`,
+and the cached values of the author fields below. As in ADR-0030, editing is by deleting byte
+ranges, never by re-serialising.
+
+**Kept, and declared as kept:** the words of comments and tracked changes, for the reason
+ADR-0030 gives and `docs/PRD.md` §8.1 requires — removing a tracked insertion means deciding
+whether the document accepts or rejects it, which changes what the document *says*. **mat2 is
+the better recommendation for a document whose comments must not be published**, and it is a
+sharper difference here than for Office: mat2 removes ODF annotations and tracked changes
+outright. ADR-0012 requires saying so where it is true.
+
+**One narrow exception to "the visible text is the payload", made deliberately.** The cached
+values of `text:creator`, `text:initial-creator`, `text:author-name`, `text:author-initials`,
+`text:printed-by`, `text:editing-cycles`, and `text:editing-duration` are emptied. These are
+*fields*: the application inserted them and filled them in from `meta.xml`, so their content is
+a second copy of what this handler is removing. Leaving them would mean strypt reporting the
+author removed while the same name is printed in the document's header — a §5.4 failure wearing
+the costume of payload preservation. The field element itself stays, so the structure is
+untouched and an application refills it from whatever metadata exists.
+
+Date and time *fields* the document displays — `text:creation-date` and its siblings — are
+**not** touched. A date printed in a letter is a date the author chose to show. Their presence
+is reported as a `Note` instead, so a user who asked for timestamps to go is told one is still
+on the page.
+
+**`mimetype` is emitted first and stored.** Part 2 §3.3 requires the entry to be the first in
+the archive, uncompressed, and without an extra field, and readers use it to identify the
+format. Input order is otherwise preserved exactly; this is the only entry this project's
+handlers ever move. A package that arrived with it deflated or elsewhere is repaired rather
+than refused — the user has an ordinary document their producer wrote badly, and emitting a
+package that violates the identifying clause would be the worse answer.
+
+**Refused rather than half-processed:** a package with no manifest (Part 2 §2.2.1 requires
+one); a package whose manifest declares `manifest:encryption-data`; a package whose `mimetype`
+entry and manifest root give *different* answers about what it is, since different readers
+would then disagree about what they are opening and picking a winner would mean strypt
+deciding which of two documents the user has; and — inherited from ADR-0029 — a nested archive,
+an embedded PDF, or an OLE object. An OpenDocument type outside this group (a drawing, a
+formula, a chart, a database, any `-template`) is refused at detection and **named**, because
+"understood and declined" and "not recognised" are different things to tell a user.
+
+**Consequences.**
+
+- **Two internal boundaries moved, and neither is a new decision so much as the consequence of
+  having two package formats instead of one.** The XML scanner is now `formats/xml.rs`, shared,
+  with the per-format rules in `formats/ooxml/rules.rs` and `formats/odf/rules.rs`; and the
+  parts of a ZIP package both handlers treat identically — decompression against a shared
+  budget, the nested-container refusal, the embedded-image descent, and the entry-header
+  findings — are now `container/package.rs`. **The descent of ADR-0029 existing exactly once is
+  the point of the second move**: a copy of it in this handler would have been a second place
+  for the depth to grow, and that ADR fixes the depth in the type system precisely so it cannot.
+  The OOXML behaviour is unchanged, which its 26 integration tests and a fresh short fuzz run
+  are the evidence for.
+- **Output is not byte-identical to input even for a clean document**, as for OOXML: rewritten
+  parts are re-emitted stored (ADR-0028), entry timestamps are normalised, and `mimetype` may
+  move. Idempotence *is* byte-identical and is tested over every fixture — which for this format
+  is also what proves the `mimetype` reordering settles rather than oscillating.
+- **strypt processes at least one document mat2 refuses.** mat2's part patterns are anchored at
+  the package root, so `Object 1/settings.xml` — an embedded chart's settings, which real
+  documents contain — matches neither its keep list nor its omit list and it stops with an
+  error. This is recorded as an observation, not a claim of superiority: the differential's
+  purpose is to find what strypt misses, and on that question it found nothing.
+- **No claim is made that a stripped package opens without a repair prompt in LibreOffice**,
+  because no LibreOffice was available on the machine this was built on. The structural checks
+  that *are* run — an independent reader parses every output, the manifest is checked against
+  the entries actually present, and `mimetype` is checked against §3.3 — are stated in
+  `docs/THREAT_MODEL.md` §7.7 for what they are, and the manual open is owed.
+- Extending the group — to `.odg`, to the template variants, to flat ODF (`.fodt`, which is a
+  single XML file and is refused as XML today) — requires a superseding ADR, not a judgement
+  call. ADR-0027's scope lock is unchanged.

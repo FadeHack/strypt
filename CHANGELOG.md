@@ -21,6 +21,44 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **OpenDocument support — `.odt`, `.ods`, and `.odp`.** `strypt show` and `strypt strip` now
+  process LibreOffice and OpenOffice text documents, spreadsheets, and presentations. This is the
+  second format group of Phase 2 (ADR-0027, ADR-0031).
+
+  What comes out: `meta.xml` entire — the initial creator and the last person to save the
+  document, the creation, modification and print dates, who printed it, the **editing-cycle count
+  and the total editing duration** (an ISO 8601 duration recorded to the second, which with the
+  dates beside it says when somebody sat down, how long they worked, and when they stopped), the
+  generator string (which names the operating system, not just the application), the page and
+  word statistics, arbitrary user-defined properties, and a template reference that frequently
+  points at a file under the author's home directory. Also `settings.xml` entire — which holds
+  the **printer's name and its setup blob**, the last cursor position, and a set of configuration
+  keys that fingerprints the producing build; the page thumbnail; the producer's saved
+  user-interface configuration and layout cache; the author names and dates on comments and
+  tracked changes; the cached author-name fields printed inside the document; and per-part ZIP
+  timestamps and host fields.
+
+  **Photographs inside a document are stripped too**, by the same JPEG, PNG, and WebP handlers a
+  loose file goes through — one level deep, images only (ADR-0029). **An embedded chart's own
+  metadata is removed as well**, without any recursion: OpenDocument stores an embedded object as
+  ordinary entries in the same package, so its author and printer details are reachable in the
+  same pass.
+
+  Refused rather than half-processed: a package with no manifest, a package whose manifest
+  declares encryption — which ZIP's own encryption flag does not reveal, so this refusal is what
+  stops an encrypted document being reported clean — a package that gives two different answers
+  about what it is, and a package containing a nested archive, an embedded PDF, or an OLE object.
+
+  **Two limitations to read before relying on this.** The *text* of comments and tracked changes
+  is kept and reported, with only its attribution removed; **for a document whose comments must
+  not be published, mat2 removes them outright and is the better tool.** And no stripped package
+  has yet been opened in LibreOffice — the checks that were run are structural.
+
+- **A new refusal for OpenDocument types outside this group** — drawings, formulas, charts,
+  databases, and the `-template` variants — named specifically rather than reported as a generic
+  ZIP container, so the message says the file was understood and declined rather than not
+  recognised.
+
 - **Office Open XML support — `.docx`, `.xlsx`, and `.pptx`.** `strypt show` and `strypt strip`
   now process Word documents, Excel workbooks, and PowerPoint presentations. This is the first
   format group of Phase 2, which opened on 2026-08-23 (ADR-0027).

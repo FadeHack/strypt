@@ -10,6 +10,7 @@
 use crate::detect::Format;
 use crate::formats::MetadataHandler;
 use crate::formats::jpeg::JpegHandler;
+use crate::formats::odf::OdfHandler;
 use crate::formats::ooxml::OoxmlHandler;
 use crate::formats::pdf::PdfHandler;
 use crate::formats::png::PngHandler;
@@ -34,12 +35,18 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         Format::Docx => Some(&DOCX),
         Format::Xlsx => Some(&XLSX),
         Format::Pptx => Some(&PPTX),
+        Format::Odt => Some(&ODT),
+        Format::Ods => Some(&ODS),
+        Format::Odp => Some(&ODP),
     }
 }
 
 static DOCX: OoxmlHandler = OoxmlHandler::DOCX;
 static XLSX: OoxmlHandler = OoxmlHandler::XLSX;
 static PPTX: OoxmlHandler = OoxmlHandler::PPTX;
+static ODT: OdfHandler = OdfHandler::ODT;
+static ODS: OdfHandler = OdfHandler::ODS;
+static ODP: OdfHandler = OdfHandler::ODP;
 
 /// Every format this release can actually process.
 #[must_use]
@@ -52,6 +59,9 @@ pub fn supported_formats() -> Vec<Format> {
         Format::Docx,
         Format::Xlsx,
         Format::Pptx,
+        Format::Odt,
+        Format::Ods,
+        Format::Odp,
     ]
     .into_iter()
     .filter(|f| handler_for(*f).is_some())
@@ -91,6 +101,9 @@ mod tests {
             Format::Docx,
             Format::Xlsx,
             Format::Pptx,
+            Format::Odt,
+            Format::Ods,
+            Format::Odp,
         ] {
             assert!(handler_for(format).is_some(), "{format} has no handler");
         }
