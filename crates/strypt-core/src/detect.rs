@@ -47,6 +47,8 @@ pub enum Format {
     Webp,
     /// PDF.
     Pdf,
+    /// TIFF, including the multi-page files scanners produce.
+    Tiff,
     /// A `WordprocessingML` document — `.docx`.
     Docx,
     /// A `SpreadsheetML` workbook — `.xlsx`.
@@ -72,6 +74,7 @@ impl Format {
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Pdf => "pdf",
+            Self::Tiff => "tiff",
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
@@ -91,6 +94,7 @@ impl Format {
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Pdf => "pdf",
+            Self::Tiff => "tiff",
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
@@ -108,6 +112,7 @@ impl std::fmt::Display for Format {
             Self::Png => "PNG",
             Self::Webp => "WebP",
             Self::Pdf => "PDF",
+            Self::Tiff => "TIFF",
             Self::Docx => "DOCX",
             Self::Xlsx => "XLSX",
             Self::Pptx => "PPTX",
@@ -164,6 +169,12 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if is_riff_with_form(data, *b"WEBP") {
         return Some(Format::Webp);
     }
+    // TIFF byte-order mark followed by the magic number 42, in that byte order. BigTIFF
+    // spells 43 here and is refused by the handler by name rather than matched as TIFF.
+    if starts_with(data, &[b'I', b'I', 0x2A, 0x00]) || starts_with(data, &[b'M', b'M', 0x00, 0x2A])
+    {
+        return Some(Format::Tiff);
+    }
     if find_pdf_header(data).is_some() {
         return Some(Format::Pdf);
     }
@@ -197,10 +208,11 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     if starts_with(data, b"GIF87a") || starts_with(data, b"GIF89a") {
         return Some(UnsupportedKind::Gif);
     }
-    // TIFF byte-order marks: "II" little-endian, "MM" big-endian, each followed by 42.
-    if starts_with(data, &[b'I', b'I', 0x2A, 0x00]) || starts_with(data, &[b'M', b'M', 0x00, 0x2A])
+    // BigTIFF: the same byte-order marks, but spelling 43. Named separately from the TIFF the
+    // handler accepts, because its eight-byte offsets are a different layout (ADR-0033).
+    if starts_with(data, &[b'I', b'I', 0x2B, 0x00]) || starts_with(data, &[b'M', b'M', 0x00, 0x2B])
     {
-        return Some(UnsupportedKind::Tiff);
+        return Some(UnsupportedKind::BigTiff);
     }
     // ISO base media (MP4/M4A/HEIF/AVIF): a box whose type at offset 4 is "ftyp".
     if data.get(4..8) == Some(b"ftyp") {
@@ -471,7 +483,7 @@ mod tests {
         for (bytes, expected) in [
             (&b"PK\x03\x04"[..], UnsupportedKind::ZipContainer),
             (&b"GIF89a"[..], UnsupportedKind::Gif),
-            (&b"II\x2A\x00"[..], UnsupportedKind::Tiff),
+            (&b"II\x2B\x00"[..], UnsupportedKind::BigTiff),
             (&b"OggS"[..], UnsupportedKind::Ogg),
             (&b"fLaC"[..], UnsupportedKind::Flac),
             (&b"ID3\x04"[..], UnsupportedKind::Mp3),

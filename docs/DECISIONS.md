@@ -1489,3 +1489,226 @@ formula, a chart, a database, any `-template`) is refused at detection and **nam
 - Extending the group — to `.odg`, to the template variants, to flat ODF (`.fodt`, which is a
   single XML file and is refused as XML today) — requires a superseding ADR, not a judgement
   call. ADR-0027's scope lock is unchanged.
+
+---
+
+## ADR-0032 — Phase 2's third group is five tranches, not one deliverable
+
+**Status:** Accepted (2026-08-25)
+
+**Context.** `docs/ROADMAP.md` Phase 2 deliverable 3 is a single line — "Additional images —
+TIFF, GIF, AVIF, HEIF, JPEG XL, SVG" — and ADR-0027 locks it as the next group to land now that
+OpenDocument has met the Phase 1 bar in full (fuzzing debt cleared 2026-08-25, LibreOffice import
+closed 2026-08-24).
+
+That line is written as though the six formats were a family. They are not, and this is the
+respect in which Group 3 differs from both groups that came before it. Groups 1 and 2 were each
+three formats sharing one container: OOXML and OpenDocument are ZIP packages of XML, which is why
+`container/package.rs` and `formats/xml.rs` exist and why the second group cost far less than the
+first. Group 3 has no such centre. It spans a tag-and-offset graph (TIFF), a small chunk list
+(GIF), an ISO base-media box tree (HEIF, AVIF), an XML text format with a script-execution threat
+model (SVG), and a format with two mutually exclusive container spellings (JPEG XL).
+
+Landing them as one deliverable has a specific failure mode, and it is not merely that the pull
+request would be large. A group is "done" only when its hardest member is done, so a finished and
+verified TIFF handler would sit unshipped behind JPEG XL — the member with the thinnest tooling
+and the least settled answer. Phase 2's exit criterion 1 forbids provisional handlers; the way to
+honour that without holding finished work hostage is to make the unit of completion smaller than
+the group.
+
+**Decision.**
+
+1. **Group 3 lands as five sub-tranches, in this fixed order**, each meeting the Phase 1 per-format
+   bar in full before the next is started — the discipline ADR-0027 applies *between* groups,
+   applied *within* this one:
+
+   | # | Tranche | Why here |
+   |---|---|---|
+   | 1 | **TIFF** | Reuses `formats/exif.rs`, whose header already names this case. Settles the offset-rewriting question below, which nothing after it needs but which nothing before it has faced. |
+   | 2 | **GIF** | A short chunk list with two metadata-bearing extension blocks. The cheapest handler in the project, and useful as a control on the tranche machinery. |
+   | 3 | **HEIF + AVIF** | One ISO-BMFF box walker serving two formats — the only genuine sharing in this group, and the reason they are one tranche rather than two. |
+   | 4 | **SVG** | Deferred behind the raster formats because its threat model is different in kind, not degree. See point 3. |
+   | 5 | **JPEG XL** | Last deliberately: two container forms (bare codestream and BMFF), the newest ecosystem, and the weakest answer today. Placing it last means an unresolved JPEG XL delays nothing else. |
+
+   A tranche that proves harder than expected may be deferred out of Phase 2 by a superseding ADR.
+   It may **not** be landed provisionally, and it may not be reordered ahead of an unfinished
+   predecessor.
+
+2. **The default is a hand-written walker; a dependency requires its own ADR.** This is not a new
+   position, it is the one the codebase already holds: ADR-0028 wrote the ZIP layer rather than
+   importing one, `formats/xml.rs` states at its head why there is no XML parser behind it, and
+   `formats/exif.rs` is a hand-written IFD reader. The common thread is that strypt never needs a
+   document model — it needs to name byte ranges and delete some of them, which is a scanner.
+
+   Candidates were surveyed on 2026-08-25 and none displaces that default:
+
+   - **`avif-parse` 2.1.0** (released 2026-03-27, ~58k recent downloads,
+     `github.com/kornelski/avif-parse`) is a safe-Rust ISO-BMFF/MIAF parser forked from Mozilla's
+     Firefox MP4 parser, which is real pedigree against hostile input. It is **MPL-2.0**, and that
+     is the finding that matters: `docs/PRD.md` §4 and ADR-0012 rest part of strypt's case on
+     permissive versus LGPL-3.0 licensing. MPL-2.0 is weak, file-scoped copyleft and would not
+     endanger the dual MIT/Apache-2.0 licence of strypt's own code, but it *complicates a sentence
+     the project uses to distinguish itself*, and it decodes far more of the format than a
+     metadata pass needs. Not adopted without a dedicated ADR arguing it earns that.
+   - **`jxl-oxide` 0.12.6** (released 2026-05-29, `github.com/tirr-c/jxl-oxide`) is a full JPEG XL
+     **pixel decoder**. Decoding an image to remove its metadata is the wrong shape of tool, and
+     admits an entire codec as attack surface for a job that touches container boxes.
+   - **`nom-exif`** parses metadata across many of these formats but is, like `formats/exif.rs`, a
+     *reader*. Group 3's work is removal, and reading is the part strypt already has.
+
+3. **SVG gets its own ADR before its tranche opens.** It stays in Phase 2 and keeps its place in
+   the order, but it is not decided by this one. SVG is the only member of the group where the
+   question "what is metadata?" has no obvious answer: `<metadata>`, `<title>`, `<desc>` and
+   editor-namespaced attributes (`inkscape:`, `sodipodi:`, Adobe's `i:`) are the easy part, while
+   scripts, external references that phone home when the file is opened, embedded raster images in
+   `data:` URIs, and comments carrying author names are each a separate judgement. It can reuse
+   `formats/xml.rs`, but reuse of the scanner is not reuse of the rules, and treating it as one
+   more image handler is how the script surface gets under-thought.
+
+4. **The TIFF tranche must settle offset rewriting, and this ADR does not pre-empt it.**
+   `formats/exif.rs` is read-only by an explicit and well-argued design decision recorded in its
+   header: a TIFF is a graph of absolute file offsets, so editing tags out of one means rewriting
+   every offset that follows, and an error there yields a file that still parses while pointing at
+   the wrong bytes. Every image handler shipped so far sidesteps this by dropping the *entire*
+   container the Exif block sits in — a removal that cannot half-succeed.
+
+   **A standalone TIFF has no such container to drop.** Its metadata is its file structure. The
+   tranche therefore has to choose between rewriting the IFD graph with offset fixup — new
+   machinery, on the failure mode `exif.rs` was written to avoid — and refusing TIFF as
+   unsupported, which is fail-closed and honest but ships nothing. That choice is the tranche's
+   first task and is recorded in its own ADR, informed by what the format actually requires rather
+   than settled here in advance.
+
+**Consequences.**
+
+- **Group 3 is not "done" until all five tranches are done**, and the roadmap's exit criterion 1
+  still governs each of them individually. Splitting the unit of delivery changes when work ships,
+  never what bar it ships against.
+- **`docs/ROADMAP.md` Phase 2 deliverable 3 is now read through this ADR**, in the same way
+  deliverables 1 and 2 are read through ADR-0030 and ADR-0031. The roadmap line is not rewritten;
+  the ordering and the completion unit live here.
+- **Three further ADRs are owed inside this group** — one for TIFF's offset decision, one for SVG,
+  and one for any dependency a tranche concludes it needs. This is more decision records than
+  either previous group required, which is a consequence of the group being five problems rather
+  than one.
+- **ADR-0012's licensing differentiator now has a documented edge case.** MPL-2.0 sits between
+  "permissive" and "LGPL-3.0" and the survey above found it on the most credible candidate in the
+  group. If a later ADR adopts an MPL-2.0 dependency, the positioning language in `docs/PRD.md` §4
+  must be revisited in the same commit rather than left to imply a purity the tree no longer has.
+- **Nothing here changes ADR-0027's scope lock.** Group 3 remains exactly the six formats the
+  roadmap names. Adding a seventh — TIFF-based raw formats such as CR2, NEF or DNG are the
+  obvious temptation, since the IFD machinery would already be there — still requires a
+  superseding ADR, and the temptation should be resisted on the ground that a raw file's maker
+  notes are a vendor-specific format in their own right.
+
+---
+
+## ADR-0033 — A stripped TIFF is rebuilt from an allow-list, not edited in place
+
+**Status:** Accepted (2026-08-25)
+
+**Context.** TIFF is the first tranche of Phase 2's third group (ADR-0032), and it arrives with a
+problem no format shipped so far has had.
+
+Every image handler in the tree removes metadata the same way: drop the *entire* container the
+metadata block sits in. A JPEG `APP1` segment, a PNG `eXIf` chunk, a WebP `EXIF` chunk — each is a
+delimited region that can be excised whole, and `formats/exif.rs` says in its own header why it
+therefore only ever reads:
+
+> a TIFF is a graph of absolute file offsets, so editing tags out of one means rewriting every
+> offset that followed them, and a mistake there produces a file that still parses while pointing
+> at the wrong bytes. Dropping the block whole cannot half-succeed.
+
+**A standalone TIFF has no block to drop.** Its metadata *is* its file structure. IFD0 holds the
+identifying tags and the structural ones in one directory, values longer than four bytes live at
+arbitrary offsets elsewhere in the file, and the image data is addressed by `StripOffsets` or
+`TileOffsets` — absolute file positions that any edit before them invalidates. The removal
+strategy every other handler relies on does not exist here, and the failure mode `exif.rs` warns
+about is precisely the one an in-place editor would walk into: a file that still parses, with an
+offset pointing at the wrong bytes, reported as successfully stripped.
+
+**Decision.** strypt does not edit a TIFF. It **writes a new one**, from an allow-list, and copies
+the image data across unmodified.
+
+1. **Construct, never patch.** The output is authored from an empty buffer: a fresh header, then
+   each retained directory, then the values, then the image data — with every offset computed at
+   the moment it is written, against the buffer being built. **No offset from the input is ever
+   carried into the output.** This is what makes the class of bug `exif.rs` names unreachable
+   rather than merely unlikely: there is no stale offset to be wrong, because there is no
+   preserved offset at all.
+
+2. **An allow-list of structural tags, and nothing else.** A tag is written to the output only if
+   it appears on a list of tags required to decode the image — dimensions, bit depth, compression,
+   photometric interpretation, the strip or tile geometry and its byte counts, samples per pixel,
+   planar configuration, colour map, predictor, sample format, extra samples, fill order,
+   resolution and its unit, and `JPEGTables` for JPEG-compressed strips. Everything else is
+   absent from the output because it was never written.
+
+   **The direction of the default is the whole point.** A deny-list carries an unknown tag through,
+   and the tags that matter most here are exactly the ones a tag table has not heard of: vendor
+   maker notes, a scanner's private tags, a proprietary field holding a device serial. Under an
+   allow-list an unrecognised tag cannot survive by going unrecognised. This inverts the rule that
+   governs the two ZIP-package handlers — ADR-0030 and ADR-0031 edit by deletion and keep every
+   byte they had no reason to change — and the inversion is deliberate: those formats can be
+   edited in place and this one cannot, so the conservative choice moves from "keep unless known
+   bad" to "drop unless known necessary".
+
+3. **The image data is copied verbatim, byte for byte.** Strips and tiles are moved, not decoded,
+   not recompressed, not re-rendered. The output's pixels are bit-identical to the input's.
+
+   This is where strypt and mat2 differ concretely, and it is a trade-off rather than a verdict.
+   mat2's default TIFF path loads the image through GdkPixbuf and re-renders it, which is
+   thorough — it cannot leave behind a metadata carrier it failed to parse — but it rewrites the
+   image data, which is why mat2 offers `-L` for users who need the pixels untouched. strypt's
+   approach keeps the pixels by construction and accepts the corresponding risk: metadata hidden
+   *inside* the compressed image data is not something a container rebuild can reach. Where a
+   user's threat model includes that, mat2's default is the better recommendation and
+   `docs/THREAT_MODEL.md` must say so (ADR-0012).
+
+4. **Reduced-resolution images are dropped; pages are kept.** A TIFF's IFDs form a chain, and a
+   chained directory can be either another page of a multi-page document — a scanned dossier, the
+   case that matters for this project's users — or a reduced-resolution copy of the image before
+   it, flagged by bit 0 of `NewSubfileType` (TIFF 6.0 §8, tag `0x00FE`). Pages are
+   retained, each rebuilt on its own terms. Reduced-resolution directories and the thumbnails
+   reached through `SubIFDs` (`0x014A`) are **not written to the output at all**, on the same
+   reasoning as `docs/THREAT_MODEL.md` §3: a thumbnail is a complete second image that survives
+   any redaction painted over the first.
+
+5. **Anything the writer cannot reproduce faithfully is refused, not approximated.** BigTIFF
+   (header magic 43, with 8-byte offsets) is refused by name in this tranche rather than parsed
+   badly. So is a file whose strip or tile geometry is inconsistent — offsets and byte counts of
+   differing lengths, a strip running past the end of the file, overlapping strips — and one whose
+   structural tags are absent or contradictory. This is hard constraint 6: a partly-understood
+   TIFF is reported as unsupported, never written out and reported clean.
+
+**Consequences.**
+
+- **The output is not byte-identical to the input, ever, including for a TIFF with no metadata at
+  all.** A rebuild reorders the file by construction. This is a stronger statement than the
+  OOXML and OpenDocument caveat, which only concerns rewritten parts, and it belongs in
+  `CHANGELOG.md` and `docs/THREAT_MODEL.md` in those terms. **Idempotence remains byte-identical
+  and must be tested**: stripping an already-stripped TIFF must reproduce it exactly, which for
+  a rebuild is also the proof that the writer's output is a fixed point of its own reader.
+- **A TIFF using a feature outside the allow-list is refused rather than degraded**, and some of
+  those refusals will be real files. This is the same cost ADR-0029's nested-container refusal
+  accepted, taken deliberately for the same reason.
+- **`formats/exif.rs` stays read-only and its header stays true.** The writer is new code in
+  `formats/tiff.rs`; the shared reader is not extended into an editor, because it is shared with
+  three handlers that must not acquire a rewriting path they have no use for.
+
+  What *is* shared is the reader's **tag table** — `describe` and `render`, widened to
+  `pub(crate)` — so a tag is named identically whether it was found in a JPEG's `APP1` segment or
+  in a standalone TIFF, and there is one place to correct a wrong name. The TIFF handler walks the
+  directories itself, because it has to walk them anyway to rebuild them; reusing the reader's
+  walk instead would mean two passes over hostile bytes where one will do. Naming what was
+  removed and deciding what to keep therefore stay separate concerns sharing one vocabulary, and
+  the output does not depend on the report.
+- **The allow-list is a correctness surface and will need revision.** A tag wrongly omitted breaks
+  an image; the mitigation is the differential against mat2 and ExifTool that every format ships,
+  plus a decode check on every fixture's output. A tag wrongly *included* leaks, which is the more
+  serious direction and is why the list is enumerated in code with a comment per tag citing why
+  the image cannot be decoded without it.
+- **This ADR governs TIFF only.** It is not a precedent for the tranches after it: GIF's chunk list
+  and the ISO-BMFF box tree can both be edited by deletion, and reaching for a rebuild there —
+  where the format does not force it — would discard the "every byte that had no reason to change
+  does not change" property for nothing.

@@ -18,7 +18,7 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML and OpenDocument done (2026-08-24)**
+## 2. Current phase: **Phase 2 in progress — OOXML and OpenDocument done; TIFF's handler landed, its tranche unfinished (2026-08-25)**
 
 **Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
 groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, `.docx`,
@@ -53,8 +53,32 @@ boundaries moved so the two package formats share rather than duplicate: the XML
 `formats/xml.rs` (rules per format beside each handler), and the ZIP-package machinery is now
 `container/package.rs` — which is what keeps ADR-0029's one-level descent existing exactly once.
 
-**Groups 3–4 — additional images, audio/video — are NOT started.** The "check before referencing
-a later-phase artefact" rule now applies *within* this phase too.
+**Group 3 — additional images — is in progress, split into five tranches by ADR-0032**: TIFF,
+GIF, HEIF+AVIF, SVG, JPEG XL, in that order, each meeting the Phase 1 bar before the next opens.
+The split exists because this group, unlike the first two, has no shared container — six formats
+with nothing in common — and one lump would hold a finished handler hostage to the hardest member.
+
+**Tranche 1 — TIFF — has a landed handler and an UNFINISHED tranche (2026-08-25).** Landed: the
+handler, its allow-list of structural tags, a `tiff` fuzz target, 10 fixtures plus 6 malformed
+with their generator, 17 integration tests, 14 unit tests, `docs/THREAT_MODEL.md` §7.8.
+**ADR-0033 is required reading before touching it**: TIFF is the one format strypt *rebuilds*
+rather than edits, because its metadata is its file structure and there is no block to drop.
+Tags reach the output only from an allow-list of what the image cannot be decoded without, so an
+unknown vendor tag cannot survive by going unrecognised — the inverse of the deletion rule that
+governs OOXML and OpenDocument, and deliberately so.
+
+The mat2/ExifTool differential landed with the handler and is clean (`scripts/tiff-differential.sh`,
+10 fixtures, zero tags surviving either tool, verified able to fail).
+
+**One thing is owed and it must not be called done until it lands:** the fuzzing is a
+**241-second smoke run (3.94M inputs, clean), not a sustained one**. Deliberate limitations, already recorded: output
+is never byte-identical to input even for a clean file (idempotence is, and is tested); metadata
+inside the compressed image data is out of reach, where **mat2's re-rendering default is the
+better recommendation**; ICC profiles are removed, trading colour fidelity; BigTIFF and
+inconsistent strip geometry are refused.
+
+**Tranches 2–5 and Group 4 are NOT started.** SVG owes its own ADR before its tranche opens. The
+"check before referencing a later-phase artefact" rule now applies *within* this phase too.
 
 **Qualifications on the two landed groups, which are real:**
 

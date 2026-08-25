@@ -21,6 +21,44 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **TIFF support — `.tif`, `.tiff`, including the multi-page files scanners produce.** `strypt
+  show` and `strypt strip` now process TIFF images. This is the first tranche of Phase 2's third
+  format group (ADR-0032, ADR-0033).
+
+  **This format is handled differently from every other image, and the difference is worth
+  understanding before relying on it.** A JPEG or PNG keeps its metadata in a delimited block
+  strypt can drop whole. A TIFF does not: its metadata sits in the same directory as the tags
+  needed to decode the picture, and everything in the file is addressed by absolute offsets. So
+  strypt does not edit a TIFF — it **writes a new one**, copying the image data across untouched
+  and writing only the tags an image cannot be decoded without.
+
+  What comes out: the camera or scanner's make and model, the software that wrote the file, the
+  artist, copyright, description, document and page names, the date and time, the host computer's
+  name, the GPS coordinates and the camera owner's name and body serial number in the Exif and
+  GPS directories, and the XMP, IPTC, and ICC profile packets — the last of which routinely names
+  a device. **Embedded thumbnails go entirely**: a reduced-resolution copy of the image is a
+  complete second picture that survives any crop or redaction applied to the first.
+
+  **A private tag strypt has never seen does not survive by being unrecognised.** Tags are
+  written from a list of what the image needs, so anything else — a vendor maker note, a
+  scanner's proprietary field holding a serial number — is absent from the output because it was
+  never written.
+
+  **The pixels are bit-identical.** Strips and tiles are moved, never decoded and never
+  recompressed.
+
+  **Three limitations to read before relying on this.** The output is **never byte-identical to
+  the input**, even for a file that carried no metadata, because a rebuild reorders the file;
+  stripping an already-stripped file *is* byte-identical. Metadata concealed inside the
+  compressed image data is out of reach — **mat2's default TIFF path re-renders the image and
+  does reach that, so where that is your concern mat2 is the better tool**, at the cost of
+  rewriting your pixels. And a file using a feature strypt cannot reproduce faithfully is
+  refused rather than approximated: BigTIFF, an inconsistent strip geometry, or a directory
+  without dimensions.
+
+  Checked against **mat2 0.15.0 and ExifTool 13.55**: nothing survives strypt that does not also
+  survive mat2, across all ten fixtures.
+
 - **OpenDocument support — `.odt`, `.ods`, and `.odp`.** `strypt show` and `strypt strip` now
   process LibreOffice and OpenOffice text documents, spreadsheets, and presentations. This is the
   second format group of Phase 2 (ADR-0027, ADR-0031).
@@ -49,10 +87,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   stops an encrypted document being reported clean — a package that gives two different answers
   about what it is, and a package containing a nested archive, an embedded PDF, or an OLE object.
 
-  **Two limitations to read before relying on this.** The *text* of comments and tracked changes
+  **One limitation to read before relying on this.** The *text* of comments and tracked changes
   is kept and reported, with only its attribution removed; **for a document whose comments must
-  not be published, mat2 removes them outright and is the better tool.** And no stripped package
-  has yet been opened in LibreOffice — the checks that were run are structural.
+  not be published, mat2 removes them outright and is the better tool.**
 
 - **A new refusal for OpenDocument types outside this group** — drawings, formulas, charts,
   databases, and the `-template` variants — named specifically rather than reported as a generic
@@ -131,6 +168,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   regression test and fixture committed.
 
 ### Changed
+
+- **The sustained fuzzing runner knows about `tiff`.** `scripts/fuzz-sustained.sh` had the same
+  gap for the TIFF target that it had for `ooxml` and `zip` below — it rejected the name as
+  unknown, so the new parser could not have been included in a sustained run at all. It is now
+  in the default set, with its malformed seed directory wired up the way WebP's is. **Any run
+  recorded before 2026-08-25 covered eight targets regardless of how it was invoked.**
 
 - **The sustained fuzzing runner covers all seven targets.** `scripts/fuzz-sustained.sh` knew
   only the five Phase 1 targets and rejected `ooxml` and `zip` as unknown, so the two parsers

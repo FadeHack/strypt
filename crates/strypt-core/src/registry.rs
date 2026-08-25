@@ -14,6 +14,7 @@ use crate::formats::odf::OdfHandler;
 use crate::formats::ooxml::OoxmlHandler;
 use crate::formats::pdf::PdfHandler;
 use crate::formats::png::PngHandler;
+use crate::formats::tiff::TiffHandler;
 use crate::formats::webp::WebpHandler;
 
 /// The handler for `format`, or [`None`] if this release has none.
@@ -28,6 +29,7 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         Format::Jpeg => Some(&JpegHandler),
         Format::Pdf => Some(&PdfHandler),
         Format::Png => Some(&PngHandler),
+        Format::Tiff => Some(&TiffHandler),
         Format::Webp => Some(&WebpHandler),
         // One handler type serving three formats, instantiated once per format rather than
         // branching inside itself, so `handler.format()` still answers with the format the
@@ -56,6 +58,7 @@ pub fn supported_formats() -> Vec<Format> {
         Format::Png,
         Format::Webp,
         Format::Pdf,
+        Format::Tiff,
         Format::Docx,
         Format::Xlsx,
         Format::Pptx,

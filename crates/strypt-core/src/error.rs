@@ -176,8 +176,11 @@ pub enum UnsupportedKind {
     OtherOpenDocument,
     /// GIF.
     Gif,
-    /// TIFF.
-    Tiff,
+    /// `BigTIFF`: the same byte-order marks as TIFF but magic number 43, with eight-byte
+    /// offsets throughout. Refused by name rather than parsed as the TIFF it is not, because a
+    /// parser reading its directories as ordinary TIFF ones produces confident nonsense
+    /// (ADR-0033).
+    BigTiff,
     /// An ISO base-media file: MP4, M4A, HEIF, AVIF.
     IsoBaseMedia,
     /// An MP3 audio file.
@@ -208,7 +211,7 @@ impl std::fmt::Display for UnsupportedKind {
                 "an OpenDocument type strypt does not handle yet (a drawing, formula, chart, or template)"
             }
             Self::Gif => "GIF",
-            Self::Tiff => "TIFF",
+            Self::BigTiff => "BigTIFF",
             Self::IsoBaseMedia => "an ISO base-media file (MP4, HEIF, or AVIF)",
             Self::Mp3 => "MP3",
             Self::Ogg => "Ogg",

@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-08-24
+**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-08-25
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -319,9 +319,41 @@ this order, and a group is not started until the previous one meets the Phase 1 
   Office: mat2 removes ODF annotations outright, so for a document whose comments must not be
   published it is the better recommendation.
 
-- ⬜ **Groups 3–4 — not started.** The additional image formats, and the audio and video
-  containers. The "check before referencing a later artefact" rule now applies *within* this
-  phase as well as across phases.
+- 🔶 **Group 3 — additional images, in progress.** **ADR-0032 splits this group into five
+  tranches** — TIFF, GIF, HEIF+AVIF, SVG, JPEG XL — landing in that order, each meeting the
+  Phase 1 bar in full before the next opens. The group is six formats with no shared container,
+  unlike Groups 1 and 2, and holding a finished handler hostage to the hardest member of the list
+  is what the split avoids. The default remains a hand-written walker; a dependency needs its own
+  ADR, and the 2026-08-25 survey in ADR-0032 found none that earns it.
+
+  - 🔶 **Tranche 1 — TIFF, handler landed 2026-08-25, tranche NOT complete.** `.tif` and `.tiff`,
+    including multi-page scans. **ADR-0033 records why this format is rebuilt rather than
+    edited**: its metadata is its file structure, so there is no block to drop and no way to edit
+    in place without rewriting every offset. Landed: the handler and its allow-list of structural
+    tags, a `tiff` fuzz target, 10 fixtures plus 6 malformed ones with their generator, 17
+    integration tests, 14 unit tests, and `docs/THREAT_MODEL.md` §7.8.
+
+    The differential landed with it: `scripts/tiff-differential.sh` against mat2 0.15.0 and
+    ExifTool 13.55 over all 10 fixtures is clean — zero tags surviving on either side — and was
+    verified able to fail by running its filter against the unstripped fixtures (§7.8).
+
+    **One thing is owed before this tranche meets the Phase 1 bar, and it must not be described
+    as done until it lands: sustained fuzzing.** What has run is a **smoke run — 3,939,390 inputs
+    in 241 seconds on 2026-08-25, clean**. That is not exit criterion 2 for this handler and it is
+    not what OOXML and OpenDocument delivered.
+
+    Recorded limitations, which are deliberate rather than pending (§7.8): output is **never**
+    byte-identical to input even for a clean file, because a rebuild reorders it — idempotence is
+    byte-identical and is tested; metadata concealed inside the compressed image data is out of
+    reach, where **mat2's re-rendering default is the better recommendation**; ICC profiles are
+    removed, trading colour fidelity; and BigTIFF, an inconsistent strip geometry, or a directory
+    without dimensions is refused rather than approximated.
+
+  - ⬜ **Tranches 2–5 — GIF, HEIF+AVIF, SVG, JPEG XL — not started.** SVG additionally owes its
+    own ADR before its tranche opens: its threat model differs in kind, not degree.
+
+- ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
+  later artefact" rule now applies *within* this phase as well as across phases.
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
@@ -330,7 +362,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
 2. ✅ OpenDocument — `.odt`, `.ods`, `.odp` (`meta.xml`, editing-cycle and duration statistics,
    `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
    attributes).
-3. Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG.
+3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
+   ADR-0032; TIFF's handler has landed and its tranche is not yet complete.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

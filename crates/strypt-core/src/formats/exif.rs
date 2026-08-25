@@ -32,20 +32,20 @@ use crate::report::{Finding, InspectOptions, MetadataKind, MetadataValue, Note};
 
 /// Byte order declared by the TIFF header.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Endian {
+pub(crate) enum Endian {
     Little,
     Big,
 }
 
 impl Endian {
-    fn u16(self, r: &mut Reader<'_>) -> Option<u16> {
+    pub(crate) fn u16(self, r: &mut Reader<'_>) -> Option<u16> {
         match self {
             Self::Little => r.u16_le(),
             Self::Big => r.u16_be(),
         }
     }
 
-    fn u32(self, r: &mut Reader<'_>) -> Option<u32> {
+    pub(crate) fn u32(self, r: &mut Reader<'_>) -> Option<u32> {
         match self {
             Self::Little => r.u32_le(),
             Self::Big => r.u32_be(),
@@ -59,7 +59,7 @@ impl Endian {
 /// `InteropIndex` in the interoperability IFD and `GPSLatitudeRef` in the GPS one — so the
 /// directory has to travel with the tag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Ifd {
+pub(crate) enum Ifd {
     /// The main image directory, and sub-directories that use its tag set.
     Primary,
     /// The Exif private directory, reached through tag `0x8769`.
@@ -153,7 +153,7 @@ pub(crate) fn scan(
 }
 
 /// Read the TIFF header, returning the byte order and the offset of the first directory.
-fn header(tiff: &[u8]) -> Option<(Endian, u32)> {
+pub(crate) fn header(tiff: &[u8]) -> Option<(Endian, u32)> {
     let mut r = Reader::new(tiff);
     let endian = match r.take(2)? {
         b"II" => Endian::Little,
@@ -298,7 +298,7 @@ const ASCII: u16 = 2;
 /// An unknown type is not an error — TIFF has been extended repeatedly — it just means the
 /// length cannot be computed, so the entry is reported without a size rather than with a
 /// wrong one.
-const fn type_size(field_type: u16) -> Option<u16> {
+pub(crate) const fn type_size(field_type: u16) -> Option<u16> {
     Some(match field_type {
         1 | 2 | 6 | 7 => 1,   // BYTE, ASCII, SBYTE, UNDEFINED
         3 | 8 => 2,           // SHORT, SSHORT
@@ -310,7 +310,7 @@ const fn type_size(field_type: u16) -> Option<u16> {
 }
 
 /// The directory a pointer tag leads to, if this tag is one.
-const fn sub_directory(kind: Ifd, tag: u16) -> Option<Ifd> {
+pub(crate) const fn sub_directory(kind: Ifd, tag: u16) -> Option<Ifd> {
     match (kind, tag) {
         (Ifd::Primary | Ifd::Thumbnail, 0x8769) => Some(Ifd::Exif),
         (Ifd::Primary | Ifd::Thumbnail, 0x8825) => Some(Ifd::Gps),
@@ -400,7 +400,7 @@ const GPS_TAGS: &[(u16, &str)] = &[
 ];
 
 /// The name and category to report an entry under.
-fn describe(kind: Ifd, tag: u16) -> (String, MetadataKind) {
+pub(crate) fn describe(kind: Ifd, tag: u16) -> (String, MetadataKind) {
     match kind {
         Ifd::Gps => {
             let name = GPS_TAGS
@@ -448,7 +448,7 @@ fn unnamed(tag: u16) -> String {
 ///
 /// Only ASCII fields become text, and control characters are dropped: a value goes to a
 /// terminal, and a hostile file can put an escape sequence in a tag it knows will be printed.
-fn render(value: Option<&[u8]>, field_type: u16) -> MetadataValue {
+pub(crate) fn render(value: Option<&[u8]>, field_type: u16) -> MetadataValue {
     let bytes = value.unwrap_or_default();
     if field_type == ASCII {
         let text: String = String::from_utf8_lossy(bytes)

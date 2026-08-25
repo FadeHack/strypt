@@ -38,7 +38,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FUZZ_DIR="$REPO_ROOT/crates/strypt-core/fuzz"
-ALL_TARGETS=(pdf jpeg png webp ooxml odf zip detect)
+ALL_TARGETS=(pdf jpeg png webp tiff ooxml odf zip detect)
 
 DURATION=7200
 OUT_DIR=""
@@ -50,13 +50,13 @@ Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
   -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
 
-Targets default to all eight: pdf jpeg png webp ooxml odf zip detect
+Targets default to all nine: pdf jpeg png webp tiff ooxml odf zip detect
 
 Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of how many
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.
 
 Examples:
-  scripts/fuzz-sustained.sh -d 300                 # smoke test, all eight
+  scripts/fuzz-sustained.sh -d 300                 # smoke test, all nine
   scripts/fuzz-sustained.sh -d 28800 pdf           # 8h on PDF alone
   scripts/fuzz-sustained.sh -d 14400 png webp      # 4h each, in parallel
 
@@ -113,6 +113,7 @@ OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 corpus_args() {
   case "$1" in
     webp) echo "corpus/webp seeds/webp seeds/webp/malformed" ;;
+    tiff) echo "corpus/tiff seeds/tiff seeds/tiff/malformed" ;;
     *)    echo "corpus/$1 seeds/$1" ;;
   esac
 }
@@ -217,10 +218,11 @@ delivered_cpu_hours() {
   echo
   echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across every"
   echo "handler after a sustained run, with nothing set aside as not worth fixing. Criterion 2"
-  echo "was written when there were four targets; there are now eight. The ooxml and zip targets"
-  echo "cleared their sustained-run debt on 2026-08-24, and the odf target — added with Phase 2"
-  echo "group 2 — carries the current one, alongside pdf, whose two most recent fixes have had"
-  echo "only a smoke run. Nothing else in this table is needed to leave Phase 1."
+  echo "was written when there were four targets; there are now nine. The ooxml and zip targets"
+  echo "cleared their sustained-run debt on 2026-08-24, and odf and pdf cleared theirs on"
+  echo "2026-08-25. The current debt is the tiff target, added with Phase 2 group 3 tranche 1,"
+  echo "and detect, whose parser changed in the same work to route TIFF to a handler and to"
+  echo "refuse BigTIFF by name. Nothing else in this table is needed to leave Phase 1."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
   echo "'NO — still climbing' means this target needs a longer run before its number can be"

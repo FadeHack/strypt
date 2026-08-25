@@ -114,6 +114,7 @@ fn handler(format: Format) -> Result<&'static dyn crate::formats::MetadataHandle
             | Format::Png
             | Format::Webp
             | Format::Pdf
+            | Format::Tiff
             | Format::Docx
             | Format::Xlsx
             | Format::Pptx

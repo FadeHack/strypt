@@ -131,12 +131,13 @@ workspace:
 ```sh
 cd crates/strypt-core/fuzz
 mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/detect corpus/ooxml corpus/odf corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, detect, ooxml, odf, zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
 cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
 cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max_total_time=300
+cargo +nightly fuzz run tiff corpus/tiff seeds/tiff seeds/tiff/malformed -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
 cargo +nightly fuzz run odf corpus/odf seeds/odf -- -max_total_time=300
@@ -365,6 +366,28 @@ its keep list nor its omit list. Recorded rather than silently passed over
 (`docs/THREAT_MODEL.md` §7.7).
 
 Last run 2026-08-24 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures.
+
+### TIFF differential
+
+```sh
+cargo build --release
+./scripts/tiff-differential.sh
+```
+
+A different shape from the package-format differentials, because TIFF is the one format strypt
+**rebuilds rather than edits** (ADR-0033). mat2's default TIFF path re-renders the pixels through
+GdkPixbuf while strypt copies the compressed data across, so the two outputs cannot resemble each
+other and a byte comparison would say nothing. What is compared is what metadata survives in each,
+read by ExifTool.
+
+**`-u` is load-bearing** and the script passes it: ExifTool omits tags it does not recognise
+unless asked, and an unrecognised vendor tag is exactly the case the handler's allow-list exists
+to catch. The script also greps the output bytes for the fixtures' `SYNTHETIC` markers and for
+the `PRESERVED-` payload, so a clean result does not depend on either tool's reader alone.
+
+Last run 2026-08-25 against mat2 0.15.0 and ExifTool 13.55: no gaps across 10 fixtures — zero
+tags surviving on either side. Verified able to fail: the same filter over the *unstripped*
+fixtures reports 9, 6, 2, and 1 surviving tags and names the leaked values.
 
 ### OpenDocument LibreOffice import validation
 
