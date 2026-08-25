@@ -180,21 +180,39 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all seven targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all nine targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
 ./scripts/fuzz-sustained.sh -d 43200 ooxml zip    # 12h each on the Phase 2 container targets
+./scripts/fuzz-sustained.sh -d 43200 tiff detect  # 12h each; group 3 tranche 1's debt
 ./scripts/fuzz-sustained.sh -h                    # options
+
+# Detached, so it survives closing the terminal, with the machine held awake:
+nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 tiff detect \
+  > /tmp/strypt-fuzz.out 2>&1 &
+./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```
 
-The default target list is **all seven** — `pdf jpeg png webp ooxml zip detect`. `ooxml` and
-`zip` were added to the runner on 2026-08-23; before that it knew only the five Phase 1 targets
-and rejected the two new ones as unknown. A run that predates that change covered five targets
-whatever its command line looked like.
+The default target list is **all nine** — `pdf jpeg png webp tiff ooxml odf zip detect`. The
+runner has now failed to know about a new target three times, so check it before trusting a run
+to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23, `odf` with Phase
+2 group 2, and `tiff` on 2026-08-25. Each was rejected as an unknown name until it was added,
+so **a run predating a target's addition covered fewer targets than its command line suggests**,
+silently.
 
-On macOS, wrap a long run in `caffeinate -is` or the machine will sleep partway through and
-deliver a fraction of the budgeted CPU-hours without saying so.
+**On macOS, wrap a long run in `caffeinate -ims`** or the machine will sleep partway through and
+deliver a fraction of the budgeted CPU-hours without saying so — which is the one thing that
+makes a sustained run's headline number a lie, since budget matching delivery is what says
+nothing died (`docs/THREAT_MODEL.md` §7.7). Check `pmset -g`: a default laptop sleeps after a
+minute or two idle, so this is not a corner case. `-i` covers idle sleep, `-m` disk idle sleep,
+and `-s` system sleep — the last **only on AC power**, so keep it plugged in. Passing the script
+to `caffeinate` as its child, as above, ties the assertion to the run's lifetime and releases it
+when the run ends.
+
+**`caffeinate` does not survive closing the lid.** Clamshell sleep overrides it unless the
+machine is on AC with an external display. Leave the lid open, and sanity-check `ELAPSED` in
+`fuzz-status.sh` a minute in: if it is not advancing, the machine slept and the run is void.
 
 Targets run **in parallel, one process each**, so wall time is the `-d` value no matter how
 many targets are selected — but CPU-hours are `-d × targets`, and the script prints that
