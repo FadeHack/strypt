@@ -294,10 +294,21 @@ this order, and a group is not started until the previous one meets the Phase 1 
   nested-container refusal, embedded-image descent, entry-header findings — is now
   `container/package.rs`, which is what keeps ADR-0029's one-level descent existing exactly once.
 
-  **What is not claimed.** A *short* fuzz run only: 2.75M executions on `odf`, clean, with
-  `ooxml` and `zip` re-run clean after the shared layers moved. That is the definition-of-done
-  smoke bar, not a sustained run, and a sustained run covering `odf` — alongside the PDF handler's
-  two most recent fixes — is owed. ~~**No stripped package has been opened in LibreOffice.**~~
+  **Sustained fuzzing debt cleared 2026-08-25.** `odf`, `zip`, `ooxml` and `pdf` ran twelve hours
+  each in parallel — **48.00 CPU-hours budgeted, 48.00 delivered, zero crashes, hangs or OOMs
+  across all four**. `odf` executed 382,180,435 inputs at 8846 exec/s to 2487 edges; `pdf` was
+  included because its two most recent fixes had had only a smoke run. Budget matching delivery is
+  the headline, as it was for the 08-22 PDF run: a target that crashes stops early, so a run that
+  spends every hour it budgeted is one in which nothing died.
+
+  **Phase 3 evidence from the same run, not a Phase 1 gate.** Only `zip` plateaued (last gain
+  6519s of 43205s). `odf` (39934s), `ooxml` (36544s) and `pdf` (36961s) were all **still climbing
+  at twelve hours**. PDF has now failed to flatten in two separate 12-hour runs, climbing 4366 →
+  4601 edges between them. This continues to argue that ADR-0014's flat 100 CPU-hours should
+  become per-handler numbers, and still does not license superseding the ADR — PDF *still* owes a
+  run long enough to actually flatten.
+
+  ~~**No stripped package has been opened in LibreOffice.**~~
   ✅ **Closed 2026-08-24:** `scripts/odf-libreoffice-validation.sh` strips, imports and
   body-compares every fixture against **LibreOffice 26.2.5.2** — 14 fixtures and 2 real
   LibreOffice-authored documents, no failures (§7.7). The GUI repair-prompt check was done

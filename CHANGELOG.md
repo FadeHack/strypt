@@ -94,6 +94,16 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   were also opened by hand in the LibreOffice interface, and **none prompted to repair the
   file** — a separate check, because that dialog is a GUI prompt no automated import can trigger.
 
+- **The OpenDocument, ZIP, Office and PDF parsers survived 48 CPU-hours of hostile input.**
+  Twelve hours each, in parallel, on 2026-08-25: **zero crashes, zero hangs, zero out-of-memory
+  failures**. The OpenDocument parser alone was fed 382 million malformed inputs. PDF was
+  included because its two most recent fixes had had only a short run.
+
+  Malformed input is expected input for this tool — a file that crashes the stripper is a file
+  the user may then publish uncleaned. What this does *not* mean: three of the four parsers were
+  still reaching new code at the twelve-hour mark, so longer runs remain worthwhile and the
+  project's own hardening target (Phase 3) is not met.
+
 ### Fixed
 
 - **A PDF that cannot be rewritten faithfully is now refused instead of written.** For some

@@ -59,9 +59,11 @@ a later-phase artefact" rule now applies *within* this phase too.
 **Qualifications on the two landed groups, which are real:**
 
 - **OOXML's sustained-run debt is cleared** — `ooxml` and `zip` each ran a clean 12 hours on
-  2026-08-24. **OpenDocument's is not**: `odf` has 2.75M executions from a short run only, which
-  is the definition-of-done smoke bar and **not** a sustained run. A sustained run covering `odf`,
-  the ZIP layer's new consumer, and the PDF handler's two most recent fixes is owed.
+  2026-08-24. **OpenDocument's is cleared too, as of 2026-08-25**: `odf`, `zip`, `ooxml` and `pdf`
+  ran 12 hours each in parallel — **48.00 CPU-hours budgeted, 48.00 delivered, all four clean**,
+  zero crashes, hangs or OOMs. `odf` executed 382M inputs; `pdf` was included because its two most
+  recent fixes had had only a smoke run. Three of the four had **not plateaued** at twelve hours,
+  which is ADR-0014 Phase 3 evidence and **not** a Phase 1 gate — do not conflate them.
 - **The text of comments and tracked changes is deliberately kept**, with only its attribution
   removed. **mat2 is the better recommendation for a document whose comments must not be
   published**, and ADR-0012 requires saying so. This is sharper for ODF than for Office: mat2

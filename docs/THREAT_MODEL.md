@@ -784,10 +784,16 @@ content-type whitelist, and strypt processes it. Two comparison exclusions (`dat
 `create_system`) are justified in the script's own comments; both are values *both* tools
 normalise to a constant.
 
-**Fuzzing (2026-08-23).** Short runs only, and stated as such: 3.53M executions on the `ooxml`
-target and 9.05M on the `zip` target, both clean, no artefacts. That is the definition-of-done
-smoke bar, **not** a sustained run and not Phase 1 exit criterion 2's bar. A sustained run
-covering the two new targets is owed before this format group can be called done.
+**Fuzzing — sustained, clean (2026-08-25).** `ooxml` and `zip` each ran **12.00 hours** in the
+four-target run of 2026-08-24/25, after a first clean 12 hours on 2026-08-24. Zero crashes, zero
+hangs, zero OOMs; no artefacts newer than the run marker. `ooxml` reached 2625 edges at 9347
+exec/s, `zip` 1040 edges at 37309 exec/s. Both were re-run deliberately because the container and
+scanner layers moved out from under them when OpenDocument landed — a target that was clean
+before a refactor says nothing about the code after it.
+
+`zip` is the one target in that run that **plateaued**, its last coverage gain at 6519s of
+43205s. `ooxml` was **still climbing at twelve hours** (last gain 36544s), which is Phase 3
+evidence for ADR-0014 rather than a failure of this run.
 
 ### 7.7 OpenDocument — `.odt`, `.ods`, `.odp` (Phase 2)
 
@@ -943,11 +949,22 @@ its omit list. strypt processes that document and removes the object's metadata.
 an embedded chart is an ordinary thing to have, so this is a real difference — and it is one
 data point about one release, not a general claim about either tool.
 
-**Fuzzing (2026-08-24).** A short run only, and stated as such: **2.75M executions on the `odf`
-target, clean, no artefacts**, plus 1.90M on `ooxml` and 6.60M on `zip` re-run after the shared
-container and scanner layers moved — both clean. That is the definition-of-done smoke bar,
-**not** a sustained run. A sustained run covering `odf`, the ZIP layer's new consumer, and the
-PDF handler's two most recent fixes is owed before this format group can be called done.
+**Fuzzing — sustained, clean (2026-08-25).** The run this format group owed has been delivered:
+**12.00 hours on `odf`**, alongside `zip`, `ooxml` and `pdf` in parallel — **48.00 CPU-hours
+budgeted and 48.00 delivered**, the four of them clean. `odf` executed **382,180,435 inputs** at
+8846 exec/s, reaching 2487 edges and adding 4850 corpus units, with **zero crashes, zero hangs
+and zero OOMs**: no artefact newer than the run marker, `slowest_unit_time_sec: 0`, peak RSS
+411 MB. `pdf` was included because its two most recent fixes had had only a smoke run; it
+executed 226,228,005 inputs, also clean.
+
+Budget matching delivery is the part worth reading twice. A target that crashes stops early, so
+a run that delivers every hour it budgeted is a run in which nothing died — which is exactly what
+the earlier PDF runs could not say (§7.1).
+
+**`odf` had not plateaued at twelve hours**, its last coverage gain arriving at 39934s of 43205s.
+That is ADR-0014's Phase 3 condition and **not** Phase 1 exit criterion 2, which asks only for a
+sustained run with no crash artefact. Recorded here so the distinction is not re-collapsed later:
+this group's fuzzing debt is cleared; ADR-0014's number for this handler is not yet set.
 
 ---
 
