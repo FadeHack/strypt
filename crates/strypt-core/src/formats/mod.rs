@@ -28,6 +28,7 @@ use crate::error::Result;
 use crate::report::{InspectOptions, MetadataReport, StripReport};
 
 mod exif;
+pub mod gif;
 pub mod jpeg;
 pub mod odf;
 pub mod ooxml;

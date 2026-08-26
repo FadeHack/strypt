@@ -174,8 +174,6 @@ pub enum UnsupportedKind {
     /// sounds like it was not recognised at all. `docs/ROADMAP.md` Phase 2 group 2 is `.odt`,
     /// `.ods`, and `.odp`, and widening that needs a superseding ADR (ADR-0027).
     OtherOpenDocument,
-    /// GIF.
-    Gif,
     /// `BigTIFF`: the same byte-order marks as TIFF but magic number 43, with eight-byte
     /// offsets throughout. Refused by name rather than parsed as the TIFF it is not, because a
     /// parser reading its directories as ordinary TIFF ones produces confident nonsense
@@ -210,7 +208,6 @@ impl std::fmt::Display for UnsupportedKind {
             Self::OtherOpenDocument => {
                 "an OpenDocument type strypt does not handle yet (a drawing, formula, chart, or template)"
             }
-            Self::Gif => "GIF",
             Self::BigTiff => "BigTIFF",
             Self::IsoBaseMedia => "an ISO base-media file (MP4, HEIF, or AVIF)",
             Self::Mp3 => "MP3",

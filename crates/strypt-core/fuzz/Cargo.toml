@@ -49,6 +49,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "gif"
+path = "fuzz_targets/gif.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "ooxml"
 path = "fuzz_targets/ooxml.rs"
 test = false

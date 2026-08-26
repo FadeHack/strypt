@@ -360,9 +360,30 @@ this order, and a group is not started until the previous one meets the Phase 1 
     removed, trading colour fidelity; and BigTIFF, an inconsistent strip geometry, or a directory
     without dimensions is refused rather than approximated.
 
-  - ⬜ **Tranches 2–5 — GIF, HEIF+AVIF, SVG, JPEG XL — not started.** Tranche 2 (GIF) is
-    unblocked as of 2026-08-26. SVG additionally owes its own ADR before its tranche opens: its
-    threat model differs in kind, not degree.
+  - 🔶 **Tranche 2 — GIF — handler landed 2026-08-26; the tranche is not complete.** `.gif`,
+    animated ones included. Landed: the handler, a `gif` fuzz target, 14 fixtures plus 6 malformed
+    ones with their generator, 22 integration tests, 20 unit tests,
+    `scripts/gif-differential.sh` with a clean result against mat2 0.15.0 and ExifTool 13.55 over
+    all 14 fixtures, and `docs/THREAT_MODEL.md` §7.9.
+
+    GIF is the shape ADR-0032 predicted — a short block list, removal by deletion, no rebuild —
+    and it is the only format in the tree that returns a **byte-identical** copy of a clean file.
+    The one judgement call is recorded rather than assumed: the `NETSCAPE2.0` and `ANIMEXTS1.0`
+    application extensions are **kept**, because they carry an animation's loop count and nothing
+    else, while every other application extension is removed on an allow-list. They are declared
+    in the report's `retained` list, and the differential asserts the loop count survives rather
+    than merely filtering it out of the comparison. One measurement worth recording: on
+    `plain-text.gif` **strypt removes more than mat2 does**.
+
+    **The sustained fuzz run is owed and this tranche does not meet the Phase 1 bar without it.**
+    The `gif` target has had a 3-minute smoke run only — 9,215,373 inputs, clean — which is not
+    what exit criterion 2 asks for. `detect` owes one too, since its parser changed in the same
+    work to route GIF to a handler instead of naming it unsupported. **Until that run comes back
+    clean, ADR-0032 does not permit tranche 3 to open.**
+
+  - ⬜ **Tranches 3–5 — HEIF+AVIF, SVG, JPEG XL — not started**, and blocked behind tranche 2's
+    fuzz run. SVG additionally owes its own ADR before its tranche opens: its threat model
+    differs in kind, not degree.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -375,7 +396,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
-   ADR-0032; the TIFF tranche is complete (2026-08-26) and GIF is next.
+   ADR-0032; the TIFF tranche is complete (2026-08-26) and the GIF handler landed the same day,
+   owing only its sustained fuzz run.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

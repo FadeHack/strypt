@@ -13,6 +13,7 @@ git history is forever — so it is ignored, and only what a human chose lives h
   them.
 - `webp/` — copies of `corpus/webp/`, valid and malformed alike. Refresh after regenerating
   them.
+- `gif/` — copies of `corpus/gif/`, valid and malformed alike. Refresh after regenerating them.
 - `ooxml/` — copies of `corpus/ooxml/`, valid and malformed alike. Refresh after regenerating
   them.
 - `odf/` — copies of `corpus/odf/`, valid and malformed alike. Refresh after regenerating them.

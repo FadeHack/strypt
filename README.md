@@ -2,8 +2,8 @@
 
 > ## Status: Phase 2 in progress — no audit, no release, no hardening phase yet
 >
-> **PDF, JPEG, PNG, WebP, Office Open XML (`.docx`, `.xlsx`, `.pptx`), and OpenDocument
-> (`.odt`, `.ods`, `.odp`) are implemented.**
+> **PDF, JPEG, PNG, WebP, TIFF, GIF, Office Open XML (`.docx`, `.xlsx`, `.pptx`), and
+> OpenDocument (`.odt`, `.ods`, `.odp`) are implemented.**
 > Everything else is recognised and reported as unsupported; it is not processed. All seven Phase 1 exit criteria are met: the handlers were
 > swept over 102 files from real producers — real camera maker notes included — the mat2
 > differential covers all four formats, performance is measured, CI is green on Linux, macOS and
@@ -28,11 +28,20 @@
 > across bit-identically (ADR-0033). Its differential against mat2 0.15.0 and ExifTool 13.55 is
 > clean over all 10 fixtures, and the `tiff` and `detect` fuzz targets have each run 12 hours —
 > 24 CPU-hours, 4.4 billion inputs, zero crashes, hangs or OOMs — so **the tranche is complete as
-> of 2026-08-26** and GIF is next. Recorded limitations:
+> of 2026-08-26**. Recorded limitations:
 > output is never byte-identical to input even for a clean file, because a rebuild reorders it;
 > metadata hidden inside the compressed image data is out of reach, and **mat2's re-rendering
-> default is the better tool where that is the concern**. GIF, HEIF/AVIF, SVG, JPEG XL, and
-> audio/video are **not started**.
+> default is the better tool where that is the concern**.
+>
+> **The GIF handler landed 2026-08-26 and its tranche is not finished.** Comments, XMP, the ICC,
+> 8BIM and IPTC blocks `ImageMagick` writes, plain text, and anything hidden after the trailer are
+> removed; the animation's loop count is **kept on purpose** and declared, because it identifies
+> nobody and removing it would stop a looping animation from looping. The pixels are never
+> decoded, and a clean GIF comes back byte-identical. Its differential against mat2 0.15.0 and
+> ExifTool 13.55 is clean over all 14 fixtures — on one of them strypt removes more than mat2
+> does. **It has had a 3-minute fuzz smoke run and not a sustained one, so it does not yet meet
+> the bar every other shipped format has met.** HEIF/AVIF, SVG, JPEG XL, and audio/video are
+> **not started**.
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
 > tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
@@ -45,7 +54,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML done 2026-08-23; OpenDocument, more images, and A/V not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26 done; GIF landed and owes its fuzz run; HEIF/AVIF, SVG, JPEG XL and A/V not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
@@ -98,11 +107,13 @@ unless you ask for `--in-place`. Full command reference and exit codes:
 | PNG | Text chunks (`tEXt`, `zTXt`, `iTXt`), timestamps, ICC profile, the `eXIf` chunk, unknown ancillary chunks, and data hidden after the end chunk. Image data is copied through byte for byte |
 | WebP | The `EXIF`, `XMP `, and `ICCP` chunks, unknown chunks at the top level and inside animation frames, and data hidden past the container's declared length. The header's flags are corrected so the file stops claiming metadata it no longer has. The bitstream is copied through byte for byte |
 | PDF | Document info dictionary, XMP metadata streams, document IDs, annotation and embedded-file metadata |
+| TIFF | Everything except the tags an image cannot be decoded without — camera and scanner identity, artist, copyright, description, timestamps, GPS and Exif sub-directories, XMP, IPTC, the ICC profile, embedded thumbnails, and **any vendor tag strypt has never seen**. The file is rebuilt rather than edited, and the pixels are copied across bit-identically |
+| GIF | Comments, XMP, the ICC, 8BIM and IPTC blocks `ImageMagick` and Photoshop write as application extensions, plain text, extensions under undefined labels, **any vendor application block**, and data hidden after the trailer. The animation's loop count, frame delays and transparency are kept and declared. The LZW data is never decoded, and a clean file comes back byte-identical |
 | `.docx` `.xlsx` `.pptx` | The core, extended, and custom properties (author, company, manager, cumulative editing time, revision count), the page thumbnail, revision-save and paragraph identifiers, the author names and dates on comments and tracked changes, per-part timestamps and host fields, and external relationships pointing at a local path. **Photographs inside the document are stripped by the image handlers above.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
 
 | `.odt` `.ods` `.odp` | `meta.xml` entire — author, last-saved-by, creation/modification/print dates, the editing-cycle count and the total editing duration, the generator (which names the operating system), page and word statistics, user-defined properties, and a template path — plus `settings.xml` entire, which holds the **printer name and setup blob**; the page thumbnail; the saved user-interface configuration and layout cache; the author names and dates on comments and tracked changes; the cached author-name fields printed in the document; and per-part timestamps and host fields. **Photographs inside the document are stripped by the image handlers above, and an embedded chart's own metadata goes too.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
 
-Still to come in Phase 2: more image formats, audio, and video. See
+Still to come in Phase 2: HEIF/AVIF, SVG, JPEG XL, audio, and video. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 **Where mat2 is the better tool, this says so.** For a document whose comments must not be

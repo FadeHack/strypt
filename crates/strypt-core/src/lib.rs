@@ -2,11 +2,11 @@
 //!
 //! # Status
 //!
-//! **Phase 1 complete (2026-08-22); Phase 2 in progress.** JPEG, PNG, WebP, and PDF are
-//! handled, each with its own fuzz target and seed corpus. Phase 2 opened on 2026-08-23
-//! (ADR-0027) and its first format group — Office Open XML — is landing; the rest of that
-//! phase's scope is not started. A format with no handler is reported as unsupported and is
-//! never passed through untouched.
+//! **Phase 1 complete (2026-08-22); Phase 2 in progress.** JPEG, PNG, WebP, PDF, TIFF, GIF,
+//! Office Open XML, and `OpenDocument` are handled, each with its own fuzz target and seed
+//! corpus. Phase 2 opened on 2026-08-23 (ADR-0027); the GIF handler is the most recent to land
+//! and still owes the sustained fuzz run every other shipped format has had. A format with no
+//! handler is reported as unsupported and is never passed through untouched.
 //!
 //! What is *not* claimed: no tool guarantees total metadata removal, and the recorded
 //! per-format limitations in `docs/THREAT_MODEL.md` are real. Read them before relying on this.

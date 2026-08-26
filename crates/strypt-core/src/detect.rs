@@ -49,6 +49,8 @@ pub enum Format {
     Pdf,
     /// TIFF, including the multi-page files scanners produce.
     Tiff,
+    /// GIF, in either the 87a or the 89a spelling.
+    Gif,
     /// A `WordprocessingML` document — `.docx`.
     Docx,
     /// A `SpreadsheetML` workbook — `.xlsx`.
@@ -75,6 +77,7 @@ impl Format {
             Self::Webp => "webp",
             Self::Pdf => "pdf",
             Self::Tiff => "tiff",
+            Self::Gif => "gif",
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
@@ -95,6 +98,7 @@ impl Format {
             Self::Webp => "webp",
             Self::Pdf => "pdf",
             Self::Tiff => "tiff",
+            Self::Gif => "gif",
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
@@ -113,6 +117,7 @@ impl std::fmt::Display for Format {
             Self::Webp => "WebP",
             Self::Pdf => "PDF",
             Self::Tiff => "TIFF",
+            Self::Gif => "GIF",
             Self::Docx => "DOCX",
             Self::Xlsx => "XLSX",
             Self::Pptx => "PPTX",
@@ -152,7 +157,7 @@ pub fn detect(data: &[u8]) -> Result<Format> {
     Err(StryptError::UnrecognisedFormat)
 }
 
-/// Match the four formats Phase 1 handles. Exact magic numbers are checked before the PDF
+/// Match the formats this release handles. Exact magic numbers are checked before the PDF
 /// header scan, so that a `%PDF-` string sitting inside a JPEG's EXIF block cannot cause a
 /// mis-dispatch.
 fn detect_supported(data: &[u8]) -> Option<Format> {
@@ -174,6 +179,12 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if starts_with(data, &[b'I', b'I', 0x2A, 0x00]) || starts_with(data, &[b'M', b'M', 0x00, 0x2A])
     {
         return Some(Format::Tiff);
+    }
+    // GIF89a and its predecessor. §17 fixes the signature and the version as six bytes together,
+    // and the handler treats both spellings alike — an `87a` file carrying extensions is common,
+    // and no decoder enforces the version string either.
+    if starts_with(data, b"GIF87a") || starts_with(data, b"GIF89a") {
+        return Some(Format::Gif);
     }
     if find_pdf_header(data).is_some() {
         return Some(Format::Pdf);
@@ -204,9 +215,6 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
             Some(Package::OtherOpenDocument) => UnsupportedKind::OtherOpenDocument,
             _ => UnsupportedKind::ZipContainer,
         });
-    }
-    if starts_with(data, b"GIF87a") || starts_with(data, b"GIF89a") {
-        return Some(UnsupportedKind::Gif);
     }
     // BigTIFF: the same byte-order marks, but spelling 43. Named separately from the TIFF the
     // handler accepts, because its eight-byte offsets are a different layout (ADR-0033).
@@ -426,6 +434,20 @@ mod tests {
     }
 
     #[test]
+    fn both_gif_spellings_route_to_the_handler() {
+        // `87a` predates extension blocks, but files spelling it while carrying them are common
+        // and no decoder enforces the version string. Both reach the same handler.
+        assert_eq!(
+            detect(b"GIF87a\x01\x00\x01\x00\x00\x00\x00").unwrap(),
+            Format::Gif
+        );
+        assert_eq!(
+            detect(b"GIF89a\x01\x00\x01\x00\x00\x00\x00").unwrap(),
+            Format::Gif
+        );
+    }
+
+    #[test]
     fn a_pdf_named_jpg_is_still_a_pdf() {
         // The mis-dispatch guard from docs/ARCHITECTURE.md §1. Detection never sees the name,
         // which is precisely why this cannot go wrong.
@@ -482,7 +504,6 @@ mod tests {
     fn phase_two_formats_are_named_in_the_refusal() {
         for (bytes, expected) in [
             (&b"PK\x03\x04"[..], UnsupportedKind::ZipContainer),
-            (&b"GIF89a"[..], UnsupportedKind::Gif),
             (&b"II\x2B\x00"[..], UnsupportedKind::BigTiff),
             (&b"OggS"[..], UnsupportedKind::Ogg),
             (&b"fLaC"[..], UnsupportedKind::Flac),

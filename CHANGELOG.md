@@ -21,6 +21,36 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **GIF support — `.gif`, animated ones included.** `strypt show` and `strypt strip` now process
+  GIF images. This is the second tranche of Phase 2's third format group (ADR-0032).
+
+  What comes out: comment extensions, which hold whatever the producing tool felt like putting
+  there and in real files routinely hold a filename or a person; XMP packets; the whole 8BIM,
+  IPTC, and ICC profile blocks `ImageMagick` and Photoshop write as application extensions — the
+  IPTC one carries a by-line, which is somebody's name; plain-text extensions; extensions under
+  labels the format does not define; and anything hidden after the file's trailer byte, which
+  nothing reads and which is a convenient place to keep a second copy of an image whose visible
+  version was cropped.
+
+  **An application block strypt has never seen does not survive by being unrecognised.** Only two
+  are kept, and neither is metadata: `NETSCAPE2.0` and `ANIMEXTS1.0` carry the animation's loop
+  count. They name no person, device, place, or time, and they are identical in every looping GIF
+  ever written — but removing them would turn a looping animation into a one-shot, which is a
+  change to what the file *does*. strypt keeps them and says so in its report rather than staying
+  silent.
+
+  **The pixels are bit-identical, and a clean file comes back byte-identical.** The
+  LZW-compressed image data is never decoded, frame delays and transparency are copied across
+  untouched, and a GIF that carried no metadata is returned exactly as it arrived.
+
+  **One deliberate removal is worth knowing about**: a plain-text extension is removed along with
+  the graphic control block in front of it. That block sets the *next* graphic's delay and
+  transparency, so leaving it behind would retime the following image.
+
+  Checked against **mat2 0.15.0 and ExifTool 13.55**: nothing survives strypt that does not also
+  survive mat2, across all 14 fixtures. On one of them strypt removes more — mat2 leaves the
+  plain-text extension in place.
+
 - **TIFF support — `.tif`, `.tiff`, including the multi-page files scanners produce.** `strypt
   show` and `strypt strip` now process TIFF images. This is the first tranche of Phase 2's third
   format group (ADR-0032, ADR-0033).

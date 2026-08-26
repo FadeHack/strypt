@@ -9,14 +9,15 @@ commit as any change to the build, test, or lint workflow.**
 > ## ⚠️ Phase 1 complete (2026-08-22) · Phase 2 in progress
 >
 > **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19, the
-> Office Open XML ones on 2026-08-23, and the OpenDocument ones on 2026-08-24. `strypt show` and
-> `strypt strip` work on PDF, JPEG, PNG, WebP, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and
-> `.odp`. Every other format is detected and reported as unsupported — never processed, and
-> never passed through untouched.
+> Office Open XML ones on 2026-08-23, the OpenDocument ones on 2026-08-24, the TIFF ones on
+> 2026-08-26, and the GIF ones the same day. `strypt show` and `strypt strip` work on PDF, JPEG,
+> PNG, WebP, TIFF, GIF, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other format
+> is detected and reported as unsupported — never processed, and never passed through untouched.
 >
-> Phase 2 opened 2026-08-23 (ADR-0027); OOXML and OpenDocument are the first two of its four
-> format groups. The rest — more image formats, audio and video — are not started; see
-> [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> Phase 2 opened 2026-08-23 (ADR-0027). OOXML and OpenDocument are its first two format groups;
+> the third is five image tranches (ADR-0032), of which TIFF is complete and GIF has landed but
+> **still owes its sustained fuzz run**. HEIF/AVIF, SVG, JPEG XL, and audio/video are not
+> started; see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
 
@@ -30,7 +31,7 @@ commit as any change to the build, test, or lint workflow.**
 | `webp-pixbuf-loader`, `webpinfo` | WebP differential | Required for `scripts/webp-differential.sh`. Without the pixbuf loader mat2 cannot read WebP and the comparison is meaningless; the script refuses to run. Verified 2026-08-21 with loader 0.2.7 and libwebp 1.6.0. |
 | Chrome or Chromium | optional corpus fixture | Only for `build_real_corpus.py --with-browser`. Verified 2026-08-21 with Chrome 151. |
 | `qpdf` | fixture validation | Optional. `qpdf --check` confirms a generated PDF fixture is structurally sound. |
-| ImageMagick | fixture validation | Optional. `magick identify` confirms a JPEG, PNG, or WebP fixture still decodes; `magick compare -metric AE` confirms stripping changed no pixels. |
+| ImageMagick | fixture validation | Optional. `magick identify` confirms a JPEG, PNG, WebP, or GIF fixture still decodes; `magick compare -metric AE` confirms stripping changed no pixels. |
 | Python 3 | fixture generation | Optional. Only needed to regenerate `corpus/`. |
 | `cwebp` | WebP base bitstreams | **Not needed.** The two base bitstreams are committed as literals inside `make_webp_fixtures.py`; `cwebp 1.6.0` produced them once. Only needed to replace them. |
 
@@ -130,14 +131,15 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/detect corpus/ooxml corpus/odf corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, detect, ooxml, odf, zip
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/detect corpus/ooxml corpus/odf corpus/zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
 cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
 cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max_total_time=300
 cargo +nightly fuzz run tiff corpus/tiff seeds/tiff seeds/tiff/malformed -- -max_total_time=300
+cargo +nightly fuzz run gif corpus/gif seeds/gif seeds/gif/malformed -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
 cargo +nightly fuzz run odf corpus/odf seeds/odf -- -max_total_time=300
@@ -150,9 +152,10 @@ Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is 
 machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
 directory given and reads the rest.
 
-The PDF, JPEG, PNG, WebP, OOXML, and ODF seeds are copies of `corpus/pdf/`, `corpus/jpeg/`,
-`corpus/png/`, `corpus/webp/`, `corpus/ooxml/`, and `corpus/odf/` (including their `malformed/`
-subdirectories); refresh them after regenerating the fixtures.
+The PDF, JPEG, PNG, WebP, TIFF, GIF, OOXML, and ODF seeds are copies of `corpus/pdf/`,
+`corpus/jpeg/`, `corpus/png/`, `corpus/webp/`, `corpus/tiff/`, `corpus/gif/`, `corpus/ooxml/`, and
+`corpus/odf/` (including their `malformed/` subdirectories); refresh them after regenerating the
+fixtures.
 
 `seeds/zip/` holds the same packages as `seeds/ooxml/` and `seeds/odf/`, deliberately. The `zip`
 target exercises the container layer on its own (ADR-0028), and its job is to explore *outward*
@@ -180,24 +183,25 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all nine targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all ten targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
 ./scripts/fuzz-sustained.sh -d 43200 ooxml zip    # 12h each on the Phase 2 container targets
-./scripts/fuzz-sustained.sh -d 43200 tiff detect  # 12h each; group 3 tranche 1's debt
+./scripts/fuzz-sustained.sh -d 43200 tiff detect  # 12h each; group 3 tranche 1's debt, cleared 2026-08-26
+./scripts/fuzz-sustained.sh -d 43200 gif detect   # 12h each; group 3 tranche 2's debt — OWED
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:
-nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 tiff detect \
+nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 gif detect \
   > /tmp/strypt-fuzz.out 2>&1 &
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```
 
-The default target list is **all nine** — `pdf jpeg png webp tiff ooxml odf zip detect`. The
+The default target list is **all ten** — `pdf jpeg png webp tiff gif ooxml odf zip detect`. The
 runner has now failed to know about a new target three times, so check it before trusting a run
 to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23, `odf` with Phase
-2 group 2, and `tiff` on 2026-08-25. Each was rejected as an unknown name until it was added,
+2 group 2, `tiff` on 2026-08-25, and `gif` on 2026-08-26. Each was rejected as an unknown name until it was added,
 so **a run predating a target's addition covered fewer targets than its command line suggests**,
 silently.
 
@@ -281,12 +285,15 @@ python3 corpus/tools/make_pdf_fixtures.py        # regenerate; deterministic
 python3 corpus/tools/make_jpeg_fixtures.py       # regenerate; deterministic
 python3 corpus/tools/make_png_fixtures.py        # regenerate; reuses the JPEG tool's TIFF builder
 python3 corpus/tools/make_webp_fixtures.py       # regenerate; reuses the JPEG tool's TIFF builder
+python3 corpus/tools/make_tiff_fixtures.py       # regenerate; deterministic
+python3 corpus/tools/make_gif_fixtures.py        # regenerate; carries its own LZW encoder, so every fixture really decodes
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
 magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still decodes
 magick identify corpus/png/exif-gps.png          # confirm a PNG fixture still decodes
 magick identify corpus/webp/all-metadata.webp    # confirm a WebP fixture still decodes
+magick identify corpus/gif/animated-loop.gif     # confirm a GIF fixture still decodes, frames and all
 exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
 unzip -l corpus/ooxml/everything.docx            # confirm an OOXML fixture is a readable package
 unzip -l corpus/odf/everything.odt               # first entry must be a stored `mimetype` (ODF Part 2 §3.3)
@@ -406,6 +413,29 @@ the `PRESERVED-` payload, so a clean result does not depend on either tool's rea
 Last run 2026-08-25 against mat2 0.15.0 and ExifTool 13.55: no gaps across 10 fixtures — zero
 tags surviving on either side. Verified able to fail: the same filter over the *unstripped*
 fixtures reports 9, 6, 2, and 1 surviving tags and names the leaked values.
+
+### GIF differential
+
+```sh
+cargo build --release
+./scripts/gif-differential.sh
+```
+
+mat2's GIF path re-renders the image through GdkPixbuf where strypt removes whole blocks and
+copies the rest through, so as with TIFF the outputs cannot resemble each other and what is
+compared is what metadata survives in each.
+
+**Two things in that script are decisions rather than bookkeeping, and both are written into it.**
+The `[File]` group is filtered tag by tag rather than as a whole, because ExifTool files a GIF's
+comment under `[File] Comment` — the blanket exclusion the TIFF script uses would hide this
+format's most common leak. And `AnimationIterations` is excluded because strypt keeps the loop
+count on purpose; the script pairs that exclusion with a check asserting the loop count really
+does survive, so it is a declared choice rather than a softened sweep.
+
+Last run 2026-08-26 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures, zero tags
+surviving strypt. On `plain-text.gif` **strypt removes more than mat2 does** — ExifTool still
+reports the plain-text block in mat2's output. Verified able to fail: the same filter over the
+*unstripped* fixtures reports surviving tags on 8 of the 14, including 3 on `xmp.gif`.
 
 ### OpenDocument LibreOffice import validation
 

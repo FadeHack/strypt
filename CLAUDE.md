@@ -18,10 +18,10 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument and TIFF done; GIF is next (2026-08-26)**
+## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument and TIFF done; the GIF handler has landed and owes its fuzz run (2026-08-26)**
 
 **Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
-groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, `.docx`,
+groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, `.docx`,
 `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`; every other format is reported as unsupported and
 never passed through untouched. Landed: bounded ingest,
 content-sniffing detection, the handler registry and trait, the post-strip verification pass,
@@ -83,8 +83,29 @@ inside the compressed image data is out of reach, where **mat2's re-rendering de
 better recommendation**; ICC profiles are removed, trading colour fidelity; BigTIFF and
 inconsistent strip geometry are refused.
 
-**Tranches 2–5 and Group 4 are NOT started.** Tranche 2 (GIF) is unblocked as of 2026-08-26 and
-is what comes next. SVG owes its own ADR before its tranche opens. The
+**Tranche 2 — GIF — landed 2026-08-26, and is NOT complete.** Landed: the handler, a `gif` fuzz
+target, 14 fixtures plus 6 malformed with their generator (which carries its own LZW encoder, so
+every fixture really decodes and mat2 can open it), 22 integration tests, 20 unit tests, a clean
+mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.9. GIF is a flat block list, so removal
+is deletion and **a clean file comes back byte-identical** — the only format in the tree that can
+promise that of a whole file.
+
+**The one judgement call is the loop count, and it is settled: `NETSCAPE2.0` and `ANIMEXTS1.0` are
+kept.** They carry an animation's loop count and nothing else — no person, device, place, or time,
+and byte-identical between any two looping files — while every *other* application extension is
+removed on an allow-list, unknown vendor identifiers included. Removing them would turn a user's
+looping animation into a one-shot, which is a change to what the file does. They are declared in
+the report's `retained` list, and `scripts/gif-differential.sh` asserts the loop count survives
+rather than merely excluding it from the comparison. A plain-text extension is removed *together
+with* the graphic control block in front of it, because that block would otherwise retime the next
+image.
+
+**Its sustained fuzzing debt is OWED, and the tranche does not meet the Phase 1 bar until it is
+paid.** `gif` has had a 3-minute smoke run only (9,215,373 inputs, clean). The run to make is
+`./scripts/fuzz-sustained.sh -d 43200 gif detect` — `detect` because its parser changed in the
+same work. **Until it comes back clean, ADR-0032 does not permit tranche 3 to open.**
+
+**Tranches 3–5 and Group 4 are NOT started.** SVG owes its own ADR before its tranche opens. The
 "check before referencing a later-phase artefact" rule now applies *within* this phase too.
 
 **Qualifications on the two landed groups, which are real:**
