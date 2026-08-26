@@ -18,7 +18,7 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML and OpenDocument done; TIFF's handler landed, its tranche unfinished (2026-08-25)**
+## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument and TIFF done; GIF is next (2026-08-26)**
 
 **Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
 groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, `.docx`,
@@ -58,7 +58,7 @@ GIF, HEIF+AVIF, SVG, JPEG XL, in that order, each meeting the Phase 1 bar before
 The split exists because this group, unlike the first two, has no shared container — six formats
 with nothing in common — and one lump would hold a finished handler hostage to the hardest member.
 
-**Tranche 1 — TIFF — has a landed handler and an UNFINISHED tranche (2026-08-25).** Landed: the
+**Tranche 1 — TIFF — is done (2026-08-26).** Landed: the
 handler, its allow-list of structural tags, a `tiff` fuzz target, 10 fixtures plus 6 malformed
 with their generator, 17 integration tests, 14 unit tests, `docs/THREAT_MODEL.md` §7.8.
 **ADR-0033 is required reading before touching it**: TIFF is the one format strypt *rebuilds*
@@ -70,14 +70,21 @@ governs OOXML and OpenDocument, and deliberately so.
 The mat2/ExifTool differential landed with the handler and is clean (`scripts/tiff-differential.sh`,
 10 fixtures, zero tags surviving either tool, verified able to fail).
 
-**One thing is owed and it must not be called done until it lands:** the fuzzing is a
-**241-second smoke run (3.94M inputs, clean), not a sustained one**. Deliberate limitations, already recorded: output
+**Its sustained-fuzzing debt is cleared as of 2026-08-26**: `tiff` and `detect` ran twelve hours
+each in parallel — **24.00 CPU-hours budgeted, 24.00 delivered, both clean**, `tiff` at
+1,417,537,939 inputs and `detect` at 2,991,380,340. **Both plateaued** — `tiff`'s last gain at
+17,217s of 43,203s, `detect`'s at one second — which is ADR-0014 **Phase 3** evidence and **not**
+a Phase 1 gate. It is the first plateau evidence at the opposite end from PDF, and it still does
+not license superseding ADR-0014; do not conflate the two bars.
+
+Deliberate limitations, already recorded: output
 is never byte-identical to input even for a clean file (idempotence is, and is tested); metadata
 inside the compressed image data is out of reach, where **mat2's re-rendering default is the
 better recommendation**; ICC profiles are removed, trading colour fidelity; BigTIFF and
 inconsistent strip geometry are refused.
 
-**Tranches 2–5 and Group 4 are NOT started.** SVG owes its own ADR before its tranche opens. The
+**Tranches 2–5 and Group 4 are NOT started.** Tranche 2 (GIF) is unblocked as of 2026-08-26 and
+is what comes next. SVG owes its own ADR before its tranche opens. The
 "check before referencing a later-phase artefact" rule now applies *within* this phase too.
 
 **Qualifications on the two landed groups, which are real:**

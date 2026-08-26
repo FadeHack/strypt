@@ -59,6 +59,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   Checked against **mat2 0.15.0 and ExifTool 13.55**: nothing survives strypt that does not also
   survive mat2, across all ten fixtures.
 
+- **The TIFF and detection parsers survived 24 CPU-hours of hostile input.** Twelve hours each,
+  in parallel, on 2026-08-26: **zero crashes, zero hangs, zero out-of-memory failures**. The TIFF
+  parser alone was fed **1.4 billion** malformed inputs and the detector 3.0 billion. Detection
+  was included because it changed in the same work — it now routes TIFF to a handler and refuses
+  BigTIFF by name.
+
 - **OpenDocument support — `.odt`, `.ods`, and `.odp`.** `strypt show` and `strypt strip` now
   process LibreOffice and OpenOffice text documents, spreadsheets, and presentations. This is the
   second format group of Phase 2 (ADR-0027, ADR-0031).

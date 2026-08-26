@@ -326,7 +326,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
   is what the split avoids. The default remains a hand-written walker; a dependency needs its own
   ADR, and the 2026-08-25 survey in ADR-0032 found none that earns it.
 
-  - 🔶 **Tranche 1 — TIFF, handler landed 2026-08-25, tranche NOT complete.** `.tif` and `.tiff`,
+  - ✅ **Tranche 1 — TIFF, done 2026-08-26.** `.tif` and `.tiff`,
     including multi-page scans. **ADR-0033 records why this format is rebuilt rather than
     edited**: its metadata is its file structure, so there is no block to drop and no way to edit
     in place without rewriting every offset. Landed: the handler and its allow-list of structural
@@ -337,10 +337,21 @@ this order, and a group is not started until the previous one meets the Phase 1 
     ExifTool 13.55 over all 10 fixtures is clean — zero tags surviving on either side — and was
     verified able to fail by running its filter against the unstripped fixtures (§7.8).
 
-    **One thing is owed before this tranche meets the Phase 1 bar, and it must not be described
-    as done until it lands: sustained fuzzing.** What has run is a **smoke run — 3,939,390 inputs
-    in 241 seconds on 2026-08-25, clean**. That is not exit criterion 2 for this handler and it is
-    not what OOXML and OpenDocument delivered.
+    **Sustained fuzzing debt cleared 2026-08-26.** `tiff` and `detect` ran twelve hours each in
+    parallel — **24.00 CPU-hours budgeted and 24.00 delivered, zero crashes, hangs or OOMs on
+    both**. `tiff` executed 1,417,537,939 inputs at 32,812 exec/s to 1217 edges; `detect` was
+    included because its parser changed in the same work, and executed 2,991,380,340 inputs.
+    With that, this tranche meets the Phase 1 bar in full and **tranche 2 may open** (ADR-0032).
+
+    **Phase 3 evidence from the same run, at the opposite end from PDF.** Both targets plateaued,
+    and decisively: `tiff`'s last coverage gain was at **17,217s of 43,203s** — 17 new edges
+    across 1.4 billion inputs, nothing in the final 60% — and `detect`'s was at **one second**,
+    never moving off 194 edges through three billion. Every previous plateau note in these
+    documents recorded a target that had *not* flattened; these are the first that did. Against
+    PDF, still climbing after two consecutive twelve-hour runs, this is the strongest argument yet
+    that ADR-0014's flat 100 CPU-hours should become per-handler numbers — and it still does not
+    license superseding the ADR, which requires the budget **and** the plateau. `tiff` has the
+    plateau and 12 of the 100 hours; PDF still owes a run long enough to flatten.
 
     Recorded limitations, which are deliberate rather than pending (§7.8): output is **never**
     byte-identical to input even for a clean file, because a rebuild reorders it — idempotence is
@@ -349,8 +360,9 @@ this order, and a group is not started until the previous one meets the Phase 1 
     removed, trading colour fidelity; and BigTIFF, an inconsistent strip geometry, or a directory
     without dimensions is refused rather than approximated.
 
-  - ⬜ **Tranches 2–5 — GIF, HEIF+AVIF, SVG, JPEG XL — not started.** SVG additionally owes its
-    own ADR before its tranche opens: its threat model differs in kind, not degree.
+  - ⬜ **Tranches 2–5 — GIF, HEIF+AVIF, SVG, JPEG XL — not started.** Tranche 2 (GIF) is
+    unblocked as of 2026-08-26. SVG additionally owes its own ADR before its tranche opens: its
+    threat model differs in kind, not degree.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -363,7 +375,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
    `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
-   ADR-0032; TIFF's handler has landed and its tranche is not yet complete.
+   ADR-0032; the TIFF tranche is complete (2026-08-26) and GIF is next.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

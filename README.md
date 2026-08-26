@@ -21,13 +21,14 @@
 > LibreOffice 26.2.5.2, with 16 documents imported and body-compared automatically and seven
 > also opened by hand with no repair prompt.
 >
-> **TIFF's handler landed 2026-08-25 and its tranche is not finished.** It is the first of five
+> **TIFF is done (2026-08-26).** It is the first of five
 > tranches the additional-image group was split into (ADR-0032). TIFF is the one format strypt
 > **rebuilds rather than edits** — its metadata is its file structure, so there is nothing to
 > excise — writing only the tags an image cannot be decoded without and copying the pixels
 > across bit-identically (ADR-0033). Its differential against mat2 0.15.0 and ExifTool 13.55 is
-> clean over all 10 fixtures. **One thing is owed before it meets the bar the other formats met:
-> it has had a 241-second smoke fuzz run, not a sustained one.** Recorded limitations:
+> clean over all 10 fixtures, and the `tiff` and `detect` fuzz targets have each run 12 hours —
+> 24 CPU-hours, 4.4 billion inputs, zero crashes, hangs or OOMs — so **the tranche is complete as
+> of 2026-08-26** and GIF is next. Recorded limitations:
 > output is never byte-identical to input even for a clean file, because a rebuild reorders it;
 > metadata hidden inside the compressed image data is out of reach, and **mat2's re-rendering
 > default is the better tool where that is the concern**. GIF, HEIF/AVIF, SVG, JPEG XL, and

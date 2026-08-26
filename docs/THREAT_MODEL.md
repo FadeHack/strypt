@@ -1025,11 +1025,36 @@ including a sweep asserting that no `SYNTHETIC` marker survives any fixture, a b
 check that the picture crossed the rebuild, an every-prefix truncation sweep, and a
 single-byte-flip sweep over every fixture; 14 unit tests in the handler and its tag table.
 
-**Fuzzing — smoke only so far.** The `tiff` target ran **3,939,390 inputs in 241 seconds** on
-2026-08-25 with zero crashes, hangs, or OOMs, seeded from the 16 corpus fixtures. **That is a
-smoke run and nothing more.** This handler has not had a sustained run, so it does not yet meet
-what OOXML and OpenDocument have met (§7.6, §7.7), and it must not be described as though it
-had.
+**Fuzzing — sustained, clean (2026-08-26).** The run this tranche owed has been delivered:
+**12.00 hours on `tiff`**, alongside `detect` in parallel — **24.00 CPU-hours budgeted and 24.00
+delivered**, both clean. `tiff` executed **1,417,537,939 inputs** at 32,812 exec/s, reaching 1217
+edges and adding 11,606 corpus units, with **zero crashes, zero hangs and zero OOMs**: no artefact
+newer than the run marker, `slowest_unit_time_sec: 0`, peak RSS 628 MB. `detect` was included
+because its parser changed in the same work — TIFF now routes to a handler and BigTIFF became its
+own named refusal — and it executed 2,991,380,340 inputs, also clean.
+
+Budget matching delivery is the part worth reading twice, as it was for the 08-25 run. A target
+that crashes stops early, so a run that spends every hour it budgeted is one in which nothing
+died.
+
+**Both targets plateaued, and `tiff` did so decisively.** Its last coverage gain arrived at
+**17,217s of 43,203s** — nothing in the final 60% of the run, 17 new edges in total across 1.4
+billion inputs, the curve flat from 1200 edges at two seconds to 1217 at under five hours.
+`detect` is starker still: its last gain was at **one second**, and it never moved off 194 edges
+through three billion inputs.
+
+**That is ADR-0014 Phase 3 evidence and not a Phase 1 gate, and the distinction matters in an
+unusual direction here.** Every previous plateau note in this document recorded a target that had
+*not* flattened. These two have, which makes them the first per-handler evidence at the opposite
+end from PDF — which has now failed to flatten across two consecutive twelve-hour runs. A flat
+100 CPU-hours for every handler is very unlikely to be the right shape when one handler exhausts
+its grammar in five hours and another is still climbing at twelve.
+
+**It does not license superseding ADR-0014, and has not been used to.** That ADR requires the
+CPU-hour budget **and** a plateau, both; `tiff` has the plateau and 12 of the 100 hours. Setting
+per-handler numbers from measurement needs PDF's flattening run too, which is still owed. Phase 1
+exit criterion 2 — a sustained run with no crash artefact — is what this run answers, and it
+answers it for both targets.
 
 **Measured against other tools on 2026-08-25.** `scripts/tiff-differential.sh` compares strypt
 against **mat2 0.15.0** and **ExifTool 13.55** over all 10 well-formed fixtures: **zero tags
