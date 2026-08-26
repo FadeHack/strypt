@@ -179,6 +179,17 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
+- **A test-only size check that could report a false failure for TIFF files.** No user-facing
+  behaviour changed and no file was ever stripped incorrectly — this is a fault in the fuzzing
+  harness, recorded because the harness is what the project's safety claims rest on. The GIF,
+  PNG, and WebP fuzz targets each drive the whole pipeline, so an input the fuzzer mutates onto
+  another format's magic bytes is dispatched to that format's handler. Each target then asserted
+  that stripping never makes a file bigger — true for every handler until TIFF landed on
+  2026-08-26, which is rebuilt rather than edited and can legitimately grow (ADR-0033). The GIF
+  target hit the resulting false alarm on a TIFF-shaped input after 144.5 million executions.
+  The three assertions now apply only when the input really is the format the target is about,
+  and the triggering input is kept as a seed.
+
 - **A PDF that cannot be rewritten faithfully is now refused instead of written.** For some
   damaged documents the rewrite produced a file that did not read back as what was written: an
   object whose keys came from mangled bytes was written in a form the parser could not read
