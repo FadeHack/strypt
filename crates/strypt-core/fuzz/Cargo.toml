@@ -77,6 +77,20 @@ doc = false
 bench = false
 
 [[bin]]
+name = "heif"
+path = "fuzz_targets/heif.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "bmff"
+path = "fuzz_targets/bmff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "detect"
 path = "fuzz_targets/detect.rs"
 test = false

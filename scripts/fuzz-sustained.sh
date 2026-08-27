@@ -38,7 +38,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FUZZ_DIR="$REPO_ROOT/crates/strypt-core/fuzz"
-ALL_TARGETS=(pdf jpeg png webp tiff gif ooxml odf zip detect)
+ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff ooxml odf zip detect)
 
 DURATION=7200
 OUT_DIR=""
@@ -50,7 +50,7 @@ Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
   -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
 
-Targets default to all ten: pdf jpeg png webp tiff gif ooxml odf zip detect
+Targets default to all twelve: pdf jpeg png webp tiff gif heif bmff ooxml odf zip detect
 
 Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of how many
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.
@@ -115,6 +115,7 @@ corpus_args() {
     webp) echo "corpus/webp seeds/webp seeds/webp/malformed" ;;
     tiff) echo "corpus/tiff seeds/tiff seeds/tiff/malformed" ;;
     gif)  echo "corpus/gif seeds/gif seeds/gif/malformed" ;;
+    heif) echo "corpus/heif seeds/heif seeds/heif/malformed" ;;
     *)    echo "corpus/$1 seeds/$1" ;;
   esac
 }
@@ -219,14 +220,16 @@ delivered_cpu_hours() {
   echo
   echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across every"
   echo "handler after a sustained run, with nothing set aside as not worth fixing. Criterion 2"
-  echo "was written when there were four targets; there are now ten. The ooxml and zip targets"
-  echo "cleared their sustained-run debt on 2026-08-24, odf and pdf cleared theirs on"
+  echo "was written when there were four targets; there are now twelve. The ooxml and zip"
+  echo "targets cleared their sustained-run debt on 2026-08-24, odf and pdf cleared theirs on"
   echo "2026-08-25, tiff and detect cleared theirs on 2026-08-26, and gif cleared its on"
-  echo "2026-08-27. As of that run there is no outstanding sustained-run debt: every shipped"
-  echo "handler has had one clean. The same run put pdf, jpeg, png and webp — the four the"
-  echo "criterion actually names — clean in a single run for the first time, which closed the"
-  echo "standing caveat that criterion 2 rested on one run plus standing evidence for the rest."
-  echo "A new handler owes a run again; nothing else in this table does."
+  echo "2026-08-27. The same run put pdf, jpeg, png and webp — the four the criterion actually"
+  echo "names — clean in a single run for the first time, which closed the standing caveat that"
+  echo "criterion 2 rested on one run plus standing evidence for the rest."
+  echo
+  echo "OUTSTANDING as of 2026-08-27: heif and bmff have had smoke runs only, and detect owes"
+  echo "another because its parser changed to route HEIF and AVIF by ftyp brand. Group 3"
+  echo "tranche 3 does not meet the Phase 1 bar until that run comes back clean."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
   echo "'NO — still climbing' means this target needs a longer run before its number can be"

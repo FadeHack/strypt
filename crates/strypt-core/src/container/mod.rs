@@ -11,5 +11,6 @@
 //! the code here exists to get through it safely rather than to be a faithful implementation of
 //! it (ADR-0028).
 
+pub(crate) mod bmff;
 pub(crate) mod package;
 pub(crate) mod zip;

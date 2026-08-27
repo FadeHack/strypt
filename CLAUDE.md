@@ -18,10 +18,10 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument, TIFF and GIF done; tranche 3 (HEIF+AVIF) unblocked and not started (2026-08-27)**
+## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument, TIFF and GIF done; tranche 3 (HEIF+AVIF) landed 2026-08-27 and owes its sustained fuzz run**
 
 **Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
-groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, `.docx`,
+groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, `.docx`,
 `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`; every other format is reported as unsupported and
 never passed through untouched. Landed: bounded ingest,
 content-sniffing detection, the handler registry and trait, the post-strip verification pass,
@@ -121,9 +121,30 @@ must be guarded by a format check** — that is the rule to carry into every fut
 Phase 1 gate. Note also that JPEG, PNG and WebP *had* plateaued inside 8h in an earlier run and
 did not this time on larger corpora, so a plateau at one corpus size is not a plateau at the next.
 
-**Tranche 3 (HEIF+AVIF) is UNBLOCKED as of 2026-08-27 but NOT started. Tranches 4–5 and Group 4
-are NOT started.** SVG owes its own ADR before its tranche opens. The "check before referencing a
-later-phase artefact" rule now applies *within* this phase too.
+**Tranche 3 — HEIF+AVIF — landed its handler on 2026-08-27 and does NOT yet meet the Phase 1
+bar.** Landed: `container/bmff.rs` (a generic box walker with no HEIF semantics, on the
+`container/zip.rs` precedent), the handler and its three allow-lists, `heif` and `bmff` fuzz
+targets, 17 fixtures plus 8 malformed, 24 integration tests, 27 unit tests, a clean
+mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.10.
+
+**ADR-0034 is required reading before touching it, and it CORRECTS ADR-0033.** ADR-0033 predicted
+the ISO-BMFF box tree could be edited by deletion. The box tree can — but **the metadata is not in
+the box tree**. Exif and XMP are *items* addressed by absolute file offsets in `iloc`, so removing
+one shifts every surviving item. HEIF is structurally nearer to TIFF than to GIF and is **rebuilt**,
+with every offset recomputed against the buffer being written. Do not repeat ADR-0033's guess.
+
+**Two judgement calls are settled.** A `colr` box is answered by its *payload*: `prof`/`rICC` carry
+an ICC profile and go, `nclx` is numeric colour signalling naming no device and is **kept and
+declared as retained**. And a **motion HEIF is refused by name — which refuses Apple Live Photos**,
+a common real iPhone file, accepted deliberately because video is Group 4.
+
+**Its sustained fuzz run is OWED**: `heif`, `bmff` and `detect`, twelve hours each. `detect` is
+included because its parser changed to route these formats by `ftyp` brand. Smoke runs only so far.
+**Tranche 4 does not open until that run comes back clean.** Note the `heif` fuzz target carries
+**no size invariant** on purpose — the handler rebuilds, so growth is legitimate.
+
+**Tranches 4–5 and Group 4 are NOT started.** SVG owes its own ADR before its tranche opens. The
+"check before referencing a later-phase artefact" rule now applies *within* this phase too.
 
 **Qualifications on the two landed groups, which are real:**
 

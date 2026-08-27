@@ -16,6 +16,7 @@
 //! general-purpose implementation (see that module's header). A hidden feature-gated door is the
 //! smaller cost.
 
+use crate::container::bmff;
 use crate::container::zip;
 use crate::formats::ParseLimits;
 
@@ -55,4 +56,60 @@ pub fn zip_round_trip(data: &[u8]) {
         zip::read(&written, &limits).is_ok(),
         "the ZIP writer produced an archive the ZIP reader refuses"
     );
+}
+
+/// Walk a box tree and write it back out, exercising both directions of the BMFF layer.
+///
+/// The walk is recursive into every container box the tree declares, so the depth ceiling and the
+/// shared item budget are both under the fuzzer rather than only the top level.
+///
+/// # Panics
+///
+/// Never, by design — that is the property being fuzzed. A panic escaping this is a finding.
+pub fn bmff_round_trip(data: &[u8]) {
+    let limits = ParseLimits::default();
+    let mut budget = limits.max_items;
+    let Ok((top, _trailing)) = bmff::top_level(data, &mut budget) else {
+        return;
+    };
+
+    let mut out = Vec::new();
+    for b in &top {
+        descend(b, limits.max_depth, &mut budget);
+        if bmff::write_box(&mut out, b.kind, |o| {
+            o.extend_from_slice(b.payload);
+            Ok(())
+        })
+        .is_err()
+        {
+            return;
+        }
+    }
+
+    // A tree this module just wrote must be one it can read back. A writer emitting something its
+    // own reader refuses is the defect the round trip exists to surface.
+    let mut read_budget = limits.max_items;
+    assert!(
+        bmff::children(&out, 0, &mut read_budget).is_ok(),
+        "the BMFF writer produced a tree the walker refuses"
+    );
+}
+
+/// Walk into `parent`, charging the descent against the depth and item ceilings.
+///
+/// Exactly **one** interpretation of the payload is followed per box: the plain one, falling back
+/// to the full-box one only when that fails. Trying both at every level is 2^depth work, which
+/// took the target from 22,000 executions a second to 113 — a harness that spends a sustained run
+/// on itself finds nothing.
+fn descend(parent: &bmff::Box<'_>, depth: u32, budget: &mut u32) {
+    let children = bmff::children_at(parent, parent.payload, depth, budget).or_else(|_| {
+        let rest = parent.full().map(|(_, _, rest)| rest).unwrap_or_default();
+        bmff::children_at(parent, rest, depth, budget)
+    });
+    let Ok(children) = children else {
+        return;
+    };
+    for child in &children {
+        descend(child, depth.saturating_sub(1), budget);
+    }
 }

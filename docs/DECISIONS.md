@@ -1712,3 +1712,110 @@ the image data across unmodified.
   and the ISO-BMFF box tree can both be edited by deletion, and reaching for a rebuild there —
   where the format does not force it — would discard the "every byte that had no reason to change
   does not change" property for nothing.
+
+---
+
+## ADR-0034 — A stripped HEIF is rebuilt from three allow-lists, and its item offsets are recomputed, never carried
+
+**Status:** Accepted (2026-08-27)
+
+**Context.** HEIF and AVIF are the third tranche of Phase 2's third group (ADR-0032), taken as one
+tranche because they share a single ISO-BMFF box walker — the only genuine sharing in that group.
+
+**ADR-0033 predicted the wrong answer for this format, and the correction is the substance of this
+ADR.** Its closing bullet said the TIFF rebuild "is not a precedent for the tranches after it:
+GIF's chunk list and the ISO-BMFF box tree can both be edited by deletion". GIF's half was right
+(§7.9). The BMFF half was not, and probing a real AVIF and HEIC rather than reasoning from the box
+tree is what showed it:
+
+```
+ftyp  meta[ hdlr iloc iinf iref pitm iprp[ ipco[ av1C ispe pixi ] ipma ] ]  mdat
+```
+
+The box tree really can be edited by deletion. **The metadata is not in the box tree.** Exif and
+XMP are *items*: declared in `iinf`, bound to the picture through `iref`, and located by `iloc` as
+**absolute file offsets** into `mdat`, where their bytes sit beside the coded image with no
+delimiter between them. Deleting an item means deleting a range from the middle of `mdat`, which
+shifts every surviving item's offset, which means rewriting `iloc`. That is the offset-patching
+failure `formats/exif.rs` was written to avoid and that ADR-0033 rejected for TIFF, arriving in a
+format whose box tree superficially looks like PNG's chunk list. HEIF is structurally nearer to
+TIFF than to GIF, and ADR-0033's guess to the contrary should be read as superseded on this point.
+
+**Decision.** strypt does not edit a HEIF. It **writes a new one**, from allow-lists, and copies
+each retained item's data across unmodified.
+
+1. **Construct, never patch.** Output is authored from an empty buffer — a fresh `ftyp`, a fresh
+   `meta` holding only retained boxes, then a fresh `mdat`. Every `iloc` offset is computed against
+   the buffer being built. **No offset from the input reaches the output.**
+
+   This has a wrinkle TIFF did not: `meta` precedes `mdat`, so the offsets written *into* `meta`
+   depend on how long `meta` turns out to be. It is resolved by making the encoded length
+   independent of the values encoded — `iloc`'s `offset_size` and `length_size` are written as a
+   fixed 4 bytes each rather than narrowed to fit — so `meta` is written once with a placeholder
+   base to learn its length, then once for real. **The two lengths are asserted equal and a
+   mismatch is a refusal, not a fix-up**: a second pass that changed length would mean every
+   offset in the file was computed against the wrong base, and that is precisely the failure this
+   design exists to make unreachable.
+
+2. **Three allow-lists, all running in the same direction as ADR-0033's.** A box, an item, or a
+   property reaches the output only by being named as something the image cannot be decoded or
+   rendered without: two box types at the top level, seven inside `meta`, fifteen properties, and
+   eight item types. Everything else is absent because it was never written.
+
+   **`uuid` is why the direction matters more here than anywhere else.** It is the format's blessed
+   extension point — the box type a producer is *supposed* to invent in — and it is where Adobe
+   writes XMP. A deny-list would carry an unrecognised `uuid` through for the exact reason it needs
+   dropping. It cannot survive here by going unrecognised, because nothing survives by going
+   unrecognised.
+
+3. **Every name a producer could write is emitted empty rather than copied.** `hdlr`'s trailing
+   name string and each `infe`'s `item_name` are free text that some encoders fill with a product
+   string and some with nothing. They are structural fields that cannot be dropped, so they are
+   written as empty strings, and item IDs are renumbered from 1 so that gaps left by removed items
+   do not themselves record how many items the original had.
+
+4. **Refused rather than approximated**, each by name:
+   - **A `moov`, `moof`, `mfra` or `mvex` box** — a motion HEIF, which is what an Apple Live Photo
+     is. Video is Group 4. **This refuses a common real iPhone file and that cost is accepted
+     deliberately**, the same trade ADR-0029 made for OOXML embedded objects; the refusal names
+     Live Photos specifically so the user knows what happened rather than reading "malformed".
+   - An image **sequence** brand (`msf1`, `hevc`), for the same reason.
+   - `iloc` `construction_method` 2 — offsets into another item — which cannot be relocated without
+     resolving an item graph. Method 1 (`idat`) *is* handled, by resolving it and writing the data
+     into `mdat` as method 0, which is why `idat` does not appear in any output.
+   - An `infe` below version 2, a non-zero `data_reference_index` (item data living in another
+     file), an `ipro` protection box, an `iloc` field width outside {0, 4, 8}, and a file with no
+     `meta`, no `pitm`, or a primary item whose extents fall outside it.
+
+5. **The ICC profile goes and numeric colour signalling stays.** A `colr` box is answered by its
+   payload rather than its type: `prof` and `rICC` carry an ICC profile, which is removed on the
+   same reasoning as TIFF §7.8 and JPEG §7.2, at a documented cost in colour fidelity; `nclx` is
+   four numeric fields naming a colour space and no device, and is kept. It is declared in the
+   report's `retained` list rather than passed over in silence, as GIF's loop count is.
+
+6. **Thumbnail items go.** An item reached by a `thmb` reference is a complete second copy of the
+   picture, and §3's argument applies unchanged: it survives cropping and anything painted over the
+   first. **The reference runs from the thumbnail to the master, not the other way**, which is
+   worth stating in an ADR because reading it backwards deletes the photograph and keeps the
+   thumbnail — a bug this work made and caught only because a fixture existed for it.
+
+**Consequences.**
+
+- **The output is not byte-identical to the input, ever, including for a HEIF with no metadata at
+  all** — the same consequence ADR-0033 records, and stronger than the OOXML and OpenDocument
+  caveat. **Idempotence remains byte-identical and is tested.**
+- **`container/bmff.rs` holds no HEIF semantics**, on the precedent `container/zip.rs` set for
+  `formats/ooxml.rs` rather than on a new one: ADR-0032 names MP4 (Group 4) and JPEG XL (tranche 5)
+  as later callers, so the walker goes where a second caller can reach it. It ships its own fuzz
+  target for the reason ADR-0028 required one for ZIP — reaching a container only through a handler
+  does not fuzz the container, because every input has to look like a plausible HEIF first.
+- **The coded picture is copied byte for byte and never re-encoded**, so metadata hidden *inside*
+  the compressed image data is out of reach. Where a user's threat model includes that, mat2's
+  re-rendering default is the better recommendation and §7.10 says so (ADR-0012).
+- **The allow-lists are a correctness surface and will need revision.** A property wrongly omitted
+  breaks an image; the mitigation is the differential and a decode check on every fixture's output.
+  A property wrongly included leaks, which is the more serious direction, and is why each list is
+  enumerated in `formats/heif/boxes.rs` with the reason the image needs it.
+- **No new dependency.** The walker is hand-written, which is ADR-0032's default. `avif-parse` was
+  surveyed there and its MPL-2.0 licence complicates a sentence `docs/PRD.md` §4 uses; adopting it
+  would need its own ADR and is not proposed.

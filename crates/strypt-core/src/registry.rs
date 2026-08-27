@@ -10,6 +10,7 @@
 use crate::detect::Format;
 use crate::formats::MetadataHandler;
 use crate::formats::gif::GifHandler;
+use crate::formats::heif::HeifHandler;
 use crate::formats::jpeg::JpegHandler;
 use crate::formats::odf::OdfHandler;
 use crate::formats::ooxml::OoxmlHandler;
@@ -32,6 +33,10 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         Format::Png => Some(&PngHandler),
         Format::Tiff => Some(&TiffHandler),
         Format::Gif => Some(&GifHandler),
+        // As the Office and OpenDocument handlers below: one type, one instance per format, so
+        // that `handler.format()` answers with what dispatch chose.
+        Format::Heif => Some(&HEIF),
+        Format::Avif => Some(&AVIF),
         Format::Webp => Some(&WebpHandler),
         // One handler type serving three formats, instantiated once per format rather than
         // branching inside itself, so `handler.format()` still answers with the format the
@@ -45,6 +50,8 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
     }
 }
 
+static HEIF: HeifHandler = HeifHandler::HEIF;
+static AVIF: HeifHandler = HeifHandler::AVIF;
 static DOCX: OoxmlHandler = OoxmlHandler::DOCX;
 static XLSX: OoxmlHandler = OoxmlHandler::XLSX;
 static PPTX: OoxmlHandler = OoxmlHandler::PPTX;
@@ -62,6 +69,8 @@ pub fn supported_formats() -> Vec<Format> {
         Format::Pdf,
         Format::Tiff,
         Format::Gif,
+        Format::Heif,
+        Format::Avif,
         Format::Docx,
         Format::Xlsx,
         Format::Pptx,

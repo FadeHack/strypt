@@ -131,8 +131,8 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/detect corpus/ooxml corpus/odf corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, detect, ooxml, odf, zip
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/detect corpus/ooxml corpus/odf corpus/zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, bmff, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
@@ -140,6 +140,8 @@ cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
 cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max_total_time=300
 cargo +nightly fuzz run tiff corpus/tiff seeds/tiff seeds/tiff/malformed -- -max_total_time=300
 cargo +nightly fuzz run gif corpus/gif seeds/gif seeds/gif/malformed -- -max_total_time=300
+cargo +nightly fuzz run heif corpus/heif seeds/heif seeds/heif/malformed -- -max_total_time=300
+cargo +nightly fuzz run bmff corpus/bmff seeds/bmff -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
 cargo +nightly fuzz run odf corpus/odf seeds/odf -- -max_total_time=300
@@ -152,10 +154,15 @@ Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is 
 machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
 directory given and reads the rest.
 
-The PDF, JPEG, PNG, WebP, TIFF, GIF, OOXML, and ODF seeds are copies of `corpus/pdf/`,
-`corpus/jpeg/`, `corpus/png/`, `corpus/webp/`, `corpus/tiff/`, `corpus/gif/`, `corpus/ooxml/`, and
-`corpus/odf/` (including their `malformed/` subdirectories); refresh them after regenerating the
-fixtures.
+The PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, OOXML, and ODF seeds are copies of `corpus/pdf/`,
+`corpus/jpeg/`, `corpus/png/`, `corpus/webp/`, `corpus/tiff/`, `corpus/gif/`, `corpus/heif/`,
+`corpus/ooxml/`, and `corpus/odf/` (including their `malformed/` subdirectories); refresh them
+after regenerating the fixtures.
+
+**Give `corpus/<target>/` first and never `seeds/` first.** libFuzzer writes its discoveries into
+whichever directory it is handed first, so reversing them fills the committed corpus with hundreds
+of hash-named machine-generated files. That happened on 2026-08-27 to `seeds/heif/`, `seeds/bmff/`
+and `seeds/detect/`, and had to be undone by hand.
 
 `seeds/zip/` holds the same packages as `seeds/ooxml/` and `seeds/odf/`, deliberately. The `zip`
 target exercises the container layer on its own (ADR-0028), and its job is to explore *outward*
@@ -189,19 +196,21 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
 ./scripts/fuzz-sustained.sh -d 43200 ooxml zip    # 12h each on the Phase 2 container targets
 ./scripts/fuzz-sustained.sh -d 43200 tiff detect  # 12h each; group 3 tranche 1's debt, cleared 2026-08-26
-./scripts/fuzz-sustained.sh -d 43200 gif detect   # 12h each; group 3 tranche 2's debt — OWED
+./scripts/fuzz-sustained.sh -d 43200 gif detect   # 12h each; group 3 tranche 2's debt, cleared 2026-08-27
+./scripts/fuzz-sustained.sh -d 43200 heif bmff detect  # 12h each; group 3 tranche 3's debt — OWED
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:
-nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 gif detect \
+nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 heif bmff detect \
   > /tmp/strypt-fuzz.out 2>&1 &
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```
 
-The default target list is **all ten** — `pdf jpeg png webp tiff gif ooxml odf zip detect`. The
-runner has now failed to know about a new target three times, so check it before trusting a run
-to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23, `odf` with Phase
-2 group 2, `tiff` on 2026-08-25, and `gif` on 2026-08-26. Each was rejected as an unknown name until it was added,
+The default target list is **all twelve** — `pdf jpeg png webp tiff gif heif bmff ooxml odf zip
+detect`. The runner has now failed to know about a new target three times, so check it before
+trusting a run to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23,
+`odf` with Phase 2 group 2, `tiff` on 2026-08-25, `gif` on 2026-08-26, and `heif` and `bmff` on
+2026-08-27. Each was rejected as an unknown name until it was added,
 so **a run predating a target's addition covered fewer targets than its command line suggests**,
 silently.
 
@@ -287,6 +296,7 @@ python3 corpus/tools/make_png_fixtures.py        # regenerate; reuses the JPEG t
 python3 corpus/tools/make_webp_fixtures.py       # regenerate; reuses the JPEG tool's TIFF builder
 python3 corpus/tools/make_tiff_fixtures.py       # regenerate; deterministic
 python3 corpus/tools/make_gif_fixtures.py        # regenerate; carries its own LZW encoder, so every fixture really decodes
+python3 corpus/tools/make_heif_fixtures.py       # regenerate; embeds one recorded AV1 and one recorded HEVC codestream, so every fixture really decodes
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
@@ -294,6 +304,7 @@ magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still 
 magick identify corpus/png/exif-gps.png          # confirm a PNG fixture still decodes
 magick identify corpus/webp/all-metadata.webp    # confirm a WebP fixture still decodes
 magick identify corpus/gif/animated-loop.gif     # confirm a GIF fixture still decodes, frames and all
+heif-convert corpus/heif/clean.avif /tmp/x.png   # confirm a HEIF fixture decodes through libheif, not only ImageMagick
 exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
 unzip -l corpus/ooxml/everything.docx            # confirm an OOXML fixture is a readable package
 unzip -l corpus/odf/everything.odt               # first entry must be a stored `mimetype` (ODF Part 2 §3.3)
@@ -436,6 +447,28 @@ Last run 2026-08-26 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fi
 surviving strypt. On `plain-text.gif` **strypt removes more than mat2 does** — ExifTool still
 reports the plain-text block in mat2's output. Verified able to fail: the same filter over the
 *unstripped* fixtures reports surviving tags on 8 of the 14, including 3 on `xmp.gif`.
+
+### HEIF and AVIF differential
+
+```sh
+cargo build --release
+./scripts/heif-differential.sh
+```
+
+Three things in that script are decisions rather than bookkeeping, and all three are written into
+it. **mat2's default mode declines HEIC** — "HEIC files can't be thoroughly cleaned. Use lightweight
+mode instead." — so the script falls back to `mat2 -L` and prints which mode ran; comparing against
+a refusal would be comparing against nothing. **`PERL_HASH_SEED` is pinned**, because ExifTool walks
+atoms in Perl hash order and on some fixtures that order decides whether it refuses to write at all,
+making the same bytes pass or fail run to run. And **the ICC check asks ImageMagick, not ExifTool**,
+which reports no ICC profile for either format.
+
+The script runs its own able-to-fail check on every invocation, against the unstripped fixtures,
+and refuses to report a sweep if they do not light the filter up.
+
+Last run 2026-08-27 against mat2 0.15.0 and ExifTool 13.55: no gaps across all 17 fixtures, zero
+tags surviving strypt, every output still decoding through libheif, and **0 differing pixels** on
+every one.
 
 ### OpenDocument LibreOffice import validation
 

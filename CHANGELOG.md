@@ -21,6 +21,34 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **HEIF and AVIF support — `.heic`, `.heif`, `.avif`.** `strypt show` and `strypt strip` now
+  process the format an iPhone photograph arrives in. This is the third tranche of Phase 2's third
+  format group (ADR-0032), and the two formats land together because they are the same container.
+
+  What comes out: the Exif block, with its GPS coordinates, body and lens serial numbers, and
+  capture timestamps; XMP, whether it is stored as an item or in the top-level `uuid` box Adobe
+  uses; the ICC profile; item names, which some encoders fill with a product string; and
+  **embedded thumbnails**, which are a complete second copy of the picture and survive any cropping
+  or redaction applied to the first.
+
+  **An item type or property strypt has never seen does not survive by being unrecognised.** The
+  handler writes a new file containing only what the image cannot be decoded or rendered without —
+  codec configuration, dimensions, bit depth, rotation, mirroring, cropping — so a vendor extension
+  is absent because it was never written. `uuid` boxes make this matter more than usual: `uuid` is
+  the format's official extension point, so a deny-list would carry exactly the wrong thing
+  through.
+
+  Numeric colour signalling (an `nclx` colour box) is **kept and declared in the report**. It names
+  a colour space and no device, and removing it would change how the picture looks.
+
+  **The picture itself is never re-encoded** — the coded image data is copied across byte for byte,
+  and every fixture's output decodes to pixels identical to its input's.
+
+- **A hidden HEIF thumbnail is hard to check for with anything else.** ExifTool does not report it,
+  `magick identify` shows a single frame, and libheif's `heif-info` prints `thumbnail: 0x0`
+  (measured 2026-08-27). If you have published HEIC or AVIF files that were cropped before
+  publication, the uncropped version may still be inside them and the usual tools will not say so.
+
 - **GIF support — `.gif`, animated ones included.** `strypt show` and `strypt strip` now process
   GIF images. This is the second tranche of Phase 2's third format group (ADR-0032).
 
@@ -176,6 +204,19 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   the user may then publish uncleaned. What this does *not* mean: three of the four parsers were
   still reaching new code at the twelve-hour mark, so longer runs remain worthwhile and the
   project's own hardening target (Phase 3) is not met.
+
+### Changed
+
+- **`.heic`, `.heif` and `.avif` are no longer reported as unsupported.** They were refused as
+  "an ISO base-media file" before; they are now detected by their `ftyp` brand and handled. MP4 and
+  M4A still report as unsupported, and an **image sequence or motion HEIF — which is what an Apple
+  Live Photo is — is refused by name** rather than partly cleaned. Video containers are a later
+  group; the refusal says so instead of reporting a malformed file.
+
+- **A stripped HEIF or AVIF is not byte-identical to its input, even when the input carried no
+  metadata at all.** The file is rebuilt rather than edited, because its metadata is addressed by
+  absolute file offsets and removing any of it moves everything after (ADR-0034). Stripping an
+  already-stripped file *is* byte-identical.
 
 ### Verification
 

@@ -2,8 +2,8 @@
 
 > ## Status: Phase 2 in progress — no audit, no release, no hardening phase yet
 >
-> **PDF, JPEG, PNG, WebP, TIFF, GIF, Office Open XML (`.docx`, `.xlsx`, `.pptx`), and
-> OpenDocument (`.odt`, `.ods`, `.odp`) are implemented.**
+> **PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF/AVIF (`.heic`, `.heif`, `.avif`), Office Open XML
+> (`.docx`, `.xlsx`, `.pptx`), and OpenDocument (`.odt`, `.ods`, `.odp`) are implemented.**
 > Everything else is recognised and reported as unsupported; it is not processed. All seven Phase 1 exit criteria are met: the handlers were
 > swept over 102 files from real producers — real camera maker notes included — the mat2
 > differential covers all four formats, performance is measured, CI is green on Linux, macOS and
@@ -40,8 +40,27 @@
 > decoded, and a clean GIF comes back byte-identical. Its differential against mat2 0.15.0 and
 > ExifTool 13.55 is clean over all 14 fixtures — on one of them strypt removes more than mat2
 > does. Its sustained fuzz run came back clean over a full twelve hours and 1.07 billion inputs,
-> so it now meets the same bar every other shipped format has met. HEIF/AVIF, SVG, JPEG XL, and
-> audio/video are **not started**.
+> so it now meets the same bar every other shipped format has met.
+>
+> **HEIF and AVIF landed 2026-08-27 and are the one format here that does not yet meet that
+> bar.** The handler is complete — the Exif block with its GPS and serial numbers, XMP in both the
+> places it hides, the ICC profile, item names, and **embedded thumbnails** all come out, and a
+> vendor item or property strypt has never seen does not survive by going unrecognised. Like TIFF,
+> the file is **rebuilt rather than edited**: its metadata is addressed by absolute file offsets, so
+> removing any of it moves everything after (ADR-0034). The picture is copied across without being
+> re-encoded, and the differential against mat2 0.15.0 and ExifTool 13.55 is clean over all 17
+> fixtures with zero differing pixels. **What is outstanding is the sustained fuzz run**, which
+> every other shipped format has had and this one has not, so the tranche is **not complete**.
+> Recorded limitations: output is never byte-identical to input even for a clean file; metadata
+> inside the compressed image data is out of reach, where **mat2's re-rendering default is the
+> better tool**; and a **motion HEIF is refused, which means Apple Live Photos are refused** rather
+> than partly cleaned, because video is a later group.
+>
+> One finding worth repeating outside the threat model: **a hidden thumbnail in a HEIC or AVIF is
+> not something the usual tools will show you.** ExifTool does not report it, ImageMagick shows a
+> single frame, and libheif prints `thumbnail: 0x0` (measured 2026-08-27).
+>
+> SVG, JPEG XL, and audio/video are **not started**.
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
 > tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
@@ -54,7 +73,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF 2026-08-27 done; HEIF/AVIF, SVG, JPEG XL and A/V not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF 2026-08-27 done; HEIF/AVIF handler landed 2026-08-27 but owes its sustained fuzz run; SVG, JPEG XL and A/V not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
@@ -109,11 +128,12 @@ unless you ask for `--in-place`. Full command reference and exit codes:
 | PDF | Document info dictionary, XMP metadata streams, document IDs, annotation and embedded-file metadata |
 | TIFF | Everything except the tags an image cannot be decoded without — camera and scanner identity, artist, copyright, description, timestamps, GPS and Exif sub-directories, XMP, IPTC, the ICC profile, embedded thumbnails, and **any vendor tag strypt has never seen**. The file is rebuilt rather than edited, and the pixels are copied across bit-identically |
 | GIF | Comments, XMP, the ICC, 8BIM and IPTC blocks `ImageMagick` and Photoshop write as application extensions, plain text, extensions under undefined labels, **any vendor application block**, and data hidden after the trailer. The animation's loop count, frame delays and transparency are kept and declared. The LZW data is never decoded, and a clean file comes back byte-identical |
+| HEIF / AVIF | The Exif block with its GPS coordinates and serial numbers, XMP as an item or in a top-level `uuid` box, the ICC profile, item names, embedded thumbnails, and **any item type or property strypt has never seen**. Numeric colour signalling is kept and declared. The file is rebuilt rather than edited, and the coded picture is copied across byte for byte. A motion HEIF — an Apple Live Photo — is refused rather than partly cleaned |
 | `.docx` `.xlsx` `.pptx` | The core, extended, and custom properties (author, company, manager, cumulative editing time, revision count), the page thumbnail, revision-save and paragraph identifiers, the author names and dates on comments and tracked changes, per-part timestamps and host fields, and external relationships pointing at a local path. **Photographs inside the document are stripped by the image handlers above.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
 
 | `.odt` `.ods` `.odp` | `meta.xml` entire — author, last-saved-by, creation/modification/print dates, the editing-cycle count and the total editing duration, the generator (which names the operating system), page and word statistics, user-defined properties, and a template path — plus `settings.xml` entire, which holds the **printer name and setup blob**; the page thumbnail; the saved user-interface configuration and layout cache; the author names and dates on comments and tracked changes; the cached author-name fields printed in the document; and per-part timestamps and host fields. **Photographs inside the document are stripped by the image handlers above, and an embedded chart's own metadata goes too.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
 
-Still to come in Phase 2: HEIF/AVIF, SVG, JPEG XL, audio, and video. See
+Still to come in Phase 2: SVG, JPEG XL, audio, and video. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 **Where mat2 is the better tool, this says so.** For a document whose comments must not be

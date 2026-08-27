@@ -51,6 +51,10 @@ pub enum Format {
     Tiff,
     /// GIF, in either the 87a or the 89a spelling.
     Gif,
+    /// HEIF — `.heic` and `.heif`, the format an iPhone photograph arrives in.
+    Heif,
+    /// AVIF: the same container as HEIF, carrying AV1 rather than HEVC.
+    Avif,
     /// A `WordprocessingML` document — `.docx`.
     Docx,
     /// A `SpreadsheetML` workbook — `.xlsx`.
@@ -78,6 +82,8 @@ impl Format {
             Self::Pdf => "pdf",
             Self::Tiff => "tiff",
             Self::Gif => "gif",
+            Self::Heif => "heif",
+            Self::Avif => "avif",
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
@@ -99,6 +105,9 @@ impl Format {
             Self::Pdf => "pdf",
             Self::Tiff => "tiff",
             Self::Gif => "gif",
+            // `.heic` rather than `.heif`: it is what cameras write and what users see.
+            Self::Heif => "heic",
+            Self::Avif => "avif",
             Self::Docx => "docx",
             Self::Xlsx => "xlsx",
             Self::Pptx => "pptx",
@@ -118,6 +127,8 @@ impl std::fmt::Display for Format {
             Self::Pdf => "PDF",
             Self::Tiff => "TIFF",
             Self::Gif => "GIF",
+            Self::Heif => "HEIF",
+            Self::Avif => "AVIF",
             Self::Docx => "DOCX",
             Self::Xlsx => "XLSX",
             Self::Pptx => "PPTX",
@@ -186,6 +197,9 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if starts_with(data, b"GIF87a") || starts_with(data, b"GIF89a") {
         return Some(Format::Gif);
     }
+    if let Some(format) = iso_base_media_still(data) {
+        return Some(format);
+    }
     if find_pdf_header(data).is_some() {
         return Some(Format::Pdf);
     }
@@ -222,7 +236,9 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     {
         return Some(UnsupportedKind::BigTiff);
     }
-    // ISO base media (MP4/M4A/HEIF/AVIF): a box whose type at offset 4 is "ftyp".
+    // Any remaining ISO base-media file: MP4, M4A, and the motion HEIF spellings. The still-image
+    // brands were matched as supported formats above, so what reaches here is genuinely a
+    // container this release does not handle.
     if data.get(4..8) == Some(b"ftyp") {
         return Some(UnsupportedKind::IsoBaseMedia);
     }
@@ -354,6 +370,74 @@ fn ooxml_package(entries: &[crate::container::zip::Entry<'_>]) -> Option<Package
         .iter()
         .find(|(candidate, _)| text.contains(candidate))
         .map(|(_, format)| Package::Ooxml(*format))
+}
+
+/// Brands that make an ISO base-media file a still HEIF, and the format each routes to.
+///
+/// ISO/IEC 23008-12 §10.2 and the AVIF specification §4 both work this way: the container is the
+/// same one MP4 uses, and the `ftyp` brands are what say which of them a file is. Matching on
+/// `ftyp` alone — which is all this module did before the handler landed — cannot tell a
+/// photograph from a video.
+const STILL_BRANDS: [(&[u8; 4], Format); 7] = [
+    (b"avif", Format::Avif),
+    (b"avio", Format::Avif),
+    (b"heic", Format::Heif),
+    (b"heix", Format::Heif),
+    (b"heim", Format::Heif),
+    (b"heis", Format::Heif),
+    // The generic HEIF image brand. Listed last so that a file declaring both `mif1` and a
+    // specific brand is named by the specific one.
+    (b"mif1", Format::Heif),
+];
+
+/// Brands that declare an image *sequence* rather than a still.
+///
+/// Matched so that such a file is **not** claimed by the still handler. It falls through to the
+/// generic ISO base-media refusal, and the handler refuses the same shape again from the inside
+/// when a `moov` box is present (ADR-0034). Two checks rather than one because a file may carry a
+/// sequence brand without a `moov`, or a `moov` without the brand.
+const SEQUENCE_BRANDS: [&[u8; 4]; 3] = [b"msf1", b"avis", b"hevc"];
+
+/// How many bytes of `ftyp` are scanned for brands.
+const BRAND_WINDOW: usize = 256;
+
+/// Identify a still HEIF or AVIF by the brands its `ftyp` declares.
+///
+/// Returns [`None`] for every other ISO base-media file, including video, which then reaches
+/// [`detect_unsupported`] and is refused by name. Routing an MP4 to the HEIF handler would be a
+/// mis-dispatch of exactly the kind this module exists to prevent.
+fn iso_base_media_still(data: &[u8]) -> Option<Format> {
+    if data.get(4..8) != Some(b"ftyp") {
+        return None;
+    }
+    // The declared box size is deliberately not trusted: a truncated or lying size is common, and
+    // detection's job is to route the file to a handler that polices its own structure. The brand
+    // list is read from what is actually present, bounded by a window rather than by the field.
+    let window = data.get(..BRAND_WINDOW).unwrap_or(data);
+    // Major brand at offset 8, minor version at 12, then compatible brands to the end.
+    let major = window.get(8..12);
+    let compatible = window.get(16..).unwrap_or_default();
+
+    let brands = major
+        .into_iter()
+        .chain(compatible.chunks_exact(4))
+        .collect::<Vec<_>>();
+
+    // A sequence brand anywhere disqualifies the file, even alongside a still brand: an Apple Live
+    // Photo declares `heic` and carries a video track, and claiming it here would mean the handler
+    // had to refuse a file detection had already called a photograph.
+    if brands
+        .iter()
+        .any(|b| SEQUENCE_BRANDS.iter().any(|s| b == &&s[..]))
+    {
+        return None;
+    }
+    for (brand, format) in STILL_BRANDS {
+        if brands.iter().any(|b| b == &&brand[..]) {
+            return Some(format);
+        }
+    }
+    None
 }
 
 /// True when `data` begins with `prefix`.
@@ -508,8 +592,9 @@ mod tests {
             (&b"OggS"[..], UnsupportedKind::Ogg),
             (&b"fLaC"[..], UnsupportedKind::Flac),
             (&b"ID3\x04"[..], UnsupportedKind::Mp3),
+            // MP4 shares HEIF's container, so what makes it unsupported is the brand, not `ftyp`.
             (
-                &b"\x00\x00\x00\x18ftypavif"[..],
+                &b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2"[..],
                 UnsupportedKind::IsoBaseMedia,
             ),
             (&b"<?xml version=\"1.0\"?><svg/>"[..], UnsupportedKind::Xml),
@@ -520,6 +605,39 @@ mod tests {
                 "detecting {expected:?} gave {got:?}"
             );
         }
+    }
+
+    #[test]
+    fn still_image_brands_route_to_the_handler_and_video_does_not() {
+        // The whole of this format's detection is the brand list: `ftyp` alone cannot tell a
+        // photograph from a film, and routing a video to the still handler would mean reporting
+        // a stripped photograph for a file that is neither.
+        for (brand, expected) in [
+            (&b"avif"[..], Format::Avif),
+            (&b"heic"[..], Format::Heif),
+            (&b"mif1"[..], Format::Heif),
+        ] {
+            let mut data = vec![0, 0, 0, 0x14];
+            data.extend_from_slice(b"ftyp");
+            data.extend_from_slice(brand);
+            data.extend_from_slice(&[0, 0, 0, 0]);
+            data.extend_from_slice(brand);
+            assert_eq!(detect(&data).unwrap(), expected, "brand {brand:?}");
+        }
+    }
+
+    #[test]
+    fn a_sequence_brand_is_not_claimed_as_a_still_image() {
+        // An Apple Live Photo declares a still brand *and* a sequence one. Claiming it here would
+        // mean detection calling it a photograph and the handler then having to refuse it.
+        let mut data = vec![0, 0, 0, 0x18];
+        data.extend_from_slice(b"ftypheic\x00\x00\x00\x00heicmsf1");
+        assert!(matches!(
+            detect(&data),
+            Err(StryptError::UnsupportedFormat {
+                format: UnsupportedKind::IsoBaseMedia
+            })
+        ));
     }
 
     #[test]

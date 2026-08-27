@@ -179,8 +179,22 @@ pub enum UnsupportedKind {
     /// parser reading its directories as ordinary TIFF ones produces confident nonsense
     /// (ADR-0033).
     BigTiff,
-    /// An ISO base-media file: MP4, M4A, HEIF, AVIF.
+    /// An ISO base-media file this release does not handle: MP4, M4A, or a motion HEIF.
+    ///
+    /// Still HEIF and AVIF are handled, so what reaches this variant is a container carrying
+    /// tracks rather than a picture.
     IsoBaseMedia,
+    /// A HEIF or AVIF that carries a motion sequence as well as, or instead of, a still image.
+    ///
+    /// An Apple Live Photo is the common case: an ordinary-looking `.HEIC` with a video track
+    /// beside the picture. Named separately from [`Self::IsoBaseMedia`] because the user's file
+    /// *is* a photograph as far as they are concerned, and "this is an MP4" would be baffling.
+    ///
+    /// Refused rather than partly cleaned. `docs/ROADMAP.md` puts video containers in Phase 2's
+    /// fourth group; stripping the still and discarding the track would change what the file is
+    /// (`docs/PRD.md` §8.1) and would delete a track carrying its own metadata that nobody
+    /// parsed (ADR-0034).
+    MotionHeif,
     /// An MP3 audio file.
     Mp3,
     /// An Ogg container.
@@ -209,7 +223,8 @@ impl std::fmt::Display for UnsupportedKind {
                 "an OpenDocument type strypt does not handle yet (a drawing, formula, chart, or template)"
             }
             Self::BigTiff => "BigTIFF",
-            Self::IsoBaseMedia => "an ISO base-media file (MP4, HEIF, or AVIF)",
+            Self::IsoBaseMedia => "an ISO base-media file (MP4 or M4A)",
+            Self::MotionHeif => "a motion HEIF or AVIF (an Apple Live Photo, for instance)",
             Self::Mp3 => "MP3",
             Self::Ogg => "Ogg",
             Self::Flac => "FLAC",

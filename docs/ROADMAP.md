@@ -407,9 +407,38 @@ this order, and a group is not started until the previous one meets the Phase 1 
 
     With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032).
 
-  - ⬜ **Tranches 3–5 — HEIF+AVIF, SVG, JPEG XL — not started.** Tranche 3 is **unblocked as of
-    2026-08-27**, tranche 2 having met the bar. SVG additionally owes its own ADR before its
-    tranche opens: its threat model differs in kind, not degree.
+  - 🔶 **Tranche 3 — HEIF+AVIF — handler landed 2026-08-27, sustained fuzzing owed.** `.heic`,
+    `.heif` and `.avif`, taken as one tranche because they share one ISO-BMFF box walker. Landed:
+    the walker under `container/bmff.rs` — generic, no HEIF semantics, on the precedent
+    `container/zip.rs` set for OOXML — the handler and its three allow-lists, `heif` and `bmff`
+    fuzz targets, 17 fixtures plus 8 malformed ones with their generator, 24 integration tests, 27
+    unit tests, and `docs/THREAT_MODEL.md` §7.10.
+
+    **ADR-0034 is required reading before touching it, and it corrects ADR-0033.** That ADR
+    predicted the ISO-BMFF box tree could be edited by deletion. The box tree can; the metadata is
+    not in the box tree. Exif and XMP are *items* addressed by absolute file offsets in `iloc`, so
+    removing one shifts every surviving item — HEIF is structurally nearer to TIFF than to GIF, and
+    is rebuilt for the same reason TIFF is.
+
+    The differential landed with the handler and is clean: `scripts/heif-differential.sh` against
+    mat2 0.15.0 and ExifTool 13.55 over all 17 fixtures, zero tags surviving, every output still
+    decoding through libheif, and **0 differing pixels on all 17**. It verifies itself able to fail
+    on every run, against the unstripped fixtures.
+
+    **Deliberate limitations, recorded in §7.10:** output is never byte-identical to input even for
+    a clean file (idempotence is, and is tested); metadata inside the compressed image data is out
+    of reach, where **mat2's re-rendering default is the better recommendation**; ICC profiles are
+    removed, trading colour fidelity; and **motion HEIF is refused, which refuses Apple Live
+    Photos** — a common real iPhone file, and a cost taken deliberately because video is Group 4.
+
+    **The sustained fuzz run is outstanding.** `heif`, `bmff` and `detect` have had smoke runs only.
+    `detect` is in the list because its parser changed to route these formats by `ftyp` brand.
+    **This tranche does not meet the Phase 1 bar and tranche 4 does not open until that run comes
+    back clean** (ADR-0032).
+
+  - ⬜ **Tranches 4–5 — SVG, JPEG XL — not started**, and blocked until tranche 3 clears its
+    fuzzing debt. SVG additionally owes its own ADR before its tranche opens: its threat model
+    differs in kind, not degree.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -423,7 +452,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
    ADR-0032; the TIFF tranche is complete (2026-08-26) and the GIF tranche is complete
-   (2026-08-27). Tranche 3 — HEIF+AVIF — is unblocked and not started.
+   (2026-08-27). Tranche 3 — HEIF+AVIF — landed its handler on 2026-08-27 and **owes its sustained
+   fuzz run**, so it is not yet complete. Tranches 4–5 are blocked on that.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
