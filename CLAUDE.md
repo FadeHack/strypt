@@ -18,7 +18,7 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument and TIFF done; the GIF handler has landed and owes its fuzz run (2026-08-26)**
+## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument, TIFF and GIF done; tranche 3 (HEIF+AVIF) unblocked and not started (2026-08-27)**
 
 **Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
 groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, `.docx`,
@@ -83,7 +83,7 @@ inside the compressed image data is out of reach, where **mat2's re-rendering de
 better recommendation**; ICC profiles are removed, trading colour fidelity; BigTIFF and
 inconsistent strip geometry are refused.
 
-**Tranche 2 — GIF — landed 2026-08-26, and is NOT complete.** Landed: the handler, a `gif` fuzz
+**Tranche 2 — GIF — is done (2026-08-27).** Landed: the handler, a `gif` fuzz
 target, 14 fixtures plus 6 malformed with their generator (which carries its own LZW encoder, so
 every fixture really decodes and mat2 can open it), 22 integration tests, 20 unit tests, a clean
 mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.9. GIF is a flat block list, so removal
@@ -100,13 +100,30 @@ rather than merely excluding it from the comparison. A plain-text extension is r
 with* the graphic control block in front of it, because that block would otherwise retime the next
 image.
 
-**Its sustained fuzzing debt is OWED, and the tranche does not meet the Phase 1 bar until it is
-paid.** `gif` has had a 3-minute smoke run only (9,215,373 inputs, clean). The run to make is
-`./scripts/fuzz-sustained.sh -d 43200 gif detect` — `detect` because its parser changed in the
-same work. **Until it comes back clean, ADR-0032 does not permit tranche 3 to open.**
+**Its sustained fuzzing debt is cleared as of 2026-08-27**, so the tranche meets the Phase 1 bar
+in full. `gif` ran twelve hours alongside `pdf`, `jpeg`, `png`, `webp` and `detect` — **72.00
+CPU-hours budgeted, 72.01 delivered, all six clean**, `gif` at 1,073,948,408 inputs.
 
-**Tranches 3–5 and Group 4 are NOT started.** SVG owes its own ADR before its tranche opens. The
-"check before referencing a later-phase artefact" rule now applies *within* this phase too.
+**That run also closed exit criterion 2's standing caveat.** The criterion names `pdf`, `jpeg`,
+`png` and `webp`; all four were in this run, all four ran the full twelve hours, all four came
+back clean. **Delete the "no single run has had all four clean at once" caveat wherever it still
+appears** — it is closed by measurement, not by argument.
+
+**The first attempt at that run aborted, and the lesson is about the harness.** `gif` died at
+144.5M inputs against a **TIFF**-shaped input, on the fuzz target's own assertion that stripping
+never grows a file. These targets drive the whole pipeline, so a mutation reaching another
+format's magic is dispatched to that format's handler — and TIFF is rebuilt, not edited, so it may
+legitimately grow (ADR-0033). No handler was wrong. `png` and `webp` had the same unguarded
+assertion; all three now check `detect` first. **A per-format invariant in a pipeline-wide target
+must be guarded by a format check** — that is the rule to carry into every future handler's target.
+
+**Five of six had not plateaued at twelve hours** — ADR-0014 **Phase 3** evidence, **not** a
+Phase 1 gate. Note also that JPEG, PNG and WebP *had* plateaued inside 8h in an earlier run and
+did not this time on larger corpora, so a plateau at one corpus size is not a plateau at the next.
+
+**Tranche 3 (HEIF+AVIF) is UNBLOCKED as of 2026-08-27 but NOT started. Tranches 4–5 and Group 4
+are NOT started.** SVG owes its own ADR before its tranche opens. The "check before referencing a
+later-phase artefact" rule now applies *within* this phase too.
 
 **Qualifications on the two landed groups, which are real:**
 
@@ -139,8 +156,9 @@ same work. **Until it comes back clean, ADR-0032 does not permit tranche 3 to op
 **Closed does not mean unqualified.** Read these before repeating "Phase 1 is done" anywhere
 user-facing — each is a real limit, not a formality:
 
-- No single fuzz run has had all four targets clean simultaneously; criterion 2 rests on a
-  12h PDF-only run plus standing evidence for the other three.
+- ~~No single fuzz run has had all four targets clean simultaneously.~~ **Closed 2026-08-27** by
+  the six-target run: `pdf`, `jpeg`, `png` and `webp` all clean over a full twelve hours in one
+  run. Criterion 2 no longer rests on standing evidence for any target.
 - No committed real-producer fixture exists, and JPEG real-producer coverage depends on
   `ianare/exif-samples`, which is archived and has no licence, so it cannot be mirrored.
 - The recorded limitations stand: the JPEG `APP14` marker mat2 removes, and the 19-byte-xref
@@ -161,15 +179,17 @@ Status of the items that were outstanding, kept because the detail matters:
   `scripts/fuzz-sustained.sh` serves both and its header used to conflate them; do not
   re-import that error by citing ADR-0014 as a Phase 1 gate.
 
-  One caveat is recorded in `docs/ROADMAP.md`: no single run has yet had all four targets clean
-  at once. The 08-22 run rests on standing evidence for JPEG, PNG, WebP and detect, which have
-  zero artefacts across both earlier runs and unchanged handlers since. Assessed as met; a
-  five-target clean run would remove the interpretation and is not a blocker.
+  **That caveat closed on 2026-08-27** and the wording is now historical: the six-target run had
+  `pdf`, `jpeg`, `png` and `webp` all clean over a full twelve hours in one run, so criterion 2
+  no longer rests on standing evidence for any target.
 
-  **Phase 3 evidence, not a Phase 1 gate:** JPEG, PNG and WebP plateaued inside 8h; **PDF did
-  not plateau in 12h** (last gain 40919s of 43203s, 4324 → 4366 edges). That argues ADR-0014's
-  flat 100 should become per-handler numbers — but PDF still owes a run long enough to flatten,
-  so do not supersede the ADR on this data alone.
+  **Phase 3 evidence, not a Phase 1 gate:** in the 08-27 run only `detect` plateaued. **PDF has
+  now failed to flatten across three consecutive 12h runs.** JPEG, PNG and WebP had plateaued
+  inside 8h in an earlier run and did *not* this time on larger corpora — so **a plateau at one
+  corpus size is not a plateau at the next**, and ADR-0014's revision cannot be built from one
+  observation per handler. `gif` gained one edge in its last 6.5h and `pdf` two in its last 3.5h
+  without passing the strict last-gain test, which suggests the plateau should be defined as a
+  rate. Do not supersede ADR-0014 on this data alone.
 - **The real-producer corpus is deliberately not committed**: its files carry real names, a
   device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3). The build script and
   manifests are committed and rebuild it. Both WebP coverage gaps closed 2026-08-21 — a

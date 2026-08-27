@@ -180,12 +180,15 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   again in the trailer, the `lopdf` xref overflow, and the `/Root` corruption — are each fixed
   with a regression test, and none recurred.
 
-  **One caveat, recorded rather than glossed.** The criterion says "across all four fuzz
-  targets after *a* sustained run", and no single run has yet had all four clean at once: this
-  one was PDF alone, resting on standing evidence for the other three. That evidence is current
-  — their handlers have not changed since their clean runs — so the criterion is assessed as
-  met. A single five-target clean run would remove the interpretation entirely and is cheap to
-  do; it is not treated as a blocker.
+  ~~**One caveat, recorded rather than glossed.**~~ **Closed 2026-08-27.** The caveat was that
+  the criterion says "across all four fuzz targets after *a* sustained run", and no single run
+  had yet had all four clean at once — the 08-22 run was PDF alone, resting on standing evidence
+  for the other three. **The run of 2026-08-26/27 removes the interpretation by measurement.**
+  `pdf`, `jpeg`, `png` and `webp` were all in it, all ran the full twelve hours, and all came
+  back clean, alongside `gif` and `detect`: **72.00 CPU-hours budgeted, 72.01 delivered, six
+  targets, zero crashes, hangs or OOMs.** PDF executed 250,357,511 inputs, JPEG 580,596,344,
+  PNG 969,850,801, WebP 898,387,838. **Criterion 2 now rests on one run rather than on one run
+  plus an argument**, which is the state it was written to describe.
 
   **Coverage data is kept for Phase 3, and it already says ADR-0014's flat number is the wrong
   shape.** JPEG, PNG and WebP each plateaued inside eight hours (last gains at 13845s, 16044s
@@ -195,6 +198,18 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   That is the measurement ADR-0014 asked for, and it argues for per-handler numbers rather than
   one flat 100. Do not supersede ADR-0014 on this alone — PDF still owes a run long enough to
   actually flatten — but this is the evidence that revision should start from.
+
+  **Updated 2026-08-27, and the picture got more complicated rather than less.** In the six-target
+  run only `detect` plateaued by the runner's strict rule (last gain at 2s of 43,203s). JPEG, PNG
+  and WebP, which had flattened inside eight hours in the earlier run, all recorded late gains
+  this time on larger corpora — so **a plateau at one corpus size is not a plateau at the next**,
+  and ADR-0014's revision cannot be built from a single observation per handler. **PDF has now
+  failed to flatten across three consecutive twelve-hour runs** (last gain 39,092s of 43,204s).
+  Two curves are nearly flat without passing the test: `gif` gained **one edge in its last six and
+  a half hours** (1321 at 19,633s → 1322 at 38,315s) and `pdf` **two in its last three and a half**
+  (4609 at 26,534s → 4611 at 39,092s). The strict last-gain rule is the wrong instrument for that
+  shape, and a revision of ADR-0014 should probably define the plateau as a rate rather than as an
+  absence. Still Phase 3 evidence; still not a Phase 1 gate.
 - **Performance numbers.** ✅ Done. `docs/PRD.md` §9 now carries measurements from
   `scripts/measure-performance.sh`, which refuses to run against a debug binary. One machine
   only — Linux and Windows are unmeasured, and none of it is a commitment.
@@ -360,7 +375,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
     removed, trading colour fidelity; and BigTIFF, an inconsistent strip geometry, or a directory
     without dimensions is refused rather than approximated.
 
-  - 🔶 **Tranche 2 — GIF — handler landed 2026-08-26; the tranche is not complete.** `.gif`,
+  - ✅ **Tranche 2 — GIF — complete (2026-08-27).** `.gif`,
     animated ones included. Landed: the handler, a `gif` fuzz target, 14 fixtures plus 6 malformed
     ones with their generator, 22 integration tests, 20 unit tests,
     `scripts/gif-differential.sh` with a clean result against mat2 0.15.0 and ExifTool 13.55 over
@@ -375,15 +390,26 @@ this order, and a group is not started until the previous one meets the Phase 1 
     than merely filtering it out of the comparison. One measurement worth recording: on
     `plain-text.gif` **strypt removes more than mat2 does**.
 
-    **The sustained fuzz run is owed and this tranche does not meet the Phase 1 bar without it.**
-    The `gif` target has had a 3-minute smoke run only — 9,215,373 inputs, clean — which is not
-    what exit criterion 2 asks for. `detect` owes one too, since its parser changed in the same
-    work to route GIF to a handler instead of naming it unsupported. **Until that run comes back
-    clean, ADR-0032 does not permit tranche 3 to open.**
+    **The sustained fuzz run has been delivered and is clean (2026-08-27).** `gif` ran the full
+    twelve hours — **1,073,948,408 inputs at 24,859 exec/s, 1322 edges, zero crashes, hangs or
+    OOMs** — alongside `pdf`, `jpeg`, `png`, `webp` and `detect`, for **72.00 CPU-hours budgeted
+    and 72.01 delivered, all six clean**. `detect` was in it because its parser changed in the
+    same work to route GIF to a handler instead of naming it unsupported. The same run closed
+    exit criterion 2's standing caveat above.
 
-  - ⬜ **Tranches 3–5 — HEIF+AVIF, SVG, JPEG XL — not started**, and blocked behind tranche 2's
-    fuzz run. SVG additionally owes its own ADR before its tranche opens: its threat model
-    differs in kind, not degree.
+    **The first attempt was aborted and the reason is recorded, not glossed.** `gif` died at
+    144,505,581 inputs on 2026-08-26 against a TIFF-shaped input, on the fuzz target's own
+    assertion that stripping never grows a file — true of every handler until TIFF landed that
+    morning, and these targets drive the whole pipeline rather than one handler. The fault was in
+    the harness, not the handler, and `png` and `webp` carried the same unguarded assertion; all
+    three now check `detect` first and the triggering input is kept as a seed
+    (`target/fuzz-runs/20260826-135442-aborted/ABORTED.md`).
+
+    With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032).
+
+  - ⬜ **Tranches 3–5 — HEIF+AVIF, SVG, JPEG XL — not started.** Tranche 3 is **unblocked as of
+    2026-08-27**, tranche 2 having met the bar. SVG additionally owes its own ADR before its
+    tranche opens: its threat model differs in kind, not degree.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -396,8 +422,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
-   ADR-0032; the TIFF tranche is complete (2026-08-26) and the GIF handler landed the same day,
-   owing only its sustained fuzz run.
+   ADR-0032; the TIFF tranche is complete (2026-08-26) and the GIF tranche is complete
+   (2026-08-27). Tranche 3 — HEIF+AVIF — is unblocked and not started.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

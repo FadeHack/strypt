@@ -1142,11 +1142,49 @@ comparison of every image block before and after — made by a **GIF walker writ
 file** rather than borrowed from the crate, so the check cannot pass by the parser agreeing with
 itself. 20 unit tests in the handler.
 
-**Fuzzing — a 3-minute smoke run only, and the sustained run is owed.** The `gif` target builds
-and ran 9,215,373 inputs clean over 181 seconds on 2026-08-26, seeded from all 20 fixtures. That
-is a smoke test, not the Phase 1 bar: **exit criterion 2 requires a sustained run with no crash
-artefact, and this tranche has not had one.** Until it does, this handler has not met the Phase 1
-bar in full and ADR-0032 does not permit tranche 3 to open.
+**Fuzzing — sustained, clean (2026-08-27).** The run this tranche owed has been delivered:
+**12.00 hours on `gif`**, alongside `pdf`, `jpeg`, `png`, `webp` and `detect` in parallel —
+**72.00 CPU-hours budgeted and 72.01 delivered, all six clean**. `gif` executed **1,073,948,408
+inputs** at 24,859 exec/s, reaching 1322 edges and adding 6,104 corpus units, with **zero crashes,
+zero hangs and zero OOMs**: no artefact newer than the run marker, `slowest_unit_time_sec: 0`,
+peak RSS 592 MB. Every target ran the full 43,201 seconds and exited through libFuzzer's own
+`Done` line rather than dying early — the check worth making, because a target that crashes stops
+early, so a run that spends every hour it budgeted is one in which nothing died.
+
+**The first attempt at this run was aborted, and why is worth recording.** It started 2026-08-26
+at 13:54 over `gif detect jpeg png webp`, and `gif` died at 17:01 after 144,505,581 inputs. The
+failure was in the fuzz target, not the handler: the input was a TIFF (`49 49 2A 00`), and these
+targets drive the whole pipeline, so a mutation that reaches another format's magic is dispatched
+to that format's handler. The target then asserted a GIF-shaped invariant — that stripping never
+makes a file larger — against TIFF, which is rebuilt rather than edited and may legitimately grow
+(ADR-0033). The assertion had been correct for every supported format until TIFF landed that
+morning. `png` and `webp` carried the same unguarded assertion; all three now check `detect`
+first, and the triggering input is kept as a seed. The remaining four targets were stopped rather
+than left to finish, because they were running the pre-fix binaries and because that run had no
+`pdf` in it — see `target/fuzz-runs/20260826-135442-aborted/ABORTED.md`. **No handler was wrong
+and no file was ever stripped incorrectly**, but a harness that raises a false alarm costs a
+sustained run, and this one cost seven hours of GIF's twelve.
+
+**This run also answers exit criterion 2 without an interpretation for the first time.** The
+criterion names four targets — `pdf`, `jpeg`, `png`, `webp` — and asks for zero crashes across
+all four after a sustained run. Every previous claim on it rested on one target's clean run plus
+standing evidence for the others; `docs/ROADMAP.md` recorded that gap as an open caveat from
+2026-08-22. All four were in this run, all four ran the full twelve hours, and all four came back
+clean, so the caveat is closed by measurement rather than by argument. `pdf` executed 250,357,511
+inputs, `jpeg` 580,596,344, `png` 969,850,801, `webp` 898,387,838. `detect` was included because
+its parser changed in the same work — GIF now routes to a handler instead of being named as
+unsupported — and it executed 2,606,291,785 inputs, also clean.
+
+**Five of the six had not plateaued at twelve hours, and that is ADR-0014 Phase 3 evidence, not a
+Phase 1 gate.** By the runner's strict rule — any coverage gain in the final stretch counts as
+still climbing — only `detect` flattened, its last gain at **2s of 43,203s** across 2.6 billion
+inputs. The rule is strict enough to be misleading here, and the curves say more than the column
+does: `gif` went from 1321 edges at 19,633s to 1322 at 38,315s, **one edge in its last six and a
+half hours**, and `pdf` from 4609 at 26,534s to 4611 at 39,092s, **two edges in its last three and
+a half**. Both are nearly flat without meeting the test. **`pdf` has now failed to flatten across
+three consecutive twelve-hour runs**, which continues to argue that ADR-0014's flat 100 CPU-hours
+for every handler is the wrong shape — but it still does not license superseding that ADR, which
+requires the CPU-hour budget **and** a plateau, both. Do not cite any of this as a Phase 1 gate.
 
 **Measured against other tools on 2026-08-26.** `scripts/gif-differential.sh` compares strypt
 against **mat2 0.15.0** and **ExifTool 13.55** over all 14 well-formed fixtures: **zero tags

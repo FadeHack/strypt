@@ -177,6 +177,23 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   still reaching new code at the twelve-hour mark, so longer runs remain worthwhile and the
   project's own hardening target (Phase 3) is not met.
 
+### Verification
+
+- **Every format strypt ships has now had a clean sustained fuzz run.** GIF was the last one
+  outstanding. On 2026-08-27 the `gif`, `pdf`, `jpeg`, `png`, `webp` and `detect` targets each ran
+  twelve hours in parallel — **72.01 CPU-hours delivered, zero crashes, zero hangs, zero
+  out-of-memory conditions**, nothing set aside as not worth fixing. GIF alone processed
+  1,073,948,408 generated inputs.
+
+  This also settles something that had been carrying a footnote since 2026-08-22. The project's
+  own bar asks for four fuzz targets clean after a single sustained run, and until now no one run
+  had managed all four at once — the claim rested on one clean run plus an argument that the other
+  three were unchanged since theirs. All four were in this run and all four came back clean, so
+  the argument is no longer load-bearing.
+
+  No tool can guarantee total metadata removal, and this does not change that. The documented
+  per-format limitations in `docs/THREAT_MODEL.md` still stand and are still worth reading.
+
 ### Fixed
 
 - **A test-only size check that could report a false failure for TIFF files.** No user-facing
