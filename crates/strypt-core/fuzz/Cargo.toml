@@ -91,6 +91,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "svg"
+path = "fuzz_targets/svg.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "detect"
 path = "fuzz_targets/detect.rs"
 test = false

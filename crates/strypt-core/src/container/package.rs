@@ -226,10 +226,28 @@ pub(crate) fn strip_embedded_image(
     })
 }
 
-/// The image formats a package entry may be descended into (ADR-0029).
+/// The image formats an embedded picture may be descended into (ADR-0029).
+///
+/// **Every raster image format the registry has a handler for**, which as of ADR-0035 is more than
+/// the three that happened to exist when this was written: ADR-0029's rule was always "one level,
+/// images only" and never "one level, three formats", so a TIFF or a HEIC pasted into a document
+/// now has its own metadata removed instead of being copied through unexamined.
+///
+/// **SVG is deliberately absent**, and its absence is what keeps the descent one level deep by
+/// construction rather than by a counter. An SVG may itself carry a `data:` URI, so descending
+/// into one would be a recursion with no fixed bottom; a caller that finds one treats it as a
+/// nested container and refuses, which is this module's existing answer to that shape.
 pub(crate) fn embedded_image_format(data: &[u8]) -> Option<Format> {
     match crate::detect::detect(data) {
-        Ok(format @ (Format::Jpeg | Format::Png | Format::Webp)) => Some(format),
+        Ok(
+            format @ (Format::Jpeg
+            | Format::Png
+            | Format::Webp
+            | Format::Gif
+            | Format::Tiff
+            | Format::Heif
+            | Format::Avif),
+        ) => Some(format),
         _ => None,
     }
 }

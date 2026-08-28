@@ -35,6 +35,7 @@ pub mod odf;
 pub mod ooxml;
 pub mod pdf;
 pub mod png;
+pub mod svg;
 pub mod tiff;
 pub mod webp;
 mod xml;

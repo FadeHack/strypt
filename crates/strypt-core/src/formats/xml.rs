@@ -74,14 +74,55 @@ pub(in crate::formats) struct Attribute<'a> {
     pub(in crate::formats) end: usize,
 }
 
+/// A construct that is not an element tag.
+///
+/// The scanner has always stepped over these. It now says where they were, because SVG removes
+/// two of them — a comment is where Adobe writes its generator string, and a processing
+/// instruction is where an XMP packet's wrapper lives (ADR-0035). Neither package format needs
+/// them, so both keep getting the tag list alone and their output is unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::formats) enum NonElementKind {
+    /// `<!-- ... -->`
+    Comment,
+    /// `<![CDATA[ ... ]]>`
+    Cdata,
+    /// `<? ... ?>`
+    ProcessingInstruction,
+    /// `<!DOCTYPE ...>`, and any other `<!` declaration.
+    Doctype,
+}
+
+/// One non-element construct, located in the source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::formats) struct NonElement {
+    pub(in crate::formats) kind: NonElementKind,
+    /// Byte offset of the opening `<`.
+    pub(in crate::formats) start: usize,
+    /// Byte offset one past the terminator, or the end of the input when it never closed.
+    pub(in crate::formats) end: usize,
+}
+
+/// Everything one pass over the source found.
+pub(in crate::formats) struct Scan<'a> {
+    pub(in crate::formats) tags: Vec<Tag<'a>>,
+    pub(in crate::formats) others: Vec<NonElement>,
+}
+
 /// Every element tag in `src`, in document order.
 ///
 /// Comments, CDATA sections, processing instructions, and doctype declarations are skipped
-/// rather than reported: nothing the handlers remove lives in one, and treating their contents
-/// as markup is how a scanner starts editing text it has misread.
+/// rather than reported: nothing the package handlers remove lives in one, and treating their
+/// contents as markup is how a scanner starts editing text it has misread. A caller that needs
+/// their positions asks [`scan`] instead.
 pub(in crate::formats) fn tags(src: &str) -> Vec<Tag<'_>> {
+    scan(src).tags
+}
+
+/// Every element tag and every non-element construct in `src`, in document order.
+pub(in crate::formats) fn scan(src: &str) -> Scan<'_> {
     let bytes = src.as_bytes();
-    let mut out = Vec::new();
+    let mut tags = Vec::new();
+    let mut others = Vec::new();
     let mut i = 0usize;
 
     while i < bytes.len() {
@@ -90,10 +131,15 @@ pub(in crate::formats) fn tags(src: &str) -> Vec<Tag<'_>> {
         };
         let rest = src.get(open..).unwrap_or_default();
 
-        // Skip the constructs whose contents are not markup. Each returns the offset just past
-        // its terminator; an unterminated one ends the scan, because everything after it is
+        // Step over the constructs whose contents are not markup. Each reports the offset just
+        // past its terminator; an unterminated one ends the scan, because everything after it is
         // inside a construct that never closed.
-        if let Some(skipped) = skip_non_element(rest, open) {
+        if let Some((kind, skipped)) = skip_non_element(rest, open) {
+            others.push(NonElement {
+                kind,
+                start: open,
+                end: skipped,
+            });
             i = skipped;
             continue;
         }
@@ -104,24 +150,24 @@ pub(in crate::formats) fn tags(src: &str) -> Vec<Tag<'_>> {
         let end = close.saturating_add(1);
         let raw = src.get(open..end).unwrap_or_default();
         if let Some(tag) = parse_tag(raw, open, end) {
-            out.push(tag);
+            tags.push(tag);
         }
         i = end;
     }
-    out
+    Scan { tags, others }
 }
 
-/// Skip a comment, CDATA section, processing instruction, or doctype, returning the offset past
-/// it. [`None`] when `rest` begins an ordinary element tag.
-fn skip_non_element(rest: &str, at: usize) -> Option<usize> {
-    let (prefix, terminator): (&str, &str) = if rest.starts_with("<!--") {
-        ("<!--", "-->")
+/// Step over a comment, CDATA section, processing instruction, or doctype, reporting what it was
+/// and the offset past it. [`None`] when `rest` begins an ordinary element tag.
+fn skip_non_element(rest: &str, at: usize) -> Option<(NonElementKind, usize)> {
+    let (kind, prefix, terminator): (NonElementKind, &str, &str) = if rest.starts_with("<!--") {
+        (NonElementKind::Comment, "<!--", "-->")
     } else if rest.starts_with("<![CDATA[") {
-        ("<![CDATA[", "]]>")
+        (NonElementKind::Cdata, "<![CDATA[", "]]>")
     } else if rest.starts_with("<?") {
-        ("<?", "?>")
+        (NonElementKind::ProcessingInstruction, "<?", "?>")
     } else if rest.starts_with("<!") {
-        ("<!", ">")
+        (NonElementKind::Doctype, "<!", ">")
     } else {
         return None;
     };
@@ -135,7 +181,7 @@ fn skip_non_element(rest: &str, at: usize) -> Option<usize> {
             .saturating_add(n)
             .saturating_add(terminator.len())
     });
-    Some(at.saturating_add(offset))
+    Some((kind, at.saturating_add(offset)))
 }
 
 /// Find the `>` closing the tag that starts at `open`, ignoring any inside a quoted value.

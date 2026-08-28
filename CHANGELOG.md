@@ -21,6 +21,29 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **SVG support — `.svg`.** The fourth tranche of Phase 2's third format group (ADR-0032).
+
+  What comes out: `<metadata>` with its Dublin Core author, licence and XMP; Inkscape's and
+  Illustrator's private namespaces, which carry the file's name on the author's disk, an absolute
+  export path, their window geometry, and a compressed copy of the original Illustrator document;
+  XML comments and processing instructions; comments inside `<style>`; and the metadata of a
+  photograph pasted in as a `data:` URI. A namespace strypt has never seen is removed too — a name
+  reaches the output only if the picture cannot be drawn without it.
+
+  A drawing with nothing to remove comes back byte-identical. One that had something removed keeps
+  every other byte: its ids, grouping, attribute quoting and whitespace.
+
+- **Two things strypt keeps in an SVG could still identify their author**, and both are declared in
+  the report: `<title>` and `<desc>`, which a screen reader announces, and a reference to a file
+  outside the document, whose path can name a directory on the author's machine. Removing either
+  would change what the file does. The report never repeats the path itself.
+
+- **An SVG containing a `<script>`, an `on*` handler, a `<foreignObject>` or a `javascript:`
+  reference is refused rather than partly cleaned**, as are `.svgz`, non-UTF-8 documents, and a
+  doctype declaring its own entities. **mat2 is the better recommendation for a scripted SVG**: it
+  re-renders through Rsvg, dropping the script along with the drawing's ids, grouping, animation
+  and editable structure.
+
 - **HEIF and AVIF support — `.heic`, `.heif`, `.avif`.** `strypt show` and `strypt strip` now
   process the format an iPhone photograph arrives in. This is the third tranche of Phase 2's third
   format group (ADR-0032), and the two formats land together because they are the same container.

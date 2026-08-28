@@ -1819,3 +1819,186 @@ each retained item's data across unmodified.
 - **No new dependency.** The walker is hand-written, which is ADR-0032's default. `avif-parse` was
   surveyed there and its MPL-2.0 licence complicates a sentence `docs/PRD.md` §4 uses; adopting it
   would need its own ADR and is not proposed.
+
+---
+
+## ADR-0035 — SVG is edited by deletion, and the four things that are not metadata decide the handler
+
+**Status:** Accepted (2026-08-28)
+
+**Context.** SVG is the fourth tranche of Phase 2's third group. ADR-0032 §3 held it back behind the
+raster formats and required it to have this ADR before the tranche opened, on the ground that its
+threat model "differs in kind, not degree" — and that treating it as one more image handler "is how
+the script surface gets under-thought". This ADR is that thinking.
+
+**The scanner is reusable and the rules are not.** `formats/xml.rs` already names byte ranges and
+cuts them, which is exactly the shape of edit SVG needs, and it is shared with Office Open XML and
+`OpenDocument` for the same reason. What does not transfer is any of the rules: those two formats
+keep their metadata in named parts of a package, and an SVG is one document where the metadata,
+the picture, the accessibility text, and — if the author wanted — an executable program all sit in
+the same element tree.
+
+**mat2 is the opposite tool here, and this is the one format where that is true.** For every raster
+format in this project, mat2 re-renders the pixels and strypt does not, so mat2 reaches metadata
+hidden inside the compressed image data and strypt records that as a limitation (§7.8, §7.9,
+§7.10). SVG inverts it: `SVGParser.remove_all` loads the document through **Rsvg** and re-renders
+it onto a blank **Cairo** SVG surface (verified against mat2's `libmat2/images.py`, 2026-08-28).
+That removes everything, including things this ADR decides to keep — and it also rewrites the
+entire document, so identifiers, classes, grouping, animation, interactivity, and the author's
+editable structure do not survive. **Neither behaviour is a defect.** They are different products,
+and §7.11 must say which is the better recommendation for which user rather than implying strypt
+wins.
+
+**Four questions have no obvious answer, and they are what this ADR exists to settle.** Everything
+else about SVG — `<metadata>`, editor namespaces, comments — is bookkeeping.
+
+**Decision.**
+
+1. **An SVG is edited by deletion, never re-serialised, and a clean one comes back byte-identical.**
+   The property GIF has (§7.9) and that TIFF and HEIF cannot promise at all: output is the input's
+   bytes with some ranges cut out. Namespace declarations keep their order, attribute quoting keeps
+   its style, whitespace keeps its shape, and a diff of input against output shows exactly what
+   strypt did and nothing else. This is `formats/xml.rs`'s existing commitment applied to a format
+   that is a single part rather than a package.
+
+2. **A file that can execute code is refused by name, not partly cleaned.** A `<script>` element, an
+   `on*` event-handler attribute, or a `<foreignObject>` — all three make the refusal, reported as
+   `UnsupportedKind::ScriptedSvg`.
+
+   The reasoning is `UnsupportedKind::MacroEnabledOffice`'s, which is the exact analogue: a document
+   carrying executable code that strypt cannot read. A script is a container whose contents strypt
+   has no parser for, and which is free to hold a name, an absolute path, a credential, or a base64
+   copy of anything at all. The three available answers are to remove it, to keep it, or to refuse:
+
+   - *Removing it* makes strypt a sanitiser rather than a metadata remover. It changes what the
+     file does, which `docs/PRD.md` §8.1 reserves for the user, and it takes on the obligation to
+     find every execution vector across SVG, CSS, and SMIL animation — a moving target, and one
+     where being 95% right produces a file the user believes is inert.
+   - *Keeping it* means reporting success on a file that runs arbitrary code the moment a reader
+     opens it, having examined none of it. That is `docs/THREAT_MODEL.md` §5.4 in its plainest
+     form: the user acts on the success message by publishing.
+   - *Refusing* tells the user what is in their file and leaves the decision where it belongs. It
+     is the same trade ADR-0029 made for OOXML OLE objects and ADR-0034 made for Live Photos.
+
+   **This refuses real files** — interactive web graphics, and anything Illustrator exported with
+   an event handler on it. The cost is accepted deliberately, and **mat2 is the better
+   recommendation for that user**: its re-render flattens the script away along with everything
+   else, which is a coherent answer to the same problem and one strypt is not trying to give.
+
+3. **A reference to anything outside the document is reported and never removed.** A remote URL in
+   an `href`, a relative path to a file on the author's machine, and a `url()` inside a `<style>`
+   are all the same shape: a pointer to a picture the file does not contain.
+
+   Both halves of that are deliberate. It is **reported** because a remote reference is a beacon
+   that fires when any reader opens the published file, and because a local path is itself
+   identifying — `../../Users/aname/Desktop/leak.png` names a person as surely as an Exif author
+   field does. It is **never removed** because a file that draws a linked logo would silently
+   become a file that draws nothing, and `docs/PRD.md` §8.1 puts that decision with the user.
+
+   It reaches the report as a `Retained` entry and a `Note`, **not as a `Finding`** — a finding
+   would make the verification pass reject strypt's own output, since verification requires the
+   result to re-inspect clean. The note names the element and the attribute and **never the value**
+   (`docs/THREAT_MODEL.md` §5.5): a note saying which path was leaked would be a durable copy of it.
+
+4. **A raster image embedded as a `data:` URI is descended into exactly once, and only when it is an
+   image.** This is ADR-0029's rule applied unchanged — one level, images only, through the *same*
+   handler the CLI uses on a loose file, so the embedded picture inherits the verification pass and
+   the recorded limitations of its own format rather than getting a second, weaker implementation.
+
+   The case is common rather than exotic: Inkscape embeds pasted photographs this way as a matter
+   of routine, and the result is a JPEG with its GPS coordinates, its body serial number, and its
+   own thumbnail sitting base64-encoded inside an attribute of a file the user thinks of as a
+   drawing. Reporting that and leaving it would be strypt declining to do the one job it exists for
+   on a photograph it can already strip.
+
+   Consequences of descending, all of them accepted:
+   - **Base64 is decoded and re-encoded by hand**, in `formats/svg/data_uri.rs`. No dependency: it
+     is forty lines of table lookup, which ADR-0008 would not admit a crate for.
+   - **Decoding is charged against `ParseLimits::max_expanded_bytes`**, shared across the whole
+     document as the ZIP layer shares it across an archive (ADR-0028), because base64 in an
+     attribute is an expansion vector like any other.
+   - **The re-encoding is canonical**, so a document whose embedded image changed is not
+     byte-identical in that attribute even where the original encoding was merely unusual. A
+     document with nothing to remove is untouched.
+   - **A `data:` URI that decodes to a nested container — a PDF, an archive, an OLE compound file —
+     refuses the whole document**, on `container/package.rs`'s existing rule rather than a new one.
+     A `data:` URI that decodes to anything else (a font, an audio clip) is reported as unexamined
+     and left.
+
+5. **`<title>` and `<desc>` are kept, and declared.** They are the format's accessibility text: a
+   screen reader announces `<title>`, and a browser shows it as a tooltip. They are content a person
+   typed and a reader receives, which makes them payload under §8.1 and puts them exactly where
+   ADR-0031 put an `OpenDocument` comment's words — kept, with the report saying they are there.
+
+   **A `<desc>` can absolutely name its author**, and a user who needs them gone should be told so
+   rather than left to assume strypt handled it. They are declared as `Retained` and noted, and
+   §7.11 says plainly that **mat2 removes them** and is the better recommendation for that user.
+   This is the same shape of honesty ADR-0031 requires about ODF annotations.
+
+6. **A prefixed name survives only if its prefix is one the picture cannot be drawn without.** An
+   allow-list, in the direction ADR-0033 and ADR-0034 established: `xlink:` and `xml:` reach the
+   output, together with every unprefixed name, which is the SVG namespace itself. **Every other
+   prefixed element and attribute is removed, and so is the `xmlns:` declaration that bound the
+   prefix.**
+
+   The direction is the whole point, and SVG makes the argument better than HEIF's `uuid` does. A
+   deny-list of `inkscape:`, `sodipodi:`, and Adobe's `i:` would be a list of the three editors
+   whose output someone happened to test, and every other editor's private data would survive by
+   being unrecognised. What goes under this rule includes `<sodipodi:namedview>` — which records
+   the author's window geometry, screen zoom, and current layer — `inkscape:version`,
+   `sodipodi:docname`, **which is the file's name on the author's disk**, and Illustrator's
+   `<i:pgf>`, which is a compressed copy of the original AI document hidden inside the exported
+   SVG.
+
+7. **`<metadata>` is removed whole.** SVG 1.1 §5.10 states that its contents are not rendered, so
+   there is nothing to weigh: it is where RDF, Dublin Core, Creative Commons licensing, and XMP go,
+   and it is the one element in the format that is unambiguously metadata by definition.
+
+8. **Comments and processing instructions are removed; a doctype with an internal subset is
+   refused.** A comment is where Adobe writes `<!-- Generator: Adobe Illustrator 25.0 -->` and where
+   a hand-editing author writes a name. A processing instruction is where an XMP packet's
+   `<?xpacket?>` wrapper lives. Neither renders.
+
+   **CSS comments inside `<style>` go with them**, which is the one place this handler reads a
+   second grammar. It is bounded and quote-aware, and it is there because a stylesheet comment is a
+   producer fingerprint in exactly the way an XML comment is — mat2's own `CSSParser` removes them
+   for the same reason.
+
+   A doctype is kept when it is the format's boilerplate and **refused when it carries an internal
+   subset**. Removing a subset that declares entities would leave `&name;` references pointing at
+   nothing, and keeping it means keeping declarations that are both an expansion vector and, if
+   external, a network reference — neither of which a document that merely draws a picture needs.
+
+9. **Non-UTF-8 input is refused**, rather than scanned as bytes on a guess about its encoding. XML
+   permits UTF-16, and a scanner that treated it as UTF-8 would find no tags at all and report a
+   clean file, which is §5.4 again.
+
+10. **`.svgz` is refused by name.** A gzipped SVG is recognised at detection so the message can say
+    what it is and tell the user to decompress it first, rather than calling a common spelling of a
+    supported format "unrecognised". Handling it would mean inflating and re-deflating, which puts
+    a compressor in the output path for no metadata gain.
+
+**Consequences.**
+
+- **`container/package.rs`'s embedded-image descent now covers every image format the registry has
+  a handler for**, rather than the three that happened to exist in Phase 1. ADR-0029's rule was
+  always "one level, images only" and never "one level, three formats"; the narrower list was an
+  artefact of when it was written. This is a **behaviour change for Office Open XML and
+  `OpenDocument` as well as for SVG** — a `.docx` with a TIFF or a HEIC pasted into it now has that
+  picture stripped instead of copied through unexamined — and it is recorded here rather than
+  slipped in, because it changes what those two handlers remove.
+- **`formats/xml.rs` grows a way to see what it currently skips.** The scanner deliberately steps
+  over comments, CDATA, processing instructions, and doctypes because neither package format has
+  ever needed to touch one. SVG needs their byte ranges, so they are now reported alongside
+  elements. Element scanning is unchanged, which is what keeps the two shipped handlers' output
+  byte-for-byte what it was.
+- **Two things strypt keeps could still identify their author**: accessibility text, and the path
+  in an external reference. Both are declared in every report and both are in §7.11. An empty
+  `retained` list is a claim (`crate::report`), so this handler making two entries is the design
+  working rather than a shortfall.
+- **The refusals will meet real files.** A scripted SVG, a document with an entity subset, and a
+  `.svgz` are each refused rather than partly cleaned. Fail-closed is the correct behaviour and it
+  is not free; §7.11 names each refusal and what to do about it.
+- **No new dependency.** The scanner, the base64 codec, and the CSS comment pass are all
+  hand-written, which is ADR-0032's default. Nothing surveyed there applies to SVG, and an XML
+  parser is the category `formats/xml.rs` already argues against at its head.

@@ -203,8 +203,29 @@ pub enum UnsupportedKind {
     Flac,
     /// A RIFF container that is not WebP, such as WAV or AVI.
     OtherRiff,
-    /// SVG or another XML document.
+    /// An XML document that is not an SVG this release claims.
+    ///
+    /// Also where an SVG with a *prefixed* root element — `<svg:svg>`, which very old Inkscape
+    /// releases wrote — lands. The handler removes prefixed elements on an allow-list (ADR-0035),
+    /// so claiming that document would mean removing it; refusing is fail-closed.
     Xml,
+    /// A gzip stream, which in this project's world is usually a `.svgz`.
+    ///
+    /// Refused rather than handled. Inflating it would put a decompressor on the input path and a
+    /// compressor on the output path for no metadata gain, and the user can decompress it
+    /// themselves in one command (ADR-0035). Named rather than left unrecognised, because
+    /// "unrecognised" is untrue for a common spelling of a format strypt does handle.
+    Gzip,
+    /// An SVG carrying a script, an event-handler attribute, or a `foreignObject`.
+    ///
+    /// Refused rather than partly cleaned, on the same reasoning as [`Self::MacroEnabledOffice`]:
+    /// the document contains executable code strypt has no parser for, which is free to hold a
+    /// name, a path, a credential, or a base64 copy of anything at all. Removing it would change
+    /// what the file does (`docs/PRD.md` §8.1); keeping it would mean reporting success on a file
+    /// that runs unexamined code the moment a reader opens it, which is
+    /// `docs/THREAT_MODEL.md` §5.4. mat2 re-renders SVG and is the better recommendation for a
+    /// user who needs the script gone (ADR-0035).
+    ScriptedSvg,
 }
 
 impl std::fmt::Display for UnsupportedKind {
@@ -229,7 +250,12 @@ impl std::fmt::Display for UnsupportedKind {
             Self::Ogg => "Ogg",
             Self::Flac => "FLAC",
             Self::OtherRiff => "a RIFF container other than WebP",
-            Self::Xml => "an XML document (possibly SVG)",
+            Self::Xml => "an XML document that is not an SVG strypt can process",
+            Self::Gzip => "a gzip-compressed file, most likely a .svgz; decompress it first",
+            Self::ScriptedSvg => {
+                "an SVG containing a script, an event handler, or a foreignObject, \
+                 which strypt will not partly clean"
+            }
         };
         f.write_str(s)
     }

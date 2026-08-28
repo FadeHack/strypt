@@ -18,252 +18,90 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument, TIFF, GIF and HEIF+AVIF done; tranche 4 (SVG) unblocked and not started (2026-08-27)**
+## 2. Current phase: **Phase 2 in progress (2026-08-28)**
 
-**Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
-groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, `.docx`,
-`.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`; every other format is reported as unsupported and
-never passed through untouched. Landed: bounded ingest,
-content-sniffing detection, the handler registry and trait, the post-strip verification pass,
-structured reports, typed errors, the atomic write path, the full CLI, the four Phase 1 handlers
-with shared Exif and XMP readers, five fuzz targets, a generated fixture corpus for all four
-formats, and — as of 2026-08-20 — a fetch-on-demand real-producer corpus of 102 files that all
-four handlers have been swept over (`docs/THREAT_MODEL.md` §7.5).
+Phases 0 and 1 are complete. **Phase 2 opened 2026-08-23 (ADR-0027)**, which supersedes ADR-0005's
+scope lock and replaces it with a narrower one.
 
-**Phase 1 closed on 2026-08-22.** All seven numbered exit criteria are met, and the last
-non-numbered item — committed real-producer fixtures — is resolved by ADR-0025, which decided
-*not* to commit them.
+`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, `.docx`,
+`.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other format is reported as unsupported and
+never passed through untouched.
 
-**Phase 2 opened 2026-08-23 by ADR-0027**, which supersedes ADR-0005's scope lock and replaces
-it with a narrower one. **The scope is still locked**: the phase covers exactly the four format
-groups in `docs/ROADMAP.md` Phase 2, they land one at a time in that order, and a group is not
-started until the previous one meets the Phase 1 bar in full. "Phase 2 is open" is not "scope is
-open" — adding a format outside those groups still needs a superseding ADR.
+**The scope is still locked.** Phase 2 covers exactly the four format groups in `docs/ROADMAP.md`,
+they land one at a time in that order, and a group does not start until the previous one meets the
+Phase 1 bar in full. "Phase 2 is open" is not "scope is open" — a format outside those groups needs
+a superseding ADR. Group 3 is further split into five tranches by ADR-0032, under the same rule.
 
-**Group 1 — Office Open XML — is done (2026-08-23).** Landed: a hand-written ZIP container layer
-under `container/zip.rs` (ADR-0028 — *not* a dependency, and not a general-purpose ZIP
-implementation), a one-level descent into embedded images (ADR-0029), the handler and its XML
-scanner (ADR-0030), `ooxml` and `zip` fuzz targets, 20 fixtures, 26 integration tests, a clean
-mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.6.
+**Where things stand — read `docs/ROADMAP.md` for the detail, which is not repeated here:**
 
-**Group 2 — OpenDocument — is done (2026-08-24).** `.odt`, `.ods`, `.odp`. Landed: the handler
-and its rules (ADR-0031), an `odf` fuzz target, 14 fixtures plus 8 malformed ones, 33 integration
-tests, a clean mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.7. Two internal
-boundaries moved so the two package formats share rather than duplicate: the XML scanner is now
-`formats/xml.rs` (rules per format beside each handler), and the ZIP-package machinery is now
-`container/package.rs` — which is what keeps ADR-0029's one-level descent existing exactly once.
+| | Status |
+|---|---|
+| Group 1 — Office Open XML | ✅ 2026-08-23 |
+| Group 2 — OpenDocument | ✅ 2026-08-24 |
+| Group 3 — TIFF / GIF / HEIF+AVIF | ✅ 2026-08-26, 08-27, 08-27 |
+| Group 3 — SVG | 🔶 landed 2026-08-28; **sustained fuzz run still owed**, so the tranche is not complete and JPEG XL may not open |
+| Group 3 — JPEG XL · Group 4 — A/V | ⬜ not started |
 
-**Group 3 — additional images — is in progress, split into five tranches by ADR-0032**: TIFF,
-GIF, HEIF+AVIF, SVG, JPEG XL, in that order, each meeting the Phase 1 bar before the next opens.
-The split exists because this group, unlike the first two, has no shared container — six formats
-with nothing in common — and one lump would hold a finished handler hostage to the hardest member.
+**Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
+applies *within* this phase as well as across phases.
 
-**Tranche 1 — TIFF — is done (2026-08-26).** Landed: the
-handler, its allow-list of structural tags, a `tiff` fuzz target, 10 fixtures plus 6 malformed
-with their generator, 17 integration tests, 14 unit tests, `docs/THREAT_MODEL.md` §7.8.
-**ADR-0033 is required reading before touching it**: TIFF is the one format strypt *rebuilds*
-rather than edits, because its metadata is its file structure and there is no block to drop.
-Tags reach the output only from an allow-list of what the image cannot be decoded without, so an
-unknown vendor tag cannot survive by going unrecognised — the inverse of the deletion rule that
-governs OOXML and OpenDocument, and deliberately so.
+### Required reading before touching a handler
 
-The mat2/ExifTool differential landed with the handler and is clean (`scripts/tiff-differential.sh`,
-10 fixtures, zero tags surviving either tool, verified able to fail).
+- **ADR-0033 (TIFF)** — the one format strypt *rebuilds* rather than edits, because its metadata is
+  its file structure. Tags reach the output from an allow-list, so an unknown vendor tag cannot
+  survive by going unrecognised — the inverse of the deletion rule governing OOXML and ODF.
+- **ADR-0034 (HEIF+AVIF)** — **corrects ADR-0033's guess** that an ISO-BMFF box tree could be
+  edited by deletion. The tree can; the metadata is not in the tree. Exif and XMP are *items*
+  addressed by absolute file offsets, so HEIF is rebuilt with every offset recomputed.
+- **ADR-0035 (SVG)** — not a container of encoded pixels. Edited by deletion, allow-listed on
+  namespace prefix, and the one format where strypt removes *less* than mat2 and says so.
+- **ADR-0029** — the descent into embedded images is one level, images only. It exists exactly once,
+  in `container/package.rs`.
 
-**Its sustained-fuzzing debt is cleared as of 2026-08-26**: `tiff` and `detect` ran twelve hours
-each in parallel — **24.00 CPU-hours budgeted, 24.00 delivered, both clean**, `tiff` at
-1,417,537,939 inputs and `detect` at 2,991,380,340. **Both plateaued** — `tiff`'s last gain at
-17,217s of 43,203s, `detect`'s at one second — which is ADR-0014 **Phase 3** evidence and **not**
-a Phase 1 gate. It is the first plateau evidence at the opposite end from PDF, and it still does
-not license superseding ADR-0014; do not conflate the two bars.
+### Two mistakes this project has already made once
 
-Deliberate limitations, already recorded: output
-is never byte-identical to input even for a clean file (idempotence is, and is tested); metadata
-inside the compressed image data is out of reach, where **mat2's re-rendering default is the
-better recommendation**; ICC profiles are removed, trading colour fidelity; BigTIFF and
-inconsistent strip geometry are refused.
+- **Know which fuzzing bar you are measuring against.** Phase 1 exit criterion 2 is *"zero panics,
+  crashes, hangs, or OOMs across all four fuzz targets after a sustained run"* — no CPU-hour figure,
+  no plateau. ADR-0014's 100 CPU-hours plus plateau is a **Phase 3** deliverable.
+  `scripts/fuzz-sustained.sh` serves both. Do not cite ADR-0014 as a Phase 1 gate.
+- **A per-format invariant in a pipeline-wide fuzz target must be guarded by a format check.** These
+  targets drive the whole pipeline, so a mutation reaching another format's magic is dispatched to
+  that format's handler. An unguarded "stripping never grows a file" assertion killed a twelve-hour
+  run at 144.5M inputs on 2026-08-26. Carry the guard into every future handler's target.
 
-**Tranche 2 — GIF — is done (2026-08-27).** Landed: the handler, a `gif` fuzz
-target, 14 fixtures plus 6 malformed with their generator (which carries its own LZW encoder, so
-every fixture really decodes and mat2 can open it), 22 integration tests, 20 unit tests, a clean
-mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.9. GIF is a flat block list, so removal
-is deletion and **a clean file comes back byte-identical** — the only format in the tree that can
-promise that of a whole file.
+### Closed does not mean unqualified
 
-**The one judgement call is the loop count, and it is settled: `NETSCAPE2.0` and `ANIMEXTS1.0` are
-kept.** They carry an animation's loop count and nothing else — no person, device, place, or time,
-and byte-identical between any two looping files — while every *other* application extension is
-removed on an allow-list, unknown vendor identifiers included. Removing them would turn a user's
-looping animation into a one-shot, which is a change to what the file does. They are declared in
-the report's `retained` list, and `scripts/gif-differential.sh` asserts the loop count survives
-rather than merely excluding it from the comparison. A plain-text extension is removed *together
-with* the graphic control block in front of it, because that block would otherwise retime the next
-image.
+Read these before repeating "Phase 1 is done" anywhere user-facing. Each is a real limit:
 
-**Its sustained fuzzing debt is cleared as of 2026-08-27**, so the tranche meets the Phase 1 bar
-in full. `gif` ran twelve hours alongside `pdf`, `jpeg`, `png`, `webp` and `detect` — **72.00
-CPU-hours budgeted, 72.01 delivered, all six clean**, `gif` at 1,073,948,408 inputs.
-
-**That run also closed exit criterion 2's standing caveat.** The criterion names `pdf`, `jpeg`,
-`png` and `webp`; all four were in this run, all four ran the full twelve hours, all four came
-back clean. **Delete the "no single run has had all four clean at once" caveat wherever it still
-appears** — it is closed by measurement, not by argument.
-
-**The first attempt at that run aborted, and the lesson is about the harness.** `gif` died at
-144.5M inputs against a **TIFF**-shaped input, on the fuzz target's own assertion that stripping
-never grows a file. These targets drive the whole pipeline, so a mutation reaching another
-format's magic is dispatched to that format's handler — and TIFF is rebuilt, not edited, so it may
-legitimately grow (ADR-0033). No handler was wrong. `png` and `webp` had the same unguarded
-assertion; all three now check `detect` first. **A per-format invariant in a pipeline-wide target
-must be guarded by a format check** — that is the rule to carry into every future handler's target.
-
-**Five of six had not plateaued at twelve hours** — ADR-0014 **Phase 3** evidence, **not** a
-Phase 1 gate. Note also that JPEG, PNG and WebP *had* plateaued inside 8h in an earlier run and
-did not this time on larger corpora, so a plateau at one corpus size is not a plateau at the next.
-
-**Tranche 3 — HEIF+AVIF — is done (2026-08-27).** Landed: `container/bmff.rs` (a generic box walker with no HEIF semantics, on the
-`container/zip.rs` precedent), the handler and its three allow-lists, `heif` and `bmff` fuzz
-targets, 17 fixtures plus 8 malformed, 24 integration tests, 27 unit tests, a clean
-mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.10.
-
-**ADR-0034 is required reading before touching it, and it CORRECTS ADR-0033.** ADR-0033 predicted
-the ISO-BMFF box tree could be edited by deletion. The box tree can — but **the metadata is not in
-the box tree**. Exif and XMP are *items* addressed by absolute file offsets in `iloc`, so removing
-one shifts every surviving item. HEIF is structurally nearer to TIFF than to GIF and is **rebuilt**,
-with every offset recomputed against the buffer being written. Do not repeat ADR-0033's guess.
-
-**Two judgement calls are settled.** A `colr` box is answered by its *payload*: `prof`/`rICC` carry
-an ICC profile and go, `nclx` is numeric colour signalling naming no device and is **kept and
-declared as retained**. And a **motion HEIF is refused by name — which refuses Apple Live Photos**,
-a common real iPhone file, accepted deliberately because video is Group 4.
-
-**Its sustained fuzzing debt is cleared as of 2026-08-27**, so the tranche meets the Phase 1 bar
-in full. `heif`, `bmff` and `detect` ran twelve hours each in parallel — **36.00 CPU-hours
-budgeted, 36.01 delivered, all three clean**, 5.62 billion inputs between them. `detect` was
-included because its parser changed to route these formats by `ftyp` brand. Note the `heif` fuzz
-target carries **no size invariant** on purpose — the handler rebuilds, so growth is legitimate.
-
-**That run stretches ADR-0014's range at both ends, and it is Phase 3 evidence, not a Phase 1
-gate.** `heif` was still climbing at 40,374s of 43,211s and reached more edges than any handler
-except PDF. `bmff` flattened after **39 seconds** and then took 2.39 billion further inputs without
-one new edge — the fastest plateau measured here. **A flat 100-CPU-hour budget for every target is
-the wrong shape**, but that argues for revising ADR-0014 rather than superseding it.
-
-**Tranche 4 (SVG) is UNBLOCKED as of 2026-08-27 but NOT started; tranche 5 and Group 4 are NOT
-started.** SVG owes its own ADR before its tranche opens. The "check before referencing a
-later-phase artefact" rule now applies *within* this phase too.
-
-**Qualifications on the two landed groups, which are real:**
-
-- **OOXML's sustained-run debt is cleared** — `ooxml` and `zip` each ran a clean 12 hours on
-  2026-08-24. **OpenDocument's is cleared too, as of 2026-08-25**: `odf`, `zip`, `ooxml` and `pdf`
-  ran 12 hours each in parallel — **48.00 CPU-hours budgeted, 48.00 delivered, all four clean**,
-  zero crashes, hangs or OOMs. `odf` executed 382M inputs; `pdf` was included because its two most
-  recent fixes had had only a smoke run. Three of the four had **not plateaued** at twelve hours,
-  which is ADR-0014 Phase 3 evidence and **not** a Phase 1 gate — do not conflate them.
-- **The text of comments and tracked changes is deliberately kept**, with only its attribution
-  removed. **mat2 is the better recommendation for a document whose comments must not be
-  published**, and ADR-0012 requires saying so. This is sharper for ODF than for Office: mat2
-  removes ODF annotations and tracked changes outright.
-- **An OOXML document containing a nested archive, an embedded PDF, or an OLE object is
-  refused**, not partly cleaned. This refuses real documents — a chart's cached workbook is
-  common — and that cost is accepted deliberately. **ODF is different and it is not a
-  double standard**: it stores an embedded chart as ordinary entries in the same archive, so
-  that document is cleaned rather than refused, with no recursion involved (ADR-0031).
-- **Output is not byte-identical for a clean input** (rewritten parts are stored, entry
-  timestamps normalised, and an ODF `mimetype` entry may be moved and re-stored). Idempotence
-  *is* byte-identical and is tested.
-- **Stripped ODF packages now import into LibreOffice 26.2.5.2** — 14 fixtures and 2 real
-  LibreOffice-authored documents, stripped, loaded and body-compared by
-  `scripts/odf-libreoffice-validation.sh` on 2026-08-24, no failures. The GUI repair-prompt check
-  was done by hand the same day — seven stripped files opened in the interface, none prompting
-  for repair. **These are two claims, not one**: headless import cannot raise a dialog, so the
-  script covers all 16 documents and the manual pass covers seven.
-  `docs/THREAT_MODEL.md` §7.7 keeps them separate, and a handler change re-owes the manual pass.
-
-**Closed does not mean unqualified.** Read these before repeating "Phase 1 is done" anywhere
-user-facing — each is a real limit, not a formality:
-
-- ~~No single fuzz run has had all four targets clean simultaneously.~~ **Closed 2026-08-27** by
-  the six-target run: `pdf`, `jpeg`, `png` and `webp` all clean over a full twelve hours in one
-  run. Criterion 2 no longer rests on standing evidence for any target.
-- No committed real-producer fixture exists, and JPEG real-producer coverage depends on
-  `ianare/exif-samples`, which is archived and has no licence, so it cannot be mirrored.
-- The recorded limitations stand: the JPEG `APP14` marker mat2 removes, and the 19-byte-xref
-  PDF that strypt refuses and mat2 strips.
+- No committed real-producer fixture exists (ADR-0025 decided that deliberately; the build script
+  and manifests are committed and rebuild the corpus). JPEG real-producer coverage depends on
+  `ianare/exif-samples`, which is archived and unlicensed, so it cannot be mirrored.
+- Recorded capability gaps stand: the JPEG `APP14` marker mat2 removes, and the 19-byte-xref PDF
+  strypt refuses and mat2 strips. Refusing is correct fail-closed behaviour, and **mat2 is the
+  better recommendation for that file**.
 - Performance is measured on one machine. Linux and Windows are unmeasured.
+- **Panics inside `lopdf` are contained, not eliminated (ADR-0024).** Calls go through
+  `strypt_core::panic_guard`. Read that module's header before trusting it: it cannot catch a stack
+  overflow or an abort, it needs unwinding panics (so **do not set `panic = "abort"`**), and it says
+  nothing about a dependency returning a wrong answer quietly.
 
-Status of the items that were outstanding, kept because the detail matters:
+Every handler carries deliberate limitations of its own — what is out of reach, what is refused,
+what is kept on purpose. They live in `docs/THREAT_MODEL.md` §7, one subsection per format, and
+that is the document to read before making a claim about what strypt removes.
 
-- ~~**Sustained fuzzing**~~ — ✅ **exit criterion 2 met 2026-08-22.** Three runs via
-  `scripts/fuzz-sustained.sh`: **37.79 CPU-hours** (08-20), **30.42** (08-21), **12.00** (08-22),
-  **80.21 total**. They found four real PDF defects, all fixed with regression tests. The third
-  run was PDF alone and came back **clean — zero crashes, hangs or OOMs over a full 12.00
-  delivered CPU-hours**, the first sustained run in which PDF did not die partway.
+### Premise correction — settled, and binding (ADR-0012)
 
-  **Know which bar you are measuring against.** Criterion 2 is *"zero panics, crashes, hangs,
-  or OOMs across all four fuzz targets after a sustained run"* — no CPU-hour figure, no plateau.
-  ADR-0014's 100 CPU-hours plus plateau is a **Phase 3** deliverable.
-  `scripts/fuzz-sustained.sh` serves both and its header used to conflate them; do not
-  re-import that error by citing ADR-0014 as a Phase 1 gate.
+The project's founding premise was that mat2 is archived and unmaintained. That is wrong: mat2 is
+actively maintained, and only its former GitLab home is archived. The owner signed off on
+2026-08-19 to proceed on corrected footing.
 
-  **That caveat closed on 2026-08-27** and the wording is now historical: the six-target run had
-  `pdf`, `jpeg`, `png` and `webp` all clean over a full twelve hours in one run, so criterion 2
-  no longer rests on standing evidence for any target.
-
-  **Phase 3 evidence, not a Phase 1 gate:** in the 08-27 run only `detect` plateaued. **PDF has
-  now failed to flatten across three consecutive 12h runs.** JPEG, PNG and WebP had plateaued
-  inside 8h in an earlier run and did *not* this time on larger corpora — so **a plateau at one
-  corpus size is not a plateau at the next**, and ADR-0014's revision cannot be built from one
-  observation per handler. `gif` gained one edge in its last 6.5h and `pdf` two in its last 3.5h
-  without passing the strict last-gain test, which suggests the plateau should be defined as a
-  rate. Do not supersede ADR-0014 on this data alone.
-- **The real-producer corpus is deliberately not committed**: its files carry real names, a
-  device serial, and live GPS coordinates (`docs/TESTING_STRATEGY.md` §3). The build script and
-  manifests are committed and rebuild it. Both WebP coverage gaps closed 2026-08-21 — a
-  `cwebp -metadata all` JPEG→WebP conversion carrying real Canon Exif and its IFD1 thumbnail
-  across, and a Chrome 151 `canvas.toDataURL` export. The browser file is built only under
-  `build_real_corpus.py --with-browser`, since browsers auto-update and its bytes would
-  otherwise churn the committed manifest.
-
-The mat2 WebP differential — recorded as never run from 2026-08-19 — **ran on 2026-08-21 and
-passes**, after installing `webp-pixbuf-loader`. `scripts/webp-differential.sh` covers the 14
-synthetic fixtures and 30 real-producer WebPs with no gaps, and refuses to run without the
-loader rather than reporting a meaningless clean sweep (`docs/THREAT_MODEL.md` §7.4).
-
-One known capability gap is recorded and deliberate: a PDF with 19-byte cross-reference
-entries is refused by `lopdf`, where mat2 strips it. Refusing is correct fail-closed
-behaviour, and mat2 is the better recommendation for that file (`docs/THREAT_MODEL.md` §7.5).
-
-**Panics inside `lopdf` are contained, not eliminated (ADR-0024).** Fuzzing reached an integer
-overflow in `lopdf` 0.44.0's xref parser that panicked the shipped binary. Calls into `lopdf`
-now go through `strypt_core::panic_guard`, which turns an unwinding panic into an ordinary
-typed refusal. Read that module's header before trusting it: it cannot catch a stack overflow
-or an abort, it needs unwinding panics (so **do not set `panic = "abort"`**), and it says
-nothing about a dependency returning a wrong answer quietly. Containment is a floor, not a
-fix — the defect is being reported upstream.
-
-**Measured performance numbers** are in `docs/PRD.md` §9 as of 2026-08-20, produced by
-`scripts/measure-performance.sh`. One machine only; Linux and Windows are unmeasured.
-
-Read `docs/ROADMAP.md` for the full exit criteria before treating any of this as settled, and
-**check before referencing a later-phase artefact** — nothing beyond Phase 2's second format
-group exists.
-
-**Premise correction — settled, and binding (ADR-0012).** The project's founding premise
-was that mat2 is archived and unmaintained. That is wrong: mat2 is actively maintained (last
-push 2026-08-18, v0.15.0 on 2026-08-04), and only its former GitLab home is archived. The
-owner signed off on 2026-08-19 to proceed on corrected footing.
-
-**strypt is an additional option with different engineering trade-offs — never a
-"replacement", "successor", or "maintained alternative" to mat2.** That framing is fixed and
-must not drift back in any document, release note, issue reply, or outreach message, in this
-phase or any later one — not even once strypt reaches feature parity. Never describe mat2 as
-dead, archived, or abandoned. Where mat2 is genuinely the better recommendation for a user,
-say so. The approved case rests on five differentiators: single-binary deployment versus a
-Python-plus-C-library chain, memory-safe parsing where the CVEs actually live, permissive
-versus LGPL-3.0 licensing, bus-factor resilience, and verification rigour. Read ADR-0012
-before writing anything that positions strypt against mat2.
+**strypt is an additional option with different engineering trade-offs — never a "replacement",
+"successor", or "maintained alternative" to mat2.** That framing is fixed and must not drift back
+into any document, release note, issue reply, or outreach message, in this phase or any later one,
+not even at feature parity. Never describe mat2 as dead, archived, or abandoned. **Where mat2 is
+genuinely the better recommendation for a user, say so.** The approved case rests on five
+differentiators: single-binary deployment, memory-safe parsing, permissive licensing, bus-factor
+resilience, and verification rigour. Read ADR-0012 before positioning strypt against mat2.
 
 ## 3. Hard constraints — never violate these
 
@@ -322,7 +160,7 @@ you skip them, you will work without knowing the phase scope or the threat model
 | Starting a new phase, or any task not already scoped in this session | [`docs/ROADMAP.md`](docs/ROADMAP.md) **in full** — confirm which phase the work belongs to and its exit criteria |
 | Adding or modifying a format handler | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §3 and §5, and [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) in full |
 | Adding, removing, or upgrading any dependency | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §4 and §6, then add an ADR to [`docs/DECISIONS.md`](docs/DECISIONS.md) |
-| Being asked to add a format, flag, or feature | [`docs/PRD.md`](docs/PRD.md) §6–8 and [`docs/DECISIONS.md`](docs/DECISIONS.md) ADR-0005 — Phase 1 scope is locked |
+| Being asked to add a format, flag, or feature | [`docs/PRD.md`](docs/PRD.md) §6–8 and [`docs/DECISIONS.md`](docs/DECISIONS.md) ADR-0027 and ADR-0032 — the phase scope is locked |
 | Writing any test, fuzz target, or corpus file | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) |
 | Anything touching security posture, sandboxing, or a reported leak | [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) and [`SECURITY.md`](SECURITY.md) |
 | Running any build, test, or lint command | [`INSTRUCTIONS.md`](INSTRUCTIONS.md) — the source of truth for exact commands |

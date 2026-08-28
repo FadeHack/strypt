@@ -22,6 +22,11 @@ git history is forever — so it is ignored, and only what a human chose lives h
 - `bmff/` — the same HEIF and AVIF files, seeding the container target rather than the handler.
   Deliberately the same files, for the reason `zip/` gives below: a container fuzzer seeded only
   with hand-written stubs never reaches the structures a real producer writes.
+- `svg/` — copies of `corpus/svg/`, valid and malformed alike. Refresh after regenerating them.
+  The malformed set matters more here than elsewhere: five of the nine are documents strypt
+  refuses on a *rule* rather than on damage — a script, an event handler, a `foreignObject`, a
+  `javascript:` reference, a doctype internal subset — and a mutation that reaches the refusal
+  from a different direction is exactly what this target is looking for.
 - `ooxml/` — copies of `corpus/ooxml/`, valid and malformed alike. Refresh after regenerating
   them.
 - `odf/` — copies of `corpus/odf/`, valid and malformed alike. Refresh after regenerating them.
@@ -31,7 +36,8 @@ git history is forever — so it is ignored, and only what a human chose lives h
   reaches the structures a real producer writes. The ODF packages add a shape no OOXML package
   has — a stored first entry followed by deflated ones.
 - `detect/` — one specimen of every signature the detector knows, plus an empty file and a
-  plain-text file. Coverage-guided fuzzing explores outward from what it is given, so the
+  plain-text file. `xml` is deliberately an RSS feed rather than an SVG: it is there to exercise
+  the *refusal*, and once SVG became a supported format an `<svg>` root stopped reaching it. Coverage-guided fuzzing explores outward from what it is given, so the
   seeds decide which regions it can reach at all.
 
 **A crashing input found by fuzzing gets committed too** — but deliberately, as a regression

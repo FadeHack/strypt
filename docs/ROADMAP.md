@@ -460,9 +460,34 @@ this order, and a group is not started until the previous one meets the Phase 1 
     PDF has not flattened in three consecutive twelve-hour runs. That argues for revising ADR-0014;
     it does not license superseding it, which needs the budget **and** the plateau.
 
-  - ⬜ **Tranches 4–5 — SVG, JPEG XL — not started.** Tranche 4 is **unblocked as of 2026-08-27**,
-    tranche 3 having met the bar. SVG additionally owes its own ADR before its tranche opens: its
-    threat model differs in kind, not degree.
+  - 🔶 **Tranche 4 — SVG — landed 2026-08-28; sustained fuzzing still owed.** Landed: ADR-0035,
+    the handler and its rules, a `data:` URI codec, an `svg` fuzz target, 14 fixtures plus 9
+    malformed ones with their generator, 21 integration tests, 33 unit tests, a clean
+    mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.11.
+
+    **ADR-0035 is required reading before touching it.** SVG is not a container of encoded pixels:
+    the picture is text, and the metadata, the accessibility text, and — if the author wanted — an
+    executable program all sit in the same element tree. It is edited by deletion, so a clean
+    drawing comes back byte-identical, and names reach the output only through a prefix allow-list,
+    so an editor nobody here has tested cannot survive by going unrecognised.
+
+    **SVG inverts the mat2 comparison every other format here makes.** mat2 re-renders through
+    Rsvg, so it removes strictly more — the accessibility text and the script strypt refuses to
+    touch — while destroying ids, grouping, animation and the author's editable structure.
+    `scripts/svg-differential.sh` checks both directions and is clean over 14 fixtures; verified
+    able to fail (19 gaps against a pass-through binary).
+
+    **Deliberate limitations, recorded in §7.11:** `<title>`, `<desc>` and an external reference's
+    path are **kept and declared** — each can identify an author, and removing any of them changes
+    what the file does; a scripted SVG is **refused rather than partly cleaned**, where **mat2 is
+    the better recommendation**; and `.svgz`, non-UTF-8 documents, and a doctype internal subset
+    are refused too.
+
+    **Sustained fuzzing debt outstanding.** A 120-second smoke run was clean (1,645,468 inputs,
+    2026-08-28). Until a sustained run lands, this tranche does **not** meet the Phase 1 bar and
+    **tranche 5 may not open**.
+
+  - ⬜ **Tranche 5 — JPEG XL — not started**, and blocked until tranche 4 meets the bar.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -475,9 +500,9 @@ this order, and a group is not started until the previous one meets the Phase 1 
    `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
-   ADR-0032; the TIFF tranche is complete (2026-08-26) and the GIF tranche is complete
-   (2026-08-27), as is the HEIF+AVIF tranche (2026-08-27). Tranche 4 — SVG — is unblocked and not
-   started, and owes its own ADR first.
+   ADR-0032; TIFF (2026-08-26), GIF (2026-08-27) and HEIF+AVIF (2026-08-27) are complete. Tranche
+   4 — SVG — landed 2026-08-28 and owes only its sustained fuzz run. Tranche 5 — JPEG XL — is
+   blocked until that lands.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

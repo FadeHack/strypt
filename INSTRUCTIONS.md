@@ -132,7 +132,7 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/detect corpus/ooxml corpus/odf corpus/zip
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/detect corpus/ooxml corpus/odf corpus/zip
 cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, bmff, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
@@ -142,6 +142,7 @@ cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max
 cargo +nightly fuzz run tiff corpus/tiff seeds/tiff seeds/tiff/malformed -- -max_total_time=300
 cargo +nightly fuzz run gif corpus/gif seeds/gif seeds/gif/malformed -- -max_total_time=300
 cargo +nightly fuzz run heif corpus/heif seeds/heif seeds/heif/malformed -- -max_total_time=300
+cargo +nightly fuzz run svg corpus/svg seeds/svg seeds/svg/malformed -- -max_total_time=300
 cargo +nightly fuzz run bmff corpus/bmff seeds/bmff -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
@@ -298,6 +299,7 @@ python3 corpus/tools/make_webp_fixtures.py       # regenerate; reuses the JPEG t
 python3 corpus/tools/make_tiff_fixtures.py       # regenerate; deterministic
 python3 corpus/tools/make_gif_fixtures.py        # regenerate; carries its own LZW encoder, so every fixture really decodes
 python3 corpus/tools/make_heif_fixtures.py       # regenerate; embeds one recorded AV1 and one recorded HEVC codestream, so every fixture really decodes
+python3 corpus/tools/make_svg_fixtures.py        # regenerate; every fixture is a real SVG that Rsvg can open
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
@@ -470,6 +472,27 @@ and refuses to report a sweep if they do not light the filter up.
 Last run 2026-08-27 against mat2 0.15.0 and ExifTool 13.55: no gaps across all 17 fixtures, zero
 tags surviving strypt, every output still decoding through libheif, and **0 differing pixels** on
 every one.
+
+### SVG differential
+
+```sh
+cargo build --release
+./scripts/svg-differential.sh
+```
+
+**SVG inverts the comparison every other format here makes.** mat2 re-renders the document through
+Rsvg, so it removes strictly more — the accessibility text and the script strypt will not touch —
+while destroying ids, grouping, animation and the author's editable structure. The script therefore
+checks both directions: nothing survives strypt that does not survive mat2, and the drawing itself
+crossed strypt byte for byte.
+
+One exclusion in it is a decision rather than bookkeeping: `Title` and `Desc` are filtered out
+because strypt keeps the accessibility text and mat2 removes it, and the exclusion is paired with a
+check asserting both really do survive.
+
+Last run 2026-08-28 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures, zero tags
+surviving strypt, `PRESERVED-SHAPE` intact in every output. Verified able to fail: against a
+pass-through binary it reports 19 gaps.
 
 ### OpenDocument LibreOffice import validation
 

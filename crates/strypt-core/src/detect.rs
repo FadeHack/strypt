@@ -67,6 +67,8 @@ pub enum Format {
     Ods,
     /// An `OpenDocument` presentation — `.odp`.
     Odp,
+    /// SVG, which is XML text rather than a container of encoded pixels.
+    Svg,
 }
 
 impl Format {
@@ -90,6 +92,7 @@ impl Format {
             Self::Odt => "odt",
             Self::Ods => "ods",
             Self::Odp => "odp",
+            Self::Svg => "svg",
         }
     }
 
@@ -114,6 +117,7 @@ impl Format {
             Self::Odt => "odt",
             Self::Ods => "ods",
             Self::Odp => "odp",
+            Self::Svg => "svg",
         }
     }
 }
@@ -135,6 +139,7 @@ impl std::fmt::Display for Format {
             Self::Odt => "ODT",
             Self::Ods => "ODS",
             Self::Odp => "ODP",
+            Self::Svg => "SVG",
         })
     }
 }
@@ -206,6 +211,12 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if let Some(Package::Ooxml(format) | Package::OpenDocument(format)) = zip_package(data) {
         return Some(format);
     }
+    // Last, because it is the only sniff here that reads text rather than a magic number. SVG
+    // has no signature at all: the format's own answer to "what is this" is its root element,
+    // and finding it means stepping over an XML declaration, comments, and a doctype first.
+    if is_svg(data) {
+        return Some(Format::Svg);
+    }
     None
 }
 
@@ -261,10 +272,73 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     if starts_with(data, b"RIFF") {
         return Some(UnsupportedKind::OtherRiff);
     }
+    // A gzip stream, which for this project means `.svgz` far more often than anything else.
+    // Named rather than left unrecognised so the message can say "decompress it first", because
+    // "the content does not match any format strypt recognises" is untrue and unhelpful for a
+    // common spelling of a format that *is* handled (ADR-0035).
+    if starts_with(data, &[0x1F, 0x8B]) {
+        return Some(UnsupportedKind::Gzip);
+    }
     if looks_like_xml(data) {
         return Some(UnsupportedKind::Xml);
     }
     None
+}
+
+/// How far into a file the SVG root element is allowed to appear.
+///
+/// An XML declaration, a generator comment, and the SVG 1.1 doctype together run to a few
+/// hundred bytes in real files, and Adobe's export writes all three. The window is generous
+/// enough for them and bounded for the reason [`PDF_HEADER_SEARCH_WINDOW`] is: detection sees
+/// every byte of every file offered to it, including ones no handler will accept.
+const SVG_ROOT_SEARCH_WINDOW: usize = 8192;
+
+/// True when the first element of `data` is `<svg`.
+///
+/// **The root element, not the presence of the string.** `<svg` appears inside any HTML page that
+/// embeds a drawing, and inside an XML document that merely describes one; routing either to this
+/// handler would be the mis-dispatch this module exists to prevent. The scan therefore steps over
+/// exactly what may legally precede a root element — an XML declaration, comments, processing
+/// instructions, and a doctype — and then requires what follows to be the element itself.
+fn is_svg(data: &[u8]) -> bool {
+    let window = data.get(..SVG_ROOT_SEARCH_WINDOW).unwrap_or(data);
+    let Ok(text) = std::str::from_utf8(window) else {
+        // Not UTF-8 within the window. A UTF-16 SVG is legal XML and is refused by the handler
+        // rather than misread here (ADR-0035), and a truncated multi-byte character at the window
+        // edge is not worth a second decode attempt for a sniff.
+        return false;
+    };
+    let mut rest = text.trim_start_matches('\u{feff}').trim_start();
+
+    // Bounded: a file of nothing but comments must not spin.
+    for _ in 0..64 {
+        let terminator = if rest.starts_with("<!--") {
+            "-->"
+        } else if rest.starts_with("<?") {
+            "?>"
+        } else if rest.starts_with("<!") {
+            // A doctype, whose internal subset may itself contain `>`. Stopping at the first one
+            // is good enough for a sniff: the handler refuses an internal subset outright.
+            ">"
+        } else {
+            // A prefixed root — `<svg:svg>`, which very old Inkscape releases wrote — is
+            // deliberately *not* claimed. The handler removes prefixed elements on an
+            // allow-list (ADR-0035), so claiming it would mean removing the document. It
+            // falls through to the generic XML refusal instead, which is fail-closed.
+            return rest.starts_with("<svg")
+                && rest
+                    .get(4..5)
+                    .is_none_or(|c| c.starts_with([' ', '\t', '\r', '\n', '>', '/']));
+        };
+        let Some(end) = rest.find(terminator) else {
+            return false;
+        };
+        rest = rest
+            .get(end.saturating_add(terminator.len())..)
+            .unwrap_or_default()
+            .trim_start();
+    }
+    false
 }
 
 /// What a ZIP package turned out to be.
@@ -597,7 +671,11 @@ mod tests {
                 &b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2"[..],
                 UnsupportedKind::IsoBaseMedia,
             ),
-            (&b"<?xml version=\"1.0\"?><svg/>"[..], UnsupportedKind::Xml),
+            // XML that is not SVG. The SVG spelling of this is now *supported*, so what is left
+            // here is a document strypt identifies as markup and declines.
+            (&b"<?xml version=\"1.0\"?><rss/>"[..], UnsupportedKind::Xml),
+            // A gzip stream, which for this project means `.svgz` far more often than not.
+            (&b"\x1f\x8b\x08\x00"[..], UnsupportedKind::Gzip),
         ] {
             let got = detect(bytes).unwrap_err();
             assert!(
@@ -638,6 +716,49 @@ mod tests {
                 format: UnsupportedKind::IsoBaseMedia
             })
         ));
+    }
+
+    #[test]
+    fn an_svg_is_recognised_by_its_root_element_and_nothing_else() {
+        // SVG has no magic number at all: the format's own answer to "what is this" is its root
+        // element, reached past an XML declaration, comments, and a doctype.
+        for bytes in [
+            &b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>"[..],
+            b"\xef\xbb\xbf<svg/>",
+            b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg width=\"1\"/>",
+            b"<!-- Generator: Adobe Illustrator --><svg>x</svg>",
+            b"<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"svg11.dtd\">\n<svg/>",
+        ] {
+            assert_eq!(detect(bytes).unwrap(), Format::Svg, "{bytes:?}");
+        }
+    }
+
+    #[test]
+    fn markup_that_merely_mentions_svg_is_not_claimed_as_one() {
+        // The mis-dispatch guard for a format sniffed from text rather than from a signature.
+        // `<svg` appears inside any HTML page that embeds a drawing, and routing one here would
+        // mean the handler editing a document it has no rules for.
+        for bytes in [
+            &b"<html><body><svg><rect/></svg></body></html>"[..],
+            b"<?xml version=\"1.0\"?><gallery><svg/></gallery>",
+            b"<svgeny/>",
+            // A prefixed root, which very old Inkscape releases wrote. Not claimed, because the
+            // handler removes prefixed elements on an allow-list and would remove the document.
+            b"<svg:svg xmlns:svg=\"http://www.w3.org/2000/svg\"/>",
+        ] {
+            assert!(
+                !matches!(detect(bytes), Ok(Format::Svg)),
+                "wrongly claimed {bytes:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_root_element_beyond_the_search_window_is_not_scanned_for() {
+        let mut data = b"<!--".to_vec();
+        data.resize(SVG_ROOT_SEARCH_WINDOW, b'x');
+        data.extend_from_slice(b"--><svg/>");
+        assert!(!matches!(detect(&data), Ok(Format::Svg)));
     }
 
     #[test]

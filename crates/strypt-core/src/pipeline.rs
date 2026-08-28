@@ -123,7 +123,8 @@ fn handler(format: Format) -> Result<&'static dyn crate::formats::MetadataHandle
             | Format::Pptx
             | Format::Odt
             | Format::Ods
-            | Format::Odp => crate::error::UnsupportedKind::NotYetImplemented(format),
+            | Format::Odp
+            | Format::Svg => crate::error::UnsupportedKind::NotYetImplemented(format),
         },
     })
 }
