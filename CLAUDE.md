@@ -105,7 +105,8 @@ resilience, and verification rigour. Read ADR-0012 before positioning strypt aga
 
 ## 3. Hard constraints — never violate these
 
-These are invariants, not defaults. Each has an ADR in `docs/DECISIONS.md`.
+These are invariants, not defaults. Constraints 1–8 each have an ADR in `docs/DECISIONS.md`;
+constraint 9 is the owner's standing instruction.
 
 1. **No network access at runtime, ever, in any code path.** No update checks, no telemetry,
    no crash reporting, no remote config, no CDN or remote fonts in any future GUI. No
@@ -132,6 +133,13 @@ These are invariants, not defaults. Each has an ADR in `docs/DECISIONS.md`.
    hurt.
 8. **Never log or print metadata values** above trace level. A log file is a durable copy of
    the secret the user just removed. Log field names and counts, not contents.
+9. **Do not write verbose comments or verbose docs.** A comment earns its place by saying
+   something the code cannot: the spec section, the vendor quirk, the reason a rule runs in an
+   unexpected direction. One or two lines. Not a paragraph, not an essay, not a restatement of
+   the line below it. The same applies to every document here — CLAUDE.md, CHANGELOG.md,
+   README.md and the docs — which are already dense; **matching that density overshoots.** Do
+   not repeat in one file what another file already says: link to it. Long-form reasoning
+   belongs in `docs/DECISIONS.md`, once, as an ADR.
 
 ## 4. Standing instruction: verify, do not recall
 
