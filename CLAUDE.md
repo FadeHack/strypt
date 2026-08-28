@@ -18,7 +18,7 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument, TIFF and GIF done; tranche 3 (HEIF+AVIF) landed 2026-08-27 and owes its sustained fuzz run**
+## 2. Current phase: **Phase 2 in progress — OOXML, OpenDocument, TIFF, GIF and HEIF+AVIF done; tranche 4 (SVG) unblocked and not started (2026-08-27)**
 
 **Phases 0 and 1 are complete. Phase 2 opened 2026-08-23 (ADR-0027) and its first two format
 groups have landed.** `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, `.docx`,
@@ -121,8 +121,7 @@ must be guarded by a format check** — that is the rule to carry into every fut
 Phase 1 gate. Note also that JPEG, PNG and WebP *had* plateaued inside 8h in an earlier run and
 did not this time on larger corpora, so a plateau at one corpus size is not a plateau at the next.
 
-**Tranche 3 — HEIF+AVIF — landed its handler on 2026-08-27 and does NOT yet meet the Phase 1
-bar.** Landed: `container/bmff.rs` (a generic box walker with no HEIF semantics, on the
+**Tranche 3 — HEIF+AVIF — is done (2026-08-27).** Landed: `container/bmff.rs` (a generic box walker with no HEIF semantics, on the
 `container/zip.rs` precedent), the handler and its three allow-lists, `heif` and `bmff` fuzz
 targets, 17 fixtures plus 8 malformed, 24 integration tests, 27 unit tests, a clean
 mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.10.
@@ -138,13 +137,21 @@ an ICC profile and go, `nclx` is numeric colour signalling naming no device and 
 declared as retained**. And a **motion HEIF is refused by name — which refuses Apple Live Photos**,
 a common real iPhone file, accepted deliberately because video is Group 4.
 
-**Its sustained fuzz run is OWED**: `heif`, `bmff` and `detect`, twelve hours each. `detect` is
-included because its parser changed to route these formats by `ftyp` brand. Smoke runs only so far.
-**Tranche 4 does not open until that run comes back clean.** Note the `heif` fuzz target carries
-**no size invariant** on purpose — the handler rebuilds, so growth is legitimate.
+**Its sustained fuzzing debt is cleared as of 2026-08-27**, so the tranche meets the Phase 1 bar
+in full. `heif`, `bmff` and `detect` ran twelve hours each in parallel — **36.00 CPU-hours
+budgeted, 36.01 delivered, all three clean**, 5.62 billion inputs between them. `detect` was
+included because its parser changed to route these formats by `ftyp` brand. Note the `heif` fuzz
+target carries **no size invariant** on purpose — the handler rebuilds, so growth is legitimate.
 
-**Tranches 4–5 and Group 4 are NOT started.** SVG owes its own ADR before its tranche opens. The
-"check before referencing a later-phase artefact" rule now applies *within* this phase too.
+**That run stretches ADR-0014's range at both ends, and it is Phase 3 evidence, not a Phase 1
+gate.** `heif` was still climbing at 40,374s of 43,211s and reached more edges than any handler
+except PDF. `bmff` flattened after **39 seconds** and then took 2.39 billion further inputs without
+one new edge — the fastest plateau measured here. **A flat 100-CPU-hour budget for every target is
+the wrong shape**, but that argues for revising ADR-0014 rather than superseding it.
+
+**Tranche 4 (SVG) is UNBLOCKED as of 2026-08-27 but NOT started; tranche 5 and Group 4 are NOT
+started.** SVG owes its own ADR before its tranche opens. The "check before referencing a
+later-phase artefact" rule now applies *within* this phase too.
 
 **Qualifications on the two landed groups, which are real:**
 

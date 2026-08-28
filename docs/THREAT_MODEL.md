@@ -1298,12 +1298,30 @@ Five things about that result need stating rather than leaving implied.
   six of six runs, so it is a quirk of these minimal fixtures meeting that code path, not a
   property of the format.
 
-**Fuzzing — owed.** `heif`, `bmff` and `detect` have had smoke runs only (1.35M, 2.69M and 3.33M
-inputs, all clean, no artefacts). `detect` is included because its parser changed: HEIF and AVIF
-now route to a handler by `ftyp` brand instead of being named as unsupported. **The sustained run
-is outstanding, and this tranche does not meet the Phase 1 bar until it comes back clean.** The
-`heif` target deliberately carries **no "stripping never grows a file" assertion** — this handler
-rebuilds, so growth is legitimate — which is the rule the aborted GIF run of 2026-08-26 produced.
+**Fuzzing — sustained, clean (2026-08-27).** `heif`, `bmff` and `detect` each ran twelve hours in
+parallel — **36.00 CPU-hours budgeted, 36.01 delivered, all three clean**, with **zero crashes,
+zero hangs and zero OOMs**: no artefact newer than the run marker, `slowest_unit_time_sec: 0`
+throughout, peak RSS 923, 628 and 546 MB. All three ran the full 43,201 seconds and exited through
+libFuzzer's own `Done` line rather than dying early — the check worth making, because a target that
+crashes stops early, so a run that spends every hour it budgeted is one in which nothing died.
+Together they executed **5,615,172,697 inputs**: `heif` 182,076,323 at 4,214 exec/s to 3140 edges,
+`bmff` 2,393,879,564 at 55,412 exec/s, and `detect` 3,039,216,810 at 70,350 exec/s. `detect` was
+included because its parser changed: HEIF and AVIF now route by `ftyp` brand instead of being named
+as unsupported. **With that, this tranche meets the Phase 1 bar in full.**
+
+The `heif` target deliberately carries **no "stripping never grows a file" assertion** — this
+handler rebuilds, so growth is legitimate — which is the rule the aborted GIF run of 2026-08-26
+produced.
+
+**The plateau column is ADR-0014 Phase 3 evidence and not a Phase 1 gate**, and this run stretches
+its range at both ends. `heif` was **still climbing**, its last coverage gain at 40,374s of 43,211s,
+and it reached 3140 edges — more than any handler in the tree except PDF, which fits a rebuild
+driven by three allow-lists across two codecs. `bmff` did the opposite: it flattened after **39
+seconds** and then took 2.39 billion further inputs without finding one new edge, the fastest
+plateau this project has measured, which is what a small module with a tiny input grammar looks
+like when it is genuinely saturated. **A flat 100-CPU-hour budget for every target is the wrong
+shape when one saturates in 39 seconds and PDF has not flattened in three consecutive twelve-hour
+runs** — but that argues for revising ADR-0014, and does not license superseding it here.
 
 ---
 

@@ -11,13 +11,14 @@ commit as any change to the build, test, or lint workflow.**
 > **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19, the
 > Office Open XML ones on 2026-08-23, the OpenDocument ones on 2026-08-24, the TIFF ones on
 > 2026-08-26, and the GIF ones the same day. `strypt show` and `strypt strip` work on PDF, JPEG,
-> PNG, WebP, TIFF, GIF, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other format
-> is detected and reported as unsupported — never processed, and never passed through untouched.
+> PNG, WebP, TIFF, GIF, HEIF, AVIF, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every
+> other format is detected and reported as unsupported — never processed, and never passed through
+> untouched.
 >
 > Phase 2 opened 2026-08-23 (ADR-0027). OOXML and OpenDocument are its first two format groups;
-> the third is five image tranches (ADR-0032), of which TIFF is complete and GIF has landed but
-> **still owes its sustained fuzz run**. HEIF/AVIF, SVG, JPEG XL, and audio/video are not
-> started; see [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> the third is five image tranches (ADR-0032), of which TIFF, GIF and HEIF+AVIF are complete, each
+> with a clean sustained fuzz run. SVG, JPEG XL, and audio/video are not started; see
+> [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
 
@@ -197,11 +198,11 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 ooxml zip    # 12h each on the Phase 2 container targets
 ./scripts/fuzz-sustained.sh -d 43200 tiff detect  # 12h each; group 3 tranche 1's debt, cleared 2026-08-26
 ./scripts/fuzz-sustained.sh -d 43200 gif detect   # 12h each; group 3 tranche 2's debt, cleared 2026-08-27
-./scripts/fuzz-sustained.sh -d 43200 heif bmff detect  # 12h each; group 3 tranche 3's debt — OWED
+./scripts/fuzz-sustained.sh -d 43200 heif bmff detect  # 12h each; group 3 tranche 3's debt, cleared 2026-08-27
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:
-nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 heif bmff detect \
+nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
   > /tmp/strypt-fuzz.out 2>&1 &
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```

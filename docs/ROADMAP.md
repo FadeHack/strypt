@@ -210,6 +210,17 @@ extended WebP is not returned byte-identical, though a simple-format one is guar
   (4609 at 26,534s → 4611 at 39,092s). The strict last-gain rule is the wrong instrument for that
   shape, and a revision of ADR-0014 should probably define the plateau as a rate rather than as an
   absence. Still Phase 3 evidence; still not a Phase 1 gate.
+
+  **Updated again 2026-08-27 by the HEIF run, which stretches the range at both ends.** `bmff`
+  flattened after **39 seconds** and then absorbed 2.39 billion further inputs without one new
+  edge — the fastest plateau this project has measured, and unambiguous rather than borderline:
+  it is what a small module with a tiny input grammar looks like when genuinely saturated. `heif`
+  did the opposite, still climbing at **40,374s of 43,211s** and reaching 3140 edges, more than
+  any handler except PDF. **One target saturates in 39 seconds while PDF has not flattened in
+  three consecutive twelve-hour runs**, which is about as direct a refutation of a single flat
+  per-target budget as this data can produce. It reinforces both prior conclusions — per-handler
+  numbers, and a plateau defined as a rate — without supplying the long PDF run that a supersession
+  of ADR-0014 still requires.
 - **Performance numbers.** ✅ Done. `docs/PRD.md` §9 now carries measurements from
   `scripts/measure-performance.sh`, which refuses to run against a debug binary. One machine
   only — Linux and Windows are unmeasured, and none of it is a commitment.
@@ -407,7 +418,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
 
     With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032).
 
-  - 🔶 **Tranche 3 — HEIF+AVIF — handler landed 2026-08-27, sustained fuzzing owed.** `.heic`,
+  - ✅ **Tranche 3 — HEIF+AVIF — complete (2026-08-27).** `.heic`,
     `.heif` and `.avif`, taken as one tranche because they share one ISO-BMFF box walker. Landed:
     the walker under `container/bmff.rs` — generic, no HEIF semantics, on the precedent
     `container/zip.rs` set for OOXML — the handler and its three allow-lists, `heif` and `bmff`
@@ -431,14 +442,27 @@ this order, and a group is not started until the previous one meets the Phase 1 
     removed, trading colour fidelity; and **motion HEIF is refused, which refuses Apple Live
     Photos** — a common real iPhone file, and a cost taken deliberately because video is Group 4.
 
-    **The sustained fuzz run is outstanding.** `heif`, `bmff` and `detect` have had smoke runs only.
-    `detect` is in the list because its parser changed to route these formats by `ftyp` brand.
-    **This tranche does not meet the Phase 1 bar and tranche 4 does not open until that run comes
-    back clean** (ADR-0032).
+    **Sustained fuzzing debt cleared 2026-08-27.** `heif`, `bmff` and `detect` ran twelve hours
+    each in parallel — **36.00 CPU-hours budgeted, 36.01 delivered, all three clean**, zero
+    crashes, hangs or OOMs, and **5,615,172,697 inputs** between them. `heif` executed 182,076,323
+    at 4,214 exec/s to 3140 edges; `bmff` 2,393,879,564; `detect` 3,039,216,810, included because
+    its parser changed to route these formats by `ftyp` brand. All three ran the full 43,201
+    seconds and exited through libFuzzer's own `Done` line rather than dying early.
 
-  - ⬜ **Tranches 4–5 — SVG, JPEG XL — not started**, and blocked until tranche 3 clears its
-    fuzzing debt. SVG additionally owes its own ADR before its tranche opens: its threat model
-    differs in kind, not degree.
+    With that, this tranche meets the Phase 1 bar in full and **tranche 4 may open** (ADR-0032).
+
+    **Phase 3 evidence, not a Phase 1 gate — and this run stretches ADR-0014's range at both
+    ends.** `heif` was still climbing, its last gain at **40,374s of 43,211s**, reaching more edges
+    than any handler except PDF. `bmff` flattened after **39 seconds** and then took 2.39 billion
+    further inputs without one new edge — the fastest plateau this project has measured, and what a
+    small module with a tiny input grammar looks like when genuinely saturated. A flat
+    100-CPU-hour budget for every target is the wrong shape when one saturates in 39 seconds and
+    PDF has not flattened in three consecutive twelve-hour runs. That argues for revising ADR-0014;
+    it does not license superseding it, which needs the budget **and** the plateau.
+
+  - ⬜ **Tranches 4–5 — SVG, JPEG XL — not started.** Tranche 4 is **unblocked as of 2026-08-27**,
+    tranche 3 having met the bar. SVG additionally owes its own ADR before its tranche opens: its
+    threat model differs in kind, not degree.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -452,8 +476,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
    ADR-0032; the TIFF tranche is complete (2026-08-26) and the GIF tranche is complete
-   (2026-08-27). Tranche 3 — HEIF+AVIF — landed its handler on 2026-08-27 and **owes its sustained
-   fuzz run**, so it is not yet complete. Tranches 4–5 are blocked on that.
+   (2026-08-27), as is the HEIF+AVIF tranche (2026-08-27). Tranche 4 — SVG — is unblocked and not
+   started, and owes its own ADR first.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

@@ -5,9 +5,9 @@
 //! **Phase 1 complete (2026-08-22); Phase 2 in progress.** JPEG, PNG, WebP, PDF, TIFF, GIF,
 //! HEIF, AVIF, Office Open XML, and `OpenDocument` are handled, each with its own fuzz target and
 //! seed corpus. Phase 2 opened on 2026-08-23 (ADR-0027). HEIF and AVIF are the most recent to
-//! land, on 2026-08-27, and are the one pair that **has not yet had a sustained fuzz run** — every
-//! other shipped handler has had one clean. A format with no handler is reported as unsupported
-//! and is never passed through untouched.
+//! land, on 2026-08-27, and as of that date every shipped handler has had a clean sustained fuzz
+//! run. A format with no handler is reported as unsupported and is never passed through
+//! untouched.
 //!
 //! What is *not* claimed: no tool guarantees total metadata removal, and the recorded
 //! per-format limitations in `docs/THREAT_MODEL.md` are real. Read them before relying on this.

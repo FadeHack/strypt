@@ -42,16 +42,15 @@
 > does. Its sustained fuzz run came back clean over a full twelve hours and 1.07 billion inputs,
 > so it now meets the same bar every other shipped format has met.
 >
-> **HEIF and AVIF landed 2026-08-27 and are the one format here that does not yet meet that
-> bar.** The handler is complete — the Exif block with its GPS and serial numbers, XMP in both the
-> places it hides, the ICC profile, item names, and **embedded thumbnails** all come out, and a
+> **HEIF and AVIF are finished as of 2026-08-27.** The Exif block with its GPS and serial
+> numbers, XMP in both the places it hides, the ICC profile, item names, and **embedded thumbnails** all come out, and a
 > vendor item or property strypt has never seen does not survive by going unrecognised. Like TIFF,
 > the file is **rebuilt rather than edited**: its metadata is addressed by absolute file offsets, so
 > removing any of it moves everything after (ADR-0034). The picture is copied across without being
 > re-encoded, and the differential against mat2 0.15.0 and ExifTool 13.55 is clean over all 17
-> fixtures with zero differing pixels. **What is outstanding is the sustained fuzz run**, which
-> every other shipped format has had and this one has not, so the tranche is **not complete**.
-> Recorded limitations: output is never byte-identical to input even for a clean file; metadata
+> fixtures with zero differing pixels, and the `heif`, `bmff` and `detect` fuzz targets have each
+> run 12 hours — 36 CPU-hours, 5.6 billion inputs, zero crashes, hangs or OOMs — so **the tranche
+> is complete**. Recorded limitations: output is never byte-identical to input even for a clean file; metadata
 > inside the compressed image data is out of reach, where **mat2's re-rendering default is the
 > better tool**; and a **motion HEIF is refused, which means Apple Live Photos are refused** rather
 > than partly cleaned, because video is a later group.
@@ -73,7 +72,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF 2026-08-27 done; HEIF/AVIF handler landed 2026-08-27 but owes its sustained fuzz run; SVG, JPEG XL and A/V not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27 done; SVG, JPEG XL and A/V not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >

@@ -226,10 +226,9 @@ delivered_cpu_hours() {
   echo "2026-08-27. The same run put pdf, jpeg, png and webp — the four the criterion actually"
   echo "names — clean in a single run for the first time, which closed the standing caveat that"
   echo "criterion 2 rested on one run plus standing evidence for the rest."
-  echo
-  echo "OUTSTANDING as of 2026-08-27: heif and bmff have had smoke runs only, and detect owes"
-  echo "another because its parser changed to route HEIF and AVIF by ftyp brand. Group 3"
-  echo "tranche 3 does not meet the Phase 1 bar until that run comes back clean."
+  echo "heif, bmff and detect cleared theirs on 2026-08-27 as well. As of that run there is no"
+  echo "outstanding sustained-run debt: every shipped handler has had one clean. A new handler"
+  echo "owes a run again; nothing else in this table does."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
   echo "'NO — still climbing' means this target needs a longer run before its number can be"

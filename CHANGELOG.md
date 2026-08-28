@@ -220,6 +220,17 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Verification
 
+- **The HEIF and AVIF parsers survived 36 CPU-hours of hostile input.** Twelve hours each on the
+  `heif`, `bmff` and `detect` targets, in parallel on 2026-08-27: **5.6 billion generated inputs,
+  zero crashes, zero hangs, zero out-of-memory failures**, nothing set aside as not worth fixing.
+  Detection was included because it changed in the same work — these formats now route to a
+  handler by their `ftyp` brand instead of being reported as unsupported.
+
+  Malformed input is expected input for this tool: a file that crashes the stripper is a file the
+  user may then publish uncleaned. What this does *not* mean — the HEIF parser was still reaching
+  new code at the twelve-hour mark, so longer runs remain worthwhile and the project's own
+  hardening target (Phase 3) is not met.
+
 - **Every format strypt ships has now had a clean sustained fuzz run.** GIF was the last one
   outstanding. On 2026-08-27 the `gif`, `pdf`, `jpeg`, `png`, `webp` and `detect` targets each ran
   twelve hours in parallel — **72.01 CPU-hours delivered, zero crashes, zero hangs, zero
