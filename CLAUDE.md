@@ -18,7 +18,7 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress (2026-08-28)**
+## 2. Current phase: **Phase 2 in progress**
 
 Phases 0 and 1 are complete. **Phase 2 opened 2026-08-23 (ADR-0027)**, which supersedes ADR-0005's
 scope lock and replaces it with a narrower one.
