@@ -488,7 +488,34 @@ this order, and a group is not started until the previous one meets the Phase 1 
     RSS 688MB and 605MB. `svg` was still climbing at **41,365s of 43,202s** — no plateau, so it has
     no ADR-0014 number yet; `detect` flattened at 88s, as it did on 2026-08-26.
 
-  - ⬜ **Tranche 5 — JPEG XL — not started.** Unblocked: tranche 4 meets the bar.
+  - 🔶 **Tranche 5 — JPEG XL — landed 2026-08-29, one item outstanding.** Landed: ADR-0036, the
+    handler, a `jxl` fuzz target with seeds, 13 fixtures plus 9 malformed ones with their generator,
+    17 integration tests, 15 unit tests, a clean mat2/ExifTool differential, and
+    `docs/THREAT_MODEL.md` §7.12.
+
+    **ADR-0036 is required reading before touching it, and it is the ADR-0034 exception.** JPEG XL
+    spells HEIF's box grammar but addresses nothing by file offset, so it is edited by deletion and
+    a clean file comes back byte-identical. Both spellings are handled: the container, and the bare
+    `FF 0A` codestream, which has no box layer and is returned unchanged with its scope declared.
+    Boxes reach the output through an allow-list, so an unknown top-level box refuses the file.
+
+    **This is the tranche where strypt removes more, measured rather than assumed.**
+    `scripts/jxl-differential.sh` is clean over 13 fixtures and verified able to fail (28 gaps
+    against a pass-through binary). In the reverse direction ExifTool removes `Exif`, `xml ` and
+    `brob` and leaves `jumb`, `jbrd`, `jxli`, `free` and `skip` — so a **C2PA manifest naming the
+    capture device and the signing identity survives mat2 and does not survive strypt**.
+
+    **Deliberate limitations, recorded in §7.12:** the codestream is never entered, so an **ICC
+    profile and a preview frame are out of reach** in both spellings — for ExifTool and mat2 as
+    much as for strypt — and every report says so; `jbrd` is removed, which **ends bit-exact JPEG
+    reconstruction**, declared on every file that had one; `brob` is deleted without being
+    decompressed, so no Brotli decompressor enters the tree; and trailing bytes, a missing
+    codestream, and an unknown box are refused rather than partly cleaned.
+
+    **Outstanding: the sustained fuzz run.** A short run on 2026-08-29 was clean — 4,215,105 inputs
+    in 241 seconds, zero crashes — but Phase 1 exit criterion 2 asks for a sustained one, and until
+    `jxl` has had it this tranche does **not** meet the bar in full and Phase 2's group 3 is not
+    closed.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -502,7 +529,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
-   complete. Tranche 5 — JPEG XL — has not started.
+   complete. Tranche 5 — JPEG XL — landed 2026-08-29 and owes its sustained fuzz run.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

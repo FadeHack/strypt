@@ -224,6 +224,16 @@ pub enum Note {
     /// `IMG_survivor_address.jpg` is not scrubbed in any meaningful sense
     /// (`docs/ARCHITECTURE.md` §8).
     FilenameMayIdentify,
+    /// Removing metadata cost the file something it could previously do — not what it renders,
+    /// but what it can still be used for. JPEG XL's `jbrd` box is the case the variant exists
+    /// for: it holds the original JPEG's marker segments, so it goes, and bit-exact JPEG
+    /// reconstruction goes with it (ADR-0036).
+    CapabilityRemoved {
+        /// What was removed.
+        location: String,
+        /// What the file can no longer do, phrased to follow "this file can no longer".
+        capability: String,
+    },
 }
 
 /// The result of inspecting a file. Produced without modifying anything.

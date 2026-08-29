@@ -11,13 +11,14 @@ commit as any change to the build, test, or lint workflow.**
 > **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19, the
 > Office Open XML ones on 2026-08-23, the OpenDocument ones on 2026-08-24, the TIFF ones on
 > 2026-08-26, and the GIF ones the same day. `strypt show` and `strypt strip` work on PDF, JPEG,
-> PNG, WebP, TIFF, GIF, HEIF, AVIF, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every
+> PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every
 > other format is detected and reported as unsupported — never processed, and never passed through
 > untouched.
 >
 > Phase 2 opened 2026-08-23 (ADR-0027). OOXML and OpenDocument are its first two format groups;
-> the third is five image tranches (ADR-0032), of which TIFF, GIF and HEIF+AVIF are complete, each
-> with a clean sustained fuzz run. SVG, JPEG XL, and audio/video are not started; see
+> the third is five image tranches (ADR-0032), of which TIFF, GIF, HEIF+AVIF and SVG are complete,
+> each with a clean sustained fuzz run. JPEG XL has landed and owes that run; audio/video is not
+> started. See
 > [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
@@ -132,8 +133,8 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/detect corpus/ooxml corpus/odf corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, bmff, detect, ooxml, odf, zip
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/jxl corpus/detect corpus/ooxml corpus/odf corpus/zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, svg, jxl, bmff, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
@@ -143,6 +144,7 @@ cargo +nightly fuzz run tiff corpus/tiff seeds/tiff seeds/tiff/malformed -- -max
 cargo +nightly fuzz run gif corpus/gif seeds/gif seeds/gif/malformed -- -max_total_time=300
 cargo +nightly fuzz run heif corpus/heif seeds/heif seeds/heif/malformed -- -max_total_time=300
 cargo +nightly fuzz run svg corpus/svg seeds/svg seeds/svg/malformed -- -max_total_time=300
+cargo +nightly fuzz run jxl corpus/jxl seeds/jxl seeds/jxl/malformed -- -max_total_time=300
 cargo +nightly fuzz run bmff corpus/bmff seeds/bmff -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
@@ -300,6 +302,7 @@ python3 corpus/tools/make_tiff_fixtures.py       # regenerate; deterministic
 python3 corpus/tools/make_gif_fixtures.py        # regenerate; carries its own LZW encoder, so every fixture really decodes
 python3 corpus/tools/make_heif_fixtures.py       # regenerate; embeds one recorded AV1 and one recorded HEVC codestream, so every fixture really decodes
 python3 corpus/tools/make_svg_fixtures.py        # regenerate; every fixture is a real SVG that Rsvg can open
+python3 corpus/tools/make_jxl_fixtures.py        # regenerate; the codestream is a hand-written header stub — no encoder is needed
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
@@ -493,6 +496,27 @@ check asserting both really do survive.
 Last run 2026-08-28 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures, zero tags
 surviving strypt, `PRESERVED-SHAPE` intact in every output. Verified able to fail: against a
 pass-through binary it reports 19 gaps.
+
+### JPEG XL differential
+
+```sh
+cargo build --release
+./scripts/jxl-differential.sh
+```
+
+Both tools edit the container here rather than re-rendering — mat2's `JXLParser` shells out to
+ExifTool — so the comparison is fair in both directions, and **the reverse direction is the one
+worth reading**. The script walks top-level boxes with its own Python walker, because ExifTool
+names nothing at all for a `jbrd`, a `free`, a `skip` or a `jxli`, and a box that survives one tool
+and not the other would otherwise be invisible.
+
+**No JPEG XL decoder is used or needed**: strypt never enters the codestream, ExifTool does not
+either, and the fixtures' codestream is a header stub. The "still the same image" check is
+therefore structural — the output must still identify as JXL at the dimensions it went in with.
+
+Last run 2026-08-29 against mat2 0.15.0 and ExifTool 13.55: no gaps across 13 fixtures, and
+ExifTool leaving `jumb`, `jbrd`, `jxli`, `free` and `skip` where strypt removes them. Verified able
+to fail: against a pass-through binary it reports 28 gaps.
 
 ### OpenDocument LibreOffice import validation
 

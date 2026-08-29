@@ -21,12 +21,17 @@ git history is forever — so it is ignored, and only what a human chose lives h
 - `heif/` — copies of `corpus/heif/`, valid and malformed alike. Refresh after regenerating them.
 - `bmff/` — the same HEIF and AVIF files, seeding the container target rather than the handler.
   Deliberately the same files, for the reason `zip/` gives below: a container fuzzer seeded only
-  with hand-written stubs never reaches the structures a real producer writes.
+  with hand-written stubs never reaches the structures a real producer writes. Three JPEG XL
+  containers sit here too: they spell the same box grammar with shapes no HEIF has — a signature
+  box, and a final box declaring size 0.
 - `svg/` — copies of `corpus/svg/`, valid and malformed alike. Refresh after regenerating them.
   The malformed set matters more here than elsewhere: five of the nine are documents strypt
   refuses on a *rule* rather than on damage — a script, an event handler, a `foreignObject`, a
   `javascript:` reference, a doctype internal subset — and a mutation that reaches the refusal
   from a different direction is exactly what this target is looking for.
+- `jxl/` — copies of `corpus/jxl/`, valid and malformed alike. Refresh after regenerating them.
+  Both container spellings are in there, and so is the bare codestream, which is the one seed that
+  reaches the handler's other entry point at all.
 - `ooxml/` — copies of `corpus/ooxml/`, valid and malformed alike. Refresh after regenerating
   them.
 - `odf/` — copies of `corpus/odf/`, valid and malformed alike. Refresh after regenerating them.

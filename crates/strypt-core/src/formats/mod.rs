@@ -31,6 +31,7 @@ mod exif;
 pub mod gif;
 pub mod heif;
 pub mod jpeg;
+pub mod jxl;
 pub mod odf;
 pub mod ooxml;
 pub mod pdf;

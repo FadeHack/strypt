@@ -34,6 +34,7 @@
 
 use crate::bytes::Reader;
 use crate::error::{Result, StryptError, UnsupportedKind};
+use crate::formats::jxl;
 
 /// A format strypt has a handler for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -69,6 +70,8 @@ pub enum Format {
     Odp,
     /// SVG, which is XML text rather than a container of encoded pixels.
     Svg,
+    /// JPEG XL, in either of its two spellings: a bare codestream or a BMFF container.
+    Jxl,
 }
 
 impl Format {
@@ -93,6 +96,7 @@ impl Format {
             Self::Ods => "ods",
             Self::Odp => "odp",
             Self::Svg => "svg",
+            Self::Jxl => "jxl",
         }
     }
 
@@ -118,6 +122,7 @@ impl Format {
             Self::Ods => "ods",
             Self::Odp => "odp",
             Self::Svg => "svg",
+            Self::Jxl => "jxl",
         }
     }
 }
@@ -140,6 +145,7 @@ impl std::fmt::Display for Format {
             Self::Ods => "ODS",
             Self::Odp => "ODP",
             Self::Svg => "SVG",
+            Self::Jxl => "JPEG XL",
         })
     }
 }
@@ -201,6 +207,13 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     // and no decoder enforces the version string either.
     if starts_with(data, b"GIF87a") || starts_with(data, b"GIF89a") {
         return Some(Format::Gif);
+    }
+    // JPEG XL, both spellings (ISO/IEC 18181-2 §5.2, ISO/IEC 18181-1 §9.1). The container's
+    // signature box is checked before the `ftyp` sniffs below, and the bare codestream's `FF 0A`
+    // is checked before the MPEG audio frame sync in `detect_unsupported`, which matches `FF`
+    // followed by three set bits and would otherwise call a `.jxl` an MP3.
+    if starts_with(data, &jxl::SIGNATURE_BOX) || starts_with(data, &jxl::CODESTREAM_MAGIC) {
+        return Some(Format::Jxl);
     }
     if let Some(format) = iso_base_media_still(data) {
         return Some(format);

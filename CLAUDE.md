@@ -23,7 +23,7 @@ by default.
 Phases 0 and 1 are complete. **Phase 2 opened 2026-08-23 (ADR-0027)**, which supersedes ADR-0005's
 scope lock and replaces it with a narrower one.
 
-`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, `.docx`,
+`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, `.docx`,
 `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other format is reported as unsupported and
 never passed through untouched.
 
@@ -40,7 +40,8 @@ a superseding ADR. Group 3 is further split into five tranches by ADR-0032, unde
 | Group 2 — OpenDocument | ✅ 2026-08-24 |
 | Group 3 — TIFF / GIF / HEIF+AVIF | ✅ 2026-08-26, 08-27, 08-27 |
 | Group 3 — SVG | ✅ 2026-08-29 |
-| Group 3 — JPEG XL · Group 4 — A/V | ⬜ not started |
+| Group 3 — JPEG XL | 🔶 landed 2026-08-29, owes its sustained fuzz run |
+| Group 4 — A/V | ⬜ not started |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.
@@ -55,6 +56,9 @@ applies *within* this phase as well as across phases.
   addressed by absolute file offsets, so HEIF is rebuilt with every offset recomputed.
 - **ADR-0035 (SVG)** — not a container of encoded pixels. Edited by deletion, allow-listed on
   namespace prefix, and the one format where strypt removes *less* than mat2 and says so.
+- **ADR-0036 (JPEG XL)** — HEIF's box grammar, ADR-0034's conclusion reversed: nothing is addressed
+  by file offset, so it is edited by deletion. Two spellings, one handler; the bare codestream is a
+  declared no-op; `brob` is deleted without inflating, so no Brotli decompressor enters the tree.
 - **ADR-0029** — the descent into embedded images is one level, images only. It exists exactly once,
   in `container/package.rs`.
 

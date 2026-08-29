@@ -2002,3 +2002,116 @@ else about SVG — `<metadata>`, editor namespaces, comments — is bookkeeping.
 - **No new dependency.** The scanner, the base64 codec, and the CSS comment pass are all
   hand-written, which is ADR-0032's default. Nothing surveyed there applies to SVG, and an XML
   parser is the category `formats/xml.rs` already argues against at its head.
+
+---
+
+## ADR-0036 — JPEG XL is edited by deletion at the box layer, and the codestream is never entered
+
+**Status:** Accepted (2026-08-29)
+
+**Context.** JPEG XL is the fifth and last tranche of Phase 2's third group. ADR-0032 §1 put it
+here deliberately — "two container forms (bare codestream and BMFF), the newest ecosystem, and the
+weakest answer today" — so that an unresolved JPEG XL would delay nothing else. Four tranches later
+the answer is no longer weak, and the reason is that the format keeps its metadata somewhere the
+other four do not: in a flat list of top-level boxes that nothing else in the file points at.
+
+**This is the case ADR-0034 said it was not.** That ADR corrected ADR-0033's guess that an ISO-BMFF
+box tree could be edited by deletion, and the correction was specific: the tree can, but HEIF's
+metadata is not in the tree — Exif and XMP are *items* located by `iloc` as absolute file offsets
+into `mdat`, so removing one moves every surviving one and the file has to be rebuilt. JPEG XL
+spells the same container and reaches the opposite conclusion, because ISO/IEC 18181-2 puts Exif,
+XMP and JUMBF in top-level boxes of their own. There is no item table, no `iloc`, and no box whose
+contents are addressed by a file offset. Deleting a box moves the ones after it and breaks nothing.
+
+**Surveyed dependencies, re-verified 2026-08-29.** `jxl-oxide` is at **0.12.6** (2026-05-29), still
+a full pixel decoder, so ADR-0032 §2's finding stands unchanged: decoding an image to remove its
+metadata is the wrong shape of tool. A Brotli crate would be the new temptation, for the `brob`
+box; decision 4 removes the need for one.
+
+**Decision.**
+
+1. **Both spellings are detected, one handler serves them, and `Format::Jxl` is one format.** A
+   container file begins with the 12-byte signature box `0x0000000C 4A584C20 0D0A870A`; a bare
+   codestream begins with `0xFF0A`. The report names which spelling was found, because it decides
+   what strypt could look at.
+
+2. **A bare codestream is accepted, reported clean, and returned byte-identical.** It has no box
+   layer, so the metadata layer is not merely empty — it cannot exist. This is the clean-PNG case
+   rather than a refusal, and refusing would tell a user their file may be dirty when the only
+   container-level metadata it could hold provably is not there.
+
+   **What that verdict does not cover is stated in every report and in §7.12.** strypt reads the
+   signature and does not decode: the codestream's own `ImageMetadata` carries an ICC profile —
+   whose description and manufacturer fields name a device or an application — and may carry a
+   preview frame, and both are entropy-coded inside the image data. Reaching them means a decoder,
+   which is decision 3's answer to a different question and the same answer here. **ExifTool, and
+   therefore mat2, does not reach them either**; this is a limit of the approach, not of strypt.
+
+3. **A container file is edited by deletion, and a clean one comes back byte-identical.** Output is
+   the input's bytes with whole boxes cut out — SVG's property (§7.11) and GIF's (§7.9), which TIFF
+   and HEIF cannot promise at all. Nothing is re-serialised, no size field is recomputed, and the
+   codestream is copied without being parsed. A final box declaring size 0 — "extends to end of
+   file" — keeps that meaning under deletion, since nothing is ever inserted after it.
+
+4. **Five box types are deleted, and `brob` is deleted without being decompressed.**
+
+   | Box | Why it goes |
+   |---|---|
+   | `Exif` | The Exif block, unchanged from the JPEG and TIFF cases. |
+   | `xml ` | XMP, and anything else an author put in an XML box. |
+   | `jumb` | JUMBF (ISO/IEC 19566-5), which is where C2PA provenance — capture device, edit history, signing identity — arrives. |
+   | `brob` | Brotli-compressed metadata. Its first four bytes name the box it wraps; that name is reported and the box is dropped whole. |
+   | `jbrd` | JPEG bitstream reconstruction data. See decision 5. |
+   | `free`, `skip` | Padding by definition, and free to hold anything. Nothing depends on them. |
+
+   **`brob` is the reason no Brotli decompressor enters the tree.** Removal does not need to read
+   what is being removed — the same argument ADR-0022 made for PNG's compressed text chunks, and
+   the PDF handler's for a filtered metadata stream. Inflating attacker-controlled Brotli to decide
+   whether to delete bytes that are being deleted either way would buy a decompression-bomb surface
+   for nothing.
+
+   **Where strypt removes more than the alternative is measured, not assumed.** mat2's
+   `JXLParser` is an `ExiftoolParser` running `_lightweight_cleanup()` (verified against
+   `libmat2/images.py`, 2026-08-29), so it shells out to ExifTool rather than re-rendering, and
+   the two tools are being asked the same question. Run over this corpus on 2026-08-29, ExifTool
+   removes `Exif`, `xml ` and `brob`, and **leaves `jumb`, `jbrd`, `jxli`, `free` and `skip`** —
+   so a C2PA manifest naming the capture device and the signing identity survives mat2 and does
+   not survive strypt. `scripts/jxl-differential.sh` checks both directions over the fixture set,
+   as every other differential in this project does, and §7.12 states the gap in each direction.
+
+5. **`jbrd` is deleted, and the report says what that costs.** The box exists to rebuild the
+   original JPEG bit-exactly, and libjxl's `JPEGData` keeps `app_data`, `com_data` and
+   `inter_marker_data` — the original file's APPn and COM marker segments, verbatim (verified
+   against `lib/jxl/jpeg/jpeg_data.h`, 2026-08-29). It is a copy of the headers of the file the
+   user converted, which is exactly the thing this project removes.
+
+   Deleting it changes what the file *does*: the picture decodes identically, and bit-exact JPEG
+   reconstruction stops working. That is declared in the report rather than done quietly, and it is
+   coherent with deleting the `Exif` box that the same reconstruction depends on. Half-cleaning it
+   — parsing the box and stripping only its marker segments — is the failure mode this project
+   refuses everywhere else.
+
+6. **`jxli` is deleted rather than trusted.** A frame index is an optional seek accelerator for an
+   animation; libjxl's own overview says it "is not needed to display the animation". It is the one
+   retained-candidate box that indexes positions in a file this handler is editing, and deleting it
+   settles the question without needing to establish what its offsets are relative to.
+
+7. **Everything else refuses the file, and the allow-list runs on the retained side.** `JXL `,
+   `ftyp`, `jxll`, `jxlc` and `jxlp` reach the output; any other type is `UnsupportedKind` by name.
+   The direction is ADR-0033's and ADR-0035's: a deny-list of the box types someone happened to
+   test lets an unknown one survive by going unrecognised, and an unknown top-level box in a
+   metadata format is more likely to be metadata than not.
+
+   A file whose first box is not the signature box, or whose second is not an `ftyp` with the
+   `jxl ` brand, is refused as malformed rather than scanned for boxes on a guess.
+
+**Consequences.**
+
+- **`container/bmff.rs` gets the second caller its header predicted**, unchanged. The walker is
+  generic and this handler supplies the meaning, exactly as `formats/heif.rs` does. Only top-level
+  boxes are walked: JPEG XL has no nesting strypt needs to enter, and `jumb` — the one box with
+  internal structure — is deleted whole.
+- **Group 3 is complete when this tranche meets the bar**, and Phase 2 has one group left.
+- **Two limits are declared in every report**, and neither is a shortfall: the codestream interior
+  is not entered, and a deleted `jbrd` costs JPEG reconstruction. §7.12 names both.
+- **No new dependency**, and ADR-0032's default holds for the fifth time in five tranches.

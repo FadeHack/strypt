@@ -21,6 +21,29 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **JPEG XL support — `.jxl`, in both of its spellings.** The fifth tranche of Phase 2's third
+  format group (ADR-0032).
+
+  What comes out of a container: the Exif block with its GPS coordinates, serial numbers and
+  capture timestamps; XMP; **C2PA provenance**, which names the capture device, the editing history
+  and the signing identity; Brotli-compressed metadata, removed without being decompressed; the
+  frame index; and padding, which is free to hold anything. A box strypt does not recognise causes
+  the file to be **refused**, rather than being copied through unexamined. A file with nothing to
+  remove comes back byte-identical.
+
+- **A JPEG XL that is a bare codestream is reported clean and returned unchanged**, and every JPEG
+  XL report — clean files included — says what was not examined: the codestream's ICC profile,
+  whose fields can name a device or an application, and a preview frame, both coded inside the
+  image data and out of reach without a decoder. mat2 refuses a bare codestream instead.
+
+- **Removing a JPEG XL's `jbrd` box ends bit-exact JPEG reconstruction**, and the report says so on
+  every file that had one. The box holds a verbatim copy of the source JPEG's headers, which is a
+  producer fingerprint; the picture still decodes identically without it.
+
+- **Measured against ExifTool on 2026-08-29: a C2PA manifest naming the capture device and the
+  signing identity survives mat2's JPEG XL cleanup and does not survive strypt.** ExifTool removes
+  the Exif, XMP and Brotli boxes and leaves the JUMBF, reconstruction, index and padding boxes.
+
 - **SVG support — `.svg`.** The fourth tranche of Phase 2's third format group (ADR-0032).
 
   What comes out: `<metadata>` with its Dublin Core author, licence and XMP; Inkscape's and

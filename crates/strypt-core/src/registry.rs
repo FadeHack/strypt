@@ -12,6 +12,7 @@ use crate::formats::MetadataHandler;
 use crate::formats::gif::GifHandler;
 use crate::formats::heif::HeifHandler;
 use crate::formats::jpeg::JpegHandler;
+use crate::formats::jxl::JxlHandler;
 use crate::formats::odf::OdfHandler;
 use crate::formats::ooxml::OoxmlHandler;
 use crate::formats::pdf::PdfHandler;
@@ -35,6 +36,7 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         Format::Tiff => Some(&TiffHandler),
         Format::Gif => Some(&GifHandler),
         Format::Svg => Some(&SvgHandler),
+        Format::Jxl => Some(&JxlHandler),
         // As the Office and OpenDocument handlers below: one type, one instance per format, so
         // that `handler.format()` answers with what dispatch chose.
         Format::Heif => Some(&HEIF),
@@ -72,6 +74,7 @@ pub fn supported_formats() -> Vec<Format> {
         Format::Tiff,
         Format::Gif,
         Format::Svg,
+        Format::Jxl,
         Format::Heif,
         Format::Avif,
         Format::Docx,
@@ -119,6 +122,7 @@ mod tests {
             Format::Tiff,
             Format::Gif,
             Format::Svg,
+            Format::Jxl,
             Format::Docx,
             Format::Xlsx,
             Format::Pptx,

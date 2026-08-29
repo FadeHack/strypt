@@ -143,6 +143,10 @@ fn note_line(note: &Note) -> String {
             "the filename itself may identify its subject; strypt does not change filenames"
                 .to_string()
         }
+        Note::CapabilityRemoved {
+            location,
+            capability,
+        } => format!("{location} was removed, so this file can no longer {capability}"),
         _ => "this version of the CLI does not recognise a note strypt-core produced".to_string(),
     }
 }
@@ -222,6 +226,14 @@ fn note_json(note: &Note) -> serde_json::Value {
         Note::OutOfScopeContent { location } => serde_json::json!({
             "note": "out-of-scope-content", "location": location }),
         Note::FilenameMayIdentify => serde_json::json!({ "note": "filename-may-identify" }),
+        Note::CapabilityRemoved {
+            location,
+            capability,
+        } => serde_json::json!({
+            "note": "capability-removed",
+            "location": location,
+            "capability": capability,
+        }),
         _ => serde_json::json!({ "note": "unrecognised" }),
     }
 }

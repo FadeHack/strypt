@@ -226,6 +226,12 @@ pub enum UnsupportedKind {
     /// `docs/THREAT_MODEL.md` §5.4. mat2 re-renders SVG and is the better recommendation for a
     /// user who needs the script gone (ADR-0035).
     ScriptedSvg,
+    /// A JPEG XL carrying a top-level box strypt does not recognise.
+    ///
+    /// Boxes reach the output from an allow-list, so an unrecognised one is refused rather than
+    /// copied through: an unknown top-level box in a format that keeps its metadata in top-level
+    /// boxes is more likely to be metadata than not (ADR-0036).
+    UnknownJxlBox,
 }
 
 impl std::fmt::Display for UnsupportedKind {
@@ -252,6 +258,7 @@ impl std::fmt::Display for UnsupportedKind {
             Self::OtherRiff => "a RIFF container other than WebP",
             Self::Xml => "an XML document that is not an SVG strypt can process",
             Self::Gzip => "a gzip-compressed file, most likely a .svgz; decompress it first",
+            Self::UnknownJxlBox => "a JPEG XL carrying a top-level box strypt does not recognise",
             Self::ScriptedSvg => {
                 "an SVG containing a script, an event handler, or a foreignObject, \
                  which strypt will not partly clean"
