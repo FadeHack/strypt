@@ -194,7 +194,7 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all ten targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all fourteen targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
@@ -202,6 +202,8 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 tiff detect  # 12h each; group 3 tranche 1's debt, cleared 2026-08-26
 ./scripts/fuzz-sustained.sh -d 43200 gif detect   # 12h each; group 3 tranche 2's debt, cleared 2026-08-27
 ./scripts/fuzz-sustained.sh -d 43200 heif bmff detect  # 12h each; group 3 tranche 3's debt, cleared 2026-08-27
+./scripts/fuzz-sustained.sh -d 43200 svg detect   # 12h each; group 3 tranche 4's debt, cleared 2026-08-29
+./scripts/fuzz-sustained.sh -d 43200 jxl detect   # 12h each; group 3 tranche 5's debt — OWED
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:
@@ -210,11 +212,11 @@ nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```
 
-The default target list is **all twelve** — `pdf jpeg png webp tiff gif heif bmff ooxml odf zip
-detect`. The runner has now failed to know about a new target three times, so check it before
+The default target list is **all fourteen** — `pdf jpeg png webp tiff gif heif bmff svg jxl ooxml
+odf zip detect`. The runner has now failed to know about a new target three times, so check it before
 trusting a run to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23,
-`odf` with Phase 2 group 2, `tiff` on 2026-08-25, `gif` on 2026-08-26, and `heif` and `bmff` on
-2026-08-27. Each was rejected as an unknown name until it was added,
+`odf` with Phase 2 group 2, `tiff` on 2026-08-25, `gif` on 2026-08-26, `heif` and `bmff` on
+2026-08-27, `svg` on 2026-08-29, and `jxl` on 2026-08-29. Each was rejected as an unknown name until it was added,
 so **a run predating a target's addition covered fewer targets than its command line suggests**,
 silently.
 
