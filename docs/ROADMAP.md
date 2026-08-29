@@ -460,7 +460,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
     PDF has not flattened in three consecutive twelve-hour runs. That argues for revising ADR-0014;
     it does not license superseding it, which needs the budget **and** the plateau.
 
-  - 🔶 **Tranche 4 — SVG — landed 2026-08-28; sustained fuzzing still owed.** Landed: ADR-0035,
+  - ✅ **Tranche 4 — SVG — complete 2026-08-29.** Landed: ADR-0035,
     the handler and its rules, a `data:` URI codec, an `svg` fuzz target, 14 fixtures plus 9
     malformed ones with their generator, 21 integration tests, 33 unit tests, a clean
     mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.11.
@@ -483,11 +483,12 @@ this order, and a group is not started until the previous one meets the Phase 1 
     the better recommendation**; and `.svgz`, non-UTF-8 documents, and a doctype internal subset
     are refused too.
 
-    **Sustained fuzzing debt outstanding.** A 120-second smoke run was clean (1,645,468 inputs,
-    2026-08-28). Until a sustained run lands, this tranche does **not** meet the Phase 1 bar and
-    **tranche 5 may not open**.
+    **Sustained fuzzing debt cleared 2026-08-29.** Twelve hours per target, `svg` and `detect`
+    re-run together: **1.17 billion and 2.97 billion inputs, zero crashes, hangs or OOMs**, peak
+    RSS 688MB and 605MB. `svg` was still climbing at **41,365s of 43,202s** — no plateau, so it has
+    no ADR-0014 number yet; `detect` flattened at 88s, as it did on 2026-08-26.
 
-  - ⬜ **Tranche 5 — JPEG XL — not started**, and blocked until tranche 4 meets the bar.
+  - ⬜ **Tranche 5 — JPEG XL — not started.** Unblocked: tranche 4 meets the bar.
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -500,9 +501,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
-   ADR-0032; TIFF (2026-08-26), GIF (2026-08-27) and HEIF+AVIF (2026-08-27) are complete. Tranche
-   4 — SVG — landed 2026-08-28 and owes only its sustained fuzz run. Tranche 5 — JPEG XL — is
-   blocked until that lands.
+   ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
+   complete. Tranche 5 — JPEG XL — has not started.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

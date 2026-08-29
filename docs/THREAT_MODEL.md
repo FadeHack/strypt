@@ -1384,9 +1384,11 @@ claim for any of them. The script was **verified able to fail**: run against a p
 it reported 19 gaps. Its `Title`/`Desc` exclusion is paired with a positive assertion that both
 really do survive, so the one softening in the filter is a declared decision rather than a hole.
 
-**Fuzzing — a 120-second smoke run was clean (1,645,468 inputs, 2026-08-28); the sustained run is
-still owed.** Until it lands this tranche does **not** meet the Phase 1 bar, in the same way TIFF
-and GIF did not until theirs did. The `svg` target deliberately carries **no "stripping never grows
+**Fuzzing — sustained, clean (2026-08-29).** `svg` and `detect` each ran twelve hours: **1,168,301,485
+and 2,970,240,898 inputs, zero crashes, hangs or OOMs**, peak RSS 688 MB and 605 MB, both exiting
+through libFuzzer's own `Done` line rather than dying early. `svg` was still climbing at 41,365s of
+43,202s, so this run clears the tranche's Phase 1 debt and sets no ADR-0014 plateau number — the two
+are different questions. The `svg` target deliberately carries **no "stripping never grows
 a file" assertion** — a `data:` URI is re-encoded through another handler, and TIFF's and HEIF's
 rebuild and may legitimately grow. What replaces it is stronger and is what ADR-0035 §1 promises:
 **a document with nothing to remove comes back byte-identical**, asserted only when `detect` really

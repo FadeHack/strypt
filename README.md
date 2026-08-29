@@ -59,8 +59,7 @@
 > not something the usual tools will show you.** ExifTool does not report it, ImageMagick shows a
 > single frame, and libheif prints `thumbnail: 0x0` (measured 2026-08-27).
 >
-> **SVG landed 2026-08-28 and owes only its sustained fuzz run**, so its tranche is not yet
-> complete. It is the one format here where strypt removes *less* than mat2 and says so: mat2
+> **SVG is finished as of 2026-08-29.** It is the one format here where strypt removes *less* than mat2 and says so: mat2
 > re-renders the document through Rsvg, which removes more — the accessibility text and the script
 > strypt refuses to touch — but destroys ids, grouping, animation and the author's editable
 > structure. strypt edits by deletion, so a clean drawing comes back byte-identical, and a name
@@ -71,7 +70,8 @@
 > a script, an event handler, a `foreignObject` or a `javascript:` reference is **refused rather
 > than partly cleaned**, where **mat2 is the better tool**. `.svgz`, non-UTF-8 documents and a
 > doctype declaring its own entities are refused too. The differential against mat2 0.15.0 and
-> ExifTool 13.55 is clean over 14 fixtures.
+> ExifTool 13.55 is clean over 14 fixtures, and the `svg` and `detect` fuzz targets have each run
+> 12 hours — 24 CPU-hours, 4.1 billion inputs, zero crashes, hangs or OOMs.
 >
 > JPEG XL and audio/video are **not started**.
 >
@@ -86,7 +86,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27 done; SVG landed 2026-08-28 pending its sustained fuzz run; JPEG XL and A/V not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29 done; JPEG XL and A/V not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >

@@ -44,6 +44,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   re-renders through Rsvg, dropping the script along with the drawing's ids, grouping, animation
   and editable structure.
 
+- **SVG's sustained fuzz run is clean.** On 2026-08-29 the `svg` and `detect` targets each ran
+  twelve hours — **24.00 CPU-hours, 4.14 billion inputs, zero crashes, hangs or out-of-memory
+  conditions**. `svg` was still reaching new code at the twelve-hour mark, so longer runs remain
+  worthwhile and the Phase 3 hardening target is still not met.
+
 - **HEIF and AVIF support — `.heic`, `.heif`, `.avif`.** `strypt show` and `strypt strip` now
   process the format an iPhone photograph arrives in. This is the third tranche of Phase 2's third
   format group (ADR-0032), and the two formats land together because they are the same container.

@@ -39,7 +39,7 @@ a superseding ADR. Group 3 is further split into five tranches by ADR-0032, unde
 | Group 1 — Office Open XML | ✅ 2026-08-23 |
 | Group 2 — OpenDocument | ✅ 2026-08-24 |
 | Group 3 — TIFF / GIF / HEIF+AVIF | ✅ 2026-08-26, 08-27, 08-27 |
-| Group 3 — SVG | 🔶 landed 2026-08-28; **sustained fuzz run still owed**, so the tranche is not complete and JPEG XL may not open |
+| Group 3 — SVG | ✅ 2026-08-29 |
 | Group 3 — JPEG XL · Group 4 — A/V | ⬜ not started |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule

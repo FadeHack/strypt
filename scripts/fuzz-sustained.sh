@@ -227,9 +227,9 @@ delivered_cpu_hours() {
   echo "2026-08-27. The same run put pdf, jpeg, png and webp — the four the criterion actually"
   echo "names — clean in a single run for the first time, which closed the standing caveat that"
   echo "criterion 2 rested on one run plus standing evidence for the rest."
-  echo "heif, bmff and detect cleared theirs on 2026-08-27 as well. As of that run there is no"
-  echo "outstanding sustained-run debt: every shipped handler has had one clean. A new handler"
-  echo "owes a run again; nothing else in this table does."
+  echo "heif, bmff and detect cleared theirs on 2026-08-27 as well, and svg on 2026-08-29. There"
+  echo "is no outstanding sustained-run debt: every shipped handler has had one clean. A new"
+  echo "handler owes a run again; nothing else in this table does."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
   echo "'NO — still climbing' means this target needs a longer run before its number can be"
