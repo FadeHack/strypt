@@ -488,7 +488,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
     RSS 688MB and 605MB. `svg` was still climbing at **41,365s of 43,202s** — no plateau, so it has
     no ADR-0014 number yet; `detect` flattened at 88s, as it did on 2026-08-26.
 
-  - 🔶 **Tranche 5 — JPEG XL — landed 2026-08-29, one item outstanding.** Landed: ADR-0036, the
+  - ✅ **Tranche 5 — JPEG XL — complete 2026-08-30.** Landed: ADR-0036, the
     handler, a `jxl` fuzz target with seeds, 13 fixtures plus 9 malformed ones with their generator,
     17 integration tests, 15 unit tests, a clean mat2/ExifTool differential, and
     `docs/THREAT_MODEL.md` §7.12.
@@ -512,10 +512,14 @@ this order, and a group is not started until the previous one meets the Phase 1 
     decompressed, so no Brotli decompressor enters the tree; and trailing bytes, a missing
     codestream, and an unknown box are refused rather than partly cleaned.
 
-    **Outstanding: the sustained fuzz run.** A short run on 2026-08-29 was clean — 4,215,105 inputs
-    in 241 seconds, zero crashes — but Phase 1 exit criterion 2 asks for a sustained one, and until
-    `jxl` has had it this tranche does **not** meet the bar in full and Phase 2's group 3 is not
-    closed.
+    **Sustained fuzzing debt cleared 2026-08-30.** Twelve hours per target, `jxl` and `detect` run
+    together: **461,869,797 and 2,955,406,167 inputs, zero crashes, hangs or OOMs**, peak RSS 759MB
+    and 592MB, both exiting through libFuzzer's own `Done` line. `jxl` was still climbing at
+    **41,175s of 43,211s** — no plateau, so it has no ADR-0014 number yet; `detect` flattened at
+    3,488s, as it has in every run since 2026-08-26.
+
+    With that, this tranche meets the Phase 1 bar in full, and **group 3 is closed** — five
+    tranches, five handlers, no outstanding debt. Group 4 may open (ADR-0032).
 
 - ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
   later artefact" rule now applies *within* this phase as well as across phases.
@@ -529,7 +533,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
    attributes).
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
-   complete. Tranche 5 — JPEG XL — landed 2026-08-29 and owes its sustained fuzz run.
+   complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an

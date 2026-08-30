@@ -40,7 +40,7 @@ a superseding ADR. Group 3 is further split into five tranches by ADR-0032, unde
 | Group 2 — OpenDocument | ✅ 2026-08-24 |
 | Group 3 — TIFF / GIF / HEIF+AVIF | ✅ 2026-08-26, 08-27, 08-27 |
 | Group 3 — SVG | ✅ 2026-08-29 |
-| Group 3 — JPEG XL | 🔶 landed 2026-08-29, owes its sustained fuzz run |
+| Group 3 — JPEG XL | ✅ 2026-08-30 |
 | Group 4 — A/V | ⬜ not started |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule

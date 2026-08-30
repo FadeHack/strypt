@@ -203,7 +203,7 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 gif detect   # 12h each; group 3 tranche 2's debt, cleared 2026-08-27
 ./scripts/fuzz-sustained.sh -d 43200 heif bmff detect  # 12h each; group 3 tranche 3's debt, cleared 2026-08-27
 ./scripts/fuzz-sustained.sh -d 43200 svg detect   # 12h each; group 3 tranche 4's debt, cleared 2026-08-29
-./scripts/fuzz-sustained.sh -d 43200 jxl detect   # 12h each; group 3 tranche 5's debt — OWED
+./scripts/fuzz-sustained.sh -d 43200 jxl detect   # 12h each; group 3 tranche 5's debt, cleared 2026-08-30
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:

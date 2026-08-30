@@ -1465,10 +1465,13 @@ naming the capture device and the signing identity survives mat2 and does not su
 **Fuzzing.** The `jxl` target asserts re-inspect-clean and idempotence on every input that strips,
 plus — because deletion cannot synthesise bytes — that stripping never grows a file, that one
 **guarded by a `detect()` check** that the input really is JXL, which is the rule the aborted GIF
-run of 2026-08-26 produced. A short run on
-2026-08-29 was clean: **4,215,105 inputs in 241 seconds, zero crashes, hangs or OOMs**. The
-**sustained run this tranche owes Phase 1 exit criterion 2 has not been performed yet**, and until
-it is, `docs/ROADMAP.md` records the tranche's fuzzing as outstanding rather than met.
+run of 2026-08-26 produced.
+
+**Sustained, clean (2026-08-30).** `jxl` and `detect` each ran twelve hours: **461,869,797 and
+2,955,406,167 inputs, zero crashes, hangs or OOMs**, peak RSS 759 MB and 592 MB, both exiting
+through libFuzzer's own `Done` line rather than dying early, and no artefact written. `jxl` was
+still climbing at 41,175s of 43,211s, so this run clears the tranche's Phase 1 debt and sets no
+ADR-0014 plateau number — the two are different questions.
 
 ---
 

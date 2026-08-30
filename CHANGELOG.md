@@ -44,6 +44,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   signing identity survives mat2's JPEG XL cleanup and does not survive strypt.** ExifTool removes
   the Exif, XMP and Brotli boxes and leaves the JUMBF, reconstruction, index and padding boxes.
 
+- **JPEG XL's sustained fuzz run is clean.** On 2026-08-30 the `jxl` and `detect` targets each ran
+  twelve hours — **24.01 CPU-hours, 3.42 billion inputs, zero crashes, hangs or out-of-memory
+  conditions**. `jxl` was still reaching new code at the twelve-hour mark, so longer runs remain
+  worthwhile and the Phase 3 hardening target is still not met.
+
 - **SVG support — `.svg`.** The fourth tranche of Phase 2's third format group (ADR-0032).
 
   What comes out: `<metadata>` with its Dublin Core author, licence and XMP; Inkscape's and

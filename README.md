@@ -73,7 +73,7 @@
 > ExifTool 13.55 is clean over 14 fixtures, and the `svg` and `detect` fuzz targets have each run
 > 12 hours — 24 CPU-hours, 4.1 billion inputs, zero crashes, hangs or OOMs.
 >
-> **JPEG XL landed 2026-08-29, and owes its sustained fuzz run.** Both spellings are handled: the
+> **JPEG XL is finished as of 2026-08-30, and with it Phase 2's image group.** Both spellings are handled: the
 > container, and the bare codestream, which has no metadata layer at all and is returned unchanged
 > with its scope stated rather than being called clean without qualification. Boxes reach the output
 > through an allow-list, so a box strypt has never seen refuses the file. It is the format where
@@ -83,8 +83,8 @@
 > Recorded limitations: the codestream is never entered, so an **ICC profile and a preview frame are
 > out of reach** — for ExifTool and mat2 as much as for strypt — and removing the JPEG
 > reconstruction box **ends bit-exact JPEG round-tripping**, which every affected report says. The
-> short fuzz run was clean at 4.2 million inputs; the sustained one has not been done, so this
-> tranche does not yet meet the bar in full.
+> `jxl` and `detect` fuzz targets have each run 12 hours — 24 CPU-hours, 3.4 billion inputs, zero
+> crashes, hangs or OOMs.
 >
 > Audio and video are **not started**.
 >
@@ -99,7 +99,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29 done; JPEG XL 2026-08-29 owes its sustained fuzz run; A/V not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30 done; A/V not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
