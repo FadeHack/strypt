@@ -307,6 +307,12 @@ pub enum RetentionReason {
     RemovalWouldAlterPayload,
     /// The format requires it to be present for the file to remain valid.
     StructurallyRequired,
+    /// It is computed from the payload the file still carries, so removing it would hide nothing
+    /// from anyone holding that file. FLAC's MD5 of the unencoded audio is the case this exists
+    /// for: a fingerprint, and one the holder can recompute (ADR-0038). Declared rather than
+    /// removed — and declared rather than passed over, because it does link one copy of a
+    /// recording to another.
+    DerivedFromPayload,
 }
 
 /// What a caller wants from an inspection.

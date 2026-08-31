@@ -23,14 +23,15 @@ by default.
 Phases 0 and 1 are complete. **Phase 2 opened 2026-08-23 (ADR-0027)**, which supersedes ADR-0005's
 scope lock and replaces it with a narrower one.
 
-`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, `.docx`,
+`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, FLAC, `.docx`,
 `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other format is reported as unsupported and
 never passed through untouched.
 
 **The scope is still locked.** Phase 2 covers exactly the four format groups in `docs/ROADMAP.md`,
 they land one at a time in that order, and a group does not start until the previous one meets the
 Phase 1 bar in full. "Phase 2 is open" is not "scope is open" — a format outside those groups needs
-a superseding ADR. Group 3 is further split into five tranches by ADR-0032, under the same rule.
+a superseding ADR. Groups 3 and 4 are each further split into five tranches — ADR-0032 and
+ADR-0037 — under the same rule.
 
 **Where things stand — read `docs/ROADMAP.md` for the detail, which is not repeated here:**
 
@@ -41,7 +42,8 @@ a superseding ADR. Group 3 is further split into five tranches by ADR-0032, unde
 | Group 3 — TIFF / GIF / HEIF+AVIF | ✅ 2026-08-26, 08-27, 08-27 |
 | Group 3 — SVG | ✅ 2026-08-29 |
 | Group 3 — JPEG XL | ✅ 2026-08-30 |
-| Group 4 — A/V | ⬜ not started |
+| Group 4 — FLAC | 🔶 landed 2026-09-01; **sustained fuzz debt outstanding**, so tranche 2 is not open |
+| Group 4 — WAV / MP3 / Ogg / MP4 | ⬜ not started; five tranches by ADR-0037 |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.
@@ -59,6 +61,11 @@ applies *within* this phase as well as across phases.
 - **ADR-0036 (JPEG XL)** — HEIF's box grammar, ADR-0034's conclusion reversed: nothing is addressed
   by file offset, so it is edited by deletion. Two spellings, one handler; the bare codestream is a
   declared no-op; `brob` is deleted without inflating, so no Brotli decompressor enters the tree.
+- **ADR-0038 (FLAC)** — the first audio format, and the group's hazard is absent: RFC 9639 §8.5
+  measures a seek offset from the first audio frame, so removal moves nothing and the file is edited
+  by block surgery. Two decisions to know before changing it: padding is zeroed at its length rather
+  than dropped, and the `STREAMINFO` audio MD5 is **kept and declared** because the file's holder can
+  recompute it.
 - **ADR-0029** — the descent into embedded images is one level, images only. It exists exactly once,
   in `container/package.rs`.
 

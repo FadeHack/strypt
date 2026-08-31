@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-08-25
+**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-09-01
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -521,8 +521,45 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full, and **group 3 is closed** — five
     tranches, five handlers, no outstanding debt. Group 4 may open (ADR-0032).
 
-- ⬜ **Group 4 — audio and video containers — not started.** The "check before referencing a
-  later artefact" rule now applies *within* this phase as well as across phases.
+- 🔶 **Group 4 — audio and video containers — in progress, one tranche of five landed.**
+  **ADR-0037 splits it into five tranches** — FLAC, WAV, MP3, Ogg (Opus/Vorbis/FLAC-in-Ogg),
+  MP4+M4A — landing in that order under ADR-0032's rules. What makes this group unlike the three
+  before it: the payload is a timed stream and the container indexes into it, so MP4's `stco`/`co64`
+  invalidate silently when a box ahead of the media is removed, and Ogg's metadata sits in
+  CRC-checked pages that cannot be edited in place. Three questions are left to their tranches, and
+  the dependency survey is closer than Group 3's — `lofty` is permissively licensed and the right
+  shape, so it is not pre-rejected. **Nothing beyond tranche 1 exists**: the "check before
+  referencing a later artefact" rule applies here.
+
+  - 🔶 **Tranche 1 — FLAC — landed 2026-09-01, sustained fuzz debt outstanding.** Landed:
+    ADR-0038, the handler, a `flac` fuzz target with seeds, 10 fixtures plus 8 malformed ones with
+    their generator, 19 integration tests, 26 unit tests, a clean mat2/ExifTool/ffmpeg differential,
+    and `docs/THREAT_MODEL.md` §7.13.
+
+    **ADR-0038 is required reading before touching it.** The group's distinguishing hazard is
+    absent here: RFC 9639 §8.5 measures a seek point from the first frame header rather than from
+    the start of the file, so removing metadata moves no offset. FLAC is therefore edited by block
+    surgery and a clean file comes back byte-identical. Blocks reach the output through an
+    allow-list — `STREAMINFO`, `SEEKTABLE`, `PADDING` — so a reserved type is removed unread.
+
+    **strypt removes more here, measured rather than assumed.** `scripts/flac-differential.sh` is
+    clean over 10 fixtures and verified able to fail (18 gaps against a pass-through binary). mat2
+    reaches FLAC through mutagen, which knows the Vorbis comment and the picture block, so an
+    **`APPLICATION` block, a `CUESHEET` carrying a catalogue number and ISRCs, and a reserved block
+    type all survive mat2 and do not survive strypt**.
+
+    **Deliberate limitations, recorded in §7.13:** the audio is never decoded, so anything in a
+    frame's reserved bits or appended past the last frame is out of reach, and every report says
+    so; the **MD5 of the unencoded audio is kept and declared**, because the holder of the file can
+    recompute it and removing it would break verifiers while hiding nothing; `CUESHEET` is removed,
+    which **ends splitting the file back into tracks**, declared on every file that had one;
+    padding is zeroed at its original length rather than dropped; and a FLAC with a prepended ID3v2
+    tag is refused by name rather than cleaned around.
+
+    **Sustained fuzzing debt is OUTSTANDING.** A 300-second run on 2026-09-01 covered 12,208,926
+    inputs with no crash, hang, OOM or artefact — a smoke test, not exit criterion 2. Until
+    `./scripts/fuzz-sustained.sh -d 43200 flac detect` has run clean, **this tranche does not meet
+    the Phase 1 bar and tranche 2 does not open** (ADR-0032, carried over by ADR-0037).
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
@@ -534,7 +571,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
 3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
-4. Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV.
+4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
+   ADR-0037; FLAC landed 2026-09-01 and owes its sustained fuzz run.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level

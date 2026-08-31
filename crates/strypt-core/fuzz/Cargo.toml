@@ -105,6 +105,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "flac"
+path = "fuzz_targets/flac.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "detect"
 path = "fuzz_targets/detect.rs"
 test = false

@@ -2115,3 +2115,179 @@ box; decision 4 removes the need for one.
 - **Two limits are declared in every report**, and neither is a shortfall: the codestream interior
   is not entered, and a deleted `jbrd` costs JPEG reconstruction. §7.12 names both.
 - **No new dependency**, and ADR-0032's default holds for the fifth time in five tranches.
+
+---
+
+## ADR-0037 — Phase 2's fourth group is five tranches, and the video one is last
+
+**Status:** Accepted (2026-09-01)
+
+**Context.** `docs/ROADMAP.md` Phase 2 deliverable 4 is one line — "Audio and video containers —
+FLAC, MP3/M4A, Opus/Ogg, MP4, WAV" — and ADR-0032's fifth tranche closed Group 3 on 2026-08-30
+with no outstanding debt, so ADR-0027's gate permits this group to open.
+
+That line names five things that are not five formats. M4A and MP4 are one container with two
+extensions. FLAC appears twice — once as its own file, once as a codec inside Ogg — and those are
+different parsing problems with the same tag format inside them. What the line actually spans is
+four unrelated containers: a flat metadata block list (FLAC), RIFF (WAV), a bare frame stream with
+tags bolted to both ends (MP3), Ogg's CRC-checked page stream, and an ISO base-media box tree
+(MP4/M4A).
+
+ADR-0032's argument therefore applies again, and the failure mode is the same: a group is "done"
+only when its hardest member is done, and Phase 2 exit criterion 1 forbids landing the others
+provisionally to get there.
+
+**What is new in this group, and it is not merely more formats.** Every format shipped so far
+holds a still image, and metadata sits beside the payload. Here the payload is a timed stream and
+the container carries an *index into it*. MP4's `stco`/`co64` address `mdat` by absolute file
+offset, so removing a box ahead of the media silently invalidates every sample offset — ADR-0034's
+finding a second time, in a format where getting it wrong yields a file that still opens and plays
+the wrong bytes. Ogg's metadata is a packet inside pages that carry their own CRC, so it cannot be
+deleted in place at all. Neither problem has an analogue in Groups 1 to 3.
+
+**Decision.**
+
+1. **Group 4 lands as five tranches, in this fixed order**, each meeting the Phase 1 per-format bar
+   in full before the next is started:
+
+   | # | Tranche | Why here |
+   |---|---|---|
+   | 1 | **FLAC** (native) | A flat list of typed metadata blocks, removed by deletion, so a clean file comes back byte-identical. Its seek points are offsets from the first audio frame rather than from the file, so nothing needs rewriting. The cheapest handler in the group and a control on the tranche machinery, as GIF was for Group 3 — and it settles the VorbisComment vocabulary that tranche 4 reuses. |
+   | 2 | **WAV** | RIFF chunk surgery, the nearest neighbour of shipped work: `formats/webp.rs` already walks RIFF. Its metadata — `LIST`/`INFO`, `bext` with its originator and coding history, `iXML`, `id3 ` — is dropped whole, so it needs no ID3 reader, which is the same move every image handler makes on an Exif block. |
+   | 3 | **MP3** | Not a container: an ID3v2 block at the head, ID3v1 or APE at the tail, frames between. Deletion at both ends, and it settles ID3 itself — unsynchronisation, the extended header, the footer — which is the part tranche 2 deliberately avoided. |
+   | 4 | **Ogg** — Opus, Vorbis, FLAC-in-Ogg | One page walker serving several codecs: the only genuine sharing in this group, and the reason these are one tranche rather than three. Not a deletion, unlike everything before it — the comment header is a packet inside CRC-checked pages, so pages are rebuilt and CRCs recomputed. |
+   | 5 | **MP4 + M4A** | Last, deliberately. It reuses `container/bmff.rs` but must answer the offset question again and possibly differently from ADR-0034, and it is the largest surface in the group. Placing it last means an unresolved MP4 delays nothing else. |
+
+   ADR-0032's rules carry over unchanged: a tranche that proves harder than expected may be
+   deferred out of Phase 2 by a superseding ADR, may **not** be landed provisionally, and may not
+   be reordered ahead of an unfinished predecessor.
+
+2. **The default is still a hand-written walker — but the survey is closer this time, and saying
+   otherwise would be dishonest.** Candidates checked 2026-09-01:
+
+   - **`lofty` 0.25.1** (2026-08-15, `github.com/Serial-ATA/lofty-rs`, ~321k recent downloads) is
+     **MIT OR Apache-2.0** and is a metadata library rather than a decoder. It therefore loses on
+     neither of the two grounds that disqualified Group 3's candidates, and it must not be waved
+     away with the sentence written for `avif-parse`. What still argues against it is shape: it is
+     a tag *model* that reads, converts and writes, where strypt needs to name byte ranges and
+     delete them, and adopting it puts a general tag-writing implementation between the user's
+     bytes and the output — the fail-closed surface this project owns. It also has no notion of
+     refusing a file over a chunk it does not recognise, which is the rule ADR-0033 and ADR-0036
+     both turn on. A tranche that concludes it earns adoption writes that ADR; **it does not
+     inherit a rejection from this one.**
+   - **`symphonia` 0.6.1** (2026-08-13, MPL-2.0) is a container-and-decode library. Wrong shape for
+     the same reason `jxl-oxide` was: decoding a file to remove its metadata admits a codec as
+     attack surface for a job that touches headers.
+   - **`mp4parse` 0.17.0** (MPL-2.0, last released 2023-05-29) carries ADR-0032's MPL-2.0 note and
+     adds staleness to it.
+   - **`id3` 1.17.1** (2026-07-29, MIT) is a reader-writer for one tag format, and is the example of
+     why any such ADR runs `scripts/check-no-network.sh` over the **resolved graph** before
+     arguing anything else: it offers optional async via Tokio.
+
+3. **Cover art is removed with its tag, and ADR-0029's descent does not extend to this group.**
+   All five formats embed a picture inside a metadata block — FLAC `PICTURE`, ID3 `APIC`, Ogg's
+   `METADATA_BLOCK_PICTURE`, MP4 `covr`. Deleting the block deletes the image and whatever Exif was
+   inside it, so no descent machinery is needed. ADR-0029 exists for package formats, where an
+   embedded image is a member the user expects to survive; here it is the metadata. Removal is
+   declared per file in the report, because a user may not expect their album art to vanish.
+
+4. **Motion HEIF stays refused, and tranche 5 does not quietly adopt it.** ADR-0034 refused it —
+   and with it Apple Live Photos — on the ground that video is Group 4. That is a decision about
+   the HEIF handler, not about MP4, and shipping tranche 5 does not reopen it: moving a format
+   between handlers changes what `detect` routes where, and needs its own ADR.
+
+5. **Three questions are named and left to their tranches**, as ADR-0032 left TIFF's and SVG's:
+   MP4's sample-offset handling (tranche 5's first task), Ogg's repagination and CRC recomputation
+   (tranche 4), and whether the RIFF walk moves out of `formats/webp.rs` into `container/riff.rs`
+   (tranche 2). Each is decided against what the format requires, not settled here in advance.
+
+**Consequences.**
+
+- **Group 4 is not done until all five tranches are**, against the same per-format bar. As with
+  ADR-0032, splitting the unit of delivery changes when work ships, never what it ships against.
+- **`docs/ROADMAP.md` deliverable 4 is read through this ADR**, as deliverable 3 is through
+  ADR-0032. The roadmap line is not rewritten; the ordering and the completion unit live here.
+- **At least three further ADRs are owed inside this group**, plus one for any dependency a tranche
+  adopts — and the `lofty` finding makes that last one likelier here than in any previous group.
+- **Phase 2's remaining exit criteria come due when this group closes**, and they are phase-wide
+  rather than group-wide: criterion 2 covers every fuzz target in the tree, old and new, and
+  criterion 3 covers every shipped format. That is a sweep to budget for, not to discover.
+- **The encoded audio is never entered**, on Phase 1's preserve-payload rule — the same trade the
+  image handlers make for pixels, with the same cost, which is that metadata hidden inside the
+  compressed stream is out of reach and the threat-model section says so.
+- **The scope lock is unchanged.** Matroska and WebM, AAC in ADTS, AIFF, and the raw camera video
+  formats are the obvious temptations once a page walker and a box walker are both in the tree.
+  Each still needs a superseding ADR (ADR-0027).
+
+---
+
+## ADR-0038 — FLAC is edited by block surgery, and the audio MD5 stays
+
+**Status:** Accepted (2026-09-01)
+
+**Context.** ADR-0037's first tranche. A FLAC is a four-byte marker, a list of typed metadata
+blocks, then audio frames to the end of the file (RFC 9639 §8). The identifying material is all in
+the block list: a Vorbis comment naming the artist, the ripping software and the machine that ran
+it; cover art that is an ordinary image with its own Exif inside it; a cuesheet carrying the
+catalogue number of the disc.
+
+The group's distinguishing hazard — a container index into a timed payload (ADR-0037) — **is not
+present here**, and one sentence of the spec is why: a seek point's offset is measured "from the
+first byte of the first frame header" (§8.5), not from the start of the file. Removing metadata
+therefore moves nothing. That makes the choice available which ADR-0034 could not make for HEIF.
+
+**Decision.**
+
+1. **Edited by deletion, never re-encoded.** Blocks are dropped whole, kept blocks are copied as
+   raw bytes, and the audio is appended verbatim, so a clean file comes back **byte-identical** —
+   GIF's and JPEG XL's property (ADR-0036), which TIFF and HEIF cannot offer. The only field
+   rewritten anywhere is the last-metadata-block flag (§8.1), which has to move when the block
+   after it goes.
+
+2. **`STREAMINFO`, `SEEKTABLE` and `PADDING` are kept; everything else goes.** An allow-list on
+   the output side, as ADR-0033 and ADR-0036 use: a reserved type (7–126) is removed unread rather
+   than surviving by being unrecognised. `APPLICATION` and `CUESHEET` go too — see below.
+
+3. **Padding keeps its length and loses its contents.** §8.2 defines padding as *n* zero bits, so
+   the bytes are replaced with the zeros the spec calls for rather than the block being dropped. A
+   compliant file is unchanged, a file hiding data in its padding is scrubbed and told about, and
+   the several kilobytes a later tagger writes in place are still there. Dropping the block would
+   have been the more aggressive choice and would have cost the user a real capability for nothing.
+
+4. **The audio MD5 in `STREAMINFO` is kept, and declared.** Its last sixteen bytes are an MD5 of
+   the *unencoded* audio (§8.2) — a fingerprint, and one that links this file to any other copy of
+   the same recording. It stays because it is **computed from the payload the file still carries**:
+   anyone holding the file can recompute it, so removing it hides nothing from them while breaking
+   every verifier that checks it. It is reported rather than passed over in silence, which is what
+   `RetentionReason::DerivedFromPayload` exists for. An all-zero field means "unknown" and there is
+   then nothing to declare.
+
+5. **`CUESHEET` is removed, and what that costs is stated.** It carries the disc's media catalogue
+   number and each track's ISRC, which identify a purchase and a pressing. Removing it means the
+   file can no longer be split back into tracks, so the report says so — ADR-0036's treatment of
+   `jbrd`, applied again.
+
+6. **A frame sync must follow the last block, or the file is refused.** §9.1.1's 14-bit sync is the
+   only thing that confirms the walk ended where the file says it did; without the check, a lying
+   length would be silently accepted and the "audio" copied from the wrong offset.
+
+7. **A FLAC with a prepended ID3v2 tag is refused by name** (`UnsupportedKind::Id3PrefixedFlac`).
+   Non-standard but common. Reading the tag is tranche 3's job; cleaning the blocks and leaving an
+   unread tag in front of them would be a success message about a file strypt had not finished.
+
+8. **Cover art is removed with its block, so nothing descends into it.** ADR-0029's one-level
+   descent into embedded images does not extend to this group, as ADR-0037 already recorded: a
+   picture that is deleted does not have to be parsed first.
+
+**Consequences.**
+
+- **strypt removes more than mat2 here, in both directions of a real measurement.** mat2's
+  `FLACParser` uses mutagen, which knows the Vorbis comment and the picture block; measured
+  2026-09-01, it keeps `APPLICATION`, `CUESHEET` and reserved block types. That is recorded in
+  `docs/THREAT_MODEL.md` §7.13 with the numbers, not claimed here.
+- **The encoded audio is never entered**, so anything inside a frame's reserved bits or appended
+  past the last frame is out of reach. Every report carries that note, clean files included.
+- **No dependency was added.** The walker is about two hundred lines against a spec that fits on a
+  page, which is ADR-0037's default holding for one more tranche. `lofty` remains un-rejected.
+- **Decision 4 is the one to revisit** if a later tranche meets a payload-derived fingerprint that
+  is *not* recomputable by the holder — the reasoning above does not transfer to that case.

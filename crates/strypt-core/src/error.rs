@@ -199,8 +199,11 @@ pub enum UnsupportedKind {
     Mp3,
     /// An Ogg container.
     Ogg,
-    /// A FLAC audio file.
-    Flac,
+    /// A FLAC carrying a prepended `ID3v2` tag, which the FLAC handler does not claim.
+    ///
+    /// Non-standard but common; ID3 parsing belongs to the MP3 tranche (ADR-0037), so a file
+    /// whose tag strypt cannot read is refused rather than cleaned around.
+    Id3PrefixedFlac,
     /// A RIFF container that is not WebP, such as WAV or AVI.
     OtherRiff,
     /// An XML document that is not an SVG this release claims.
@@ -254,7 +257,9 @@ impl std::fmt::Display for UnsupportedKind {
             Self::MotionHeif => "a motion HEIF or AVIF (an Apple Live Photo, for instance)",
             Self::Mp3 => "MP3",
             Self::Ogg => "Ogg",
-            Self::Flac => "FLAC",
+            Self::Id3PrefixedFlac => {
+                "a FLAC carrying a prepended ID3v2 tag, which strypt cannot read"
+            }
             Self::OtherRiff => "a RIFF container other than WebP",
             Self::Xml => "an XML document that is not an SVG strypt can process",
             Self::Gzip => "a gzip-compressed file, most likely a .svgz; decompress it first",

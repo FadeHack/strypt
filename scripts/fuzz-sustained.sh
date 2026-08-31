@@ -38,7 +38,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FUZZ_DIR="$REPO_ROOT/crates/strypt-core/fuzz"
-ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl ooxml odf zip detect)
+ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl flac ooxml odf zip detect)
 
 DURATION=7200
 OUT_DIR=""
@@ -50,13 +50,13 @@ Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
   -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
 
-Targets default to all fourteen: pdf jpeg png webp tiff gif heif bmff svg jxl ooxml odf zip detect
+Targets default to all fifteen: pdf jpeg png webp tiff gif heif bmff svg jxl flac ooxml odf zip detect
 
 Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of how many
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.
 
 Examples:
-  scripts/fuzz-sustained.sh -d 300                 # smoke test, all fourteen
+  scripts/fuzz-sustained.sh -d 300                 # smoke test, all fifteen
   scripts/fuzz-sustained.sh -d 28800 pdf           # 8h on PDF alone
   scripts/fuzz-sustained.sh -d 14400 png webp      # 4h each, in parallel
 
@@ -118,6 +118,7 @@ corpus_args() {
     heif) echo "corpus/heif seeds/heif seeds/heif/malformed" ;;
     svg)  echo "corpus/svg seeds/svg seeds/svg/malformed" ;;
     jxl)  echo "corpus/jxl seeds/jxl seeds/jxl/malformed" ;;
+    flac) echo "corpus/flac seeds/flac seeds/flac/malformed" ;;
     *)    echo "corpus/$1 seeds/$1" ;;
   esac
 }
@@ -222,15 +223,16 @@ delivered_cpu_hours() {
   echo
   echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across every"
   echo "handler after a sustained run, with nothing set aside as not worth fixing. Criterion 2"
-  echo "was written when there were four targets; there are now fourteen. The ooxml and zip"
+  echo "was written when there were four targets; there are now fifteen. The ooxml and zip"
   echo "targets cleared their sustained-run debt on 2026-08-24, odf and pdf cleared theirs on"
   echo "2026-08-25, tiff and detect cleared theirs on 2026-08-26, and gif cleared its on"
   echo "2026-08-27. The same run put pdf, jpeg, png and webp — the four the criterion actually"
   echo "names — clean in a single run for the first time, which closed the standing caveat that"
   echo "criterion 2 rested on one run plus standing evidence for the rest."
   echo "heif, bmff and detect cleared theirs on 2026-08-27 as well, svg on 2026-08-29, and jxl"
-  echo "on 2026-08-30. No target now has outstanding sustained-run debt; a new handler adds its"
-  echo "own, so update this paragraph when one lands rather than leaving it to read as blanket"
+  echo "on 2026-08-30. flac landed on 2026-09-01 and its sustained-run debt is OUTSTANDING: it"
+  echo "has had a short run only. Every other target is clear. A new handler adds its own debt,"
+  echo "so update this paragraph when one lands rather than leaving it to read as blanket"
   echo "coverage."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"

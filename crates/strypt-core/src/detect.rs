@@ -72,6 +72,8 @@ pub enum Format {
     Svg,
     /// JPEG XL, in either of its two spellings: a bare codestream or a BMFF container.
     Jxl,
+    /// FLAC, in its native spelling — a `fLaC` marker and a list of metadata blocks.
+    Flac,
 }
 
 impl Format {
@@ -97,6 +99,7 @@ impl Format {
             Self::Odp => "odp",
             Self::Svg => "svg",
             Self::Jxl => "jxl",
+            Self::Flac => "flac",
         }
     }
 
@@ -123,6 +126,7 @@ impl Format {
             Self::Odp => "odp",
             Self::Svg => "svg",
             Self::Jxl => "jxl",
+            Self::Flac => "flac",
         }
     }
 }
@@ -146,6 +150,7 @@ impl std::fmt::Display for Format {
             Self::Odp => "ODP",
             Self::Svg => "SVG",
             Self::Jxl => "JPEG XL",
+            Self::Flac => "FLAC",
         })
     }
 }
@@ -215,6 +220,11 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if starts_with(data, &jxl::SIGNATURE_BOX) || starts_with(data, &jxl::CODESTREAM_MAGIC) {
         return Some(Format::Jxl);
     }
+    // The stream marker (RFC 9639 §8). A FLAC carrying a prepended ID3v2 tag does not start with
+    // it, and is named separately in `detect_unsupported` rather than routed here.
+    if starts_with(data, b"fLaC") {
+        return Some(Format::Flac);
+    }
     if let Some(format) = iso_base_media_still(data) {
         return Some(format);
     }
@@ -269,12 +279,17 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     if starts_with(data, b"OggS") {
         return Some(UnsupportedKind::Ogg);
     }
-    if starts_with(data, b"fLaC") {
-        return Some(UnsupportedKind::Flac);
-    }
     // ID3v2-tagged MP3, or a bare MPEG audio frame sync (11 set bits).
     if starts_with(data, b"ID3") {
-        return Some(UnsupportedKind::Mp3);
+        // Taggers write ID3 onto FLAC too, though no FLAC specification has ever permitted it.
+        // Naming that file for what it is beats calling it an MP3: the tag is metadata strypt
+        // has no reader for until Group 4's third tranche (ADR-0037), so the file is refused —
+        // but refused accurately.
+        return Some(if id3_precedes(data, b"fLaC") {
+            UnsupportedKind::Id3PrefixedFlac
+        } else {
+            UnsupportedKind::Mp3
+        });
     }
     if let (Some(&0xFF), Some(&second)) = (data.first(), data.get(1))
         && (second & 0xE0) == 0xE0
@@ -549,6 +564,36 @@ fn is_riff_with_form(data: &[u8], form: [u8; 4]) -> bool {
     r.peek(4) == Some(form.as_slice())
 }
 
+/// True when `data` opens with an `ID3v2` tag that is followed immediately by `marker`.
+///
+/// The tag's own header is all this reads: three bytes of identifier, a version, a flags byte, and
+/// a four-byte size whose bytes carry seven bits each (ID3v2.4 §3.1). No frame is parsed — the
+/// question is only what kind of file the tag was stuck on the front of.
+fn id3_precedes(data: &[u8], marker: &[u8]) -> bool {
+    let mut r = Reader::new(data);
+    if r.skip(5).is_none() {
+        return false;
+    }
+    let Some(flags) = r.u8() else {
+        return false;
+    };
+    let Some(size) = r.take(4) else {
+        return false;
+    };
+    let mut total: usize = 0;
+    for byte in size {
+        total = total
+            .saturating_mul(128)
+            .saturating_add(usize::from(byte & 0x7F));
+    }
+    // The size counts neither the ten-byte header it sits in nor the optional footer.
+    let mut at = total.saturating_add(10);
+    if flags & 0x10 != 0 {
+        at = at.saturating_add(10);
+    }
+    data.get(at..at.saturating_add(marker.len())) == Some(marker)
+}
+
 /// Find the `%PDF-` header within the bounded search window, returning its offset.
 fn find_pdf_header(data: &[u8]) -> Option<usize> {
     const HEADER: &[u8] = b"%PDF-";
@@ -677,7 +722,6 @@ mod tests {
             (&b"PK\x03\x04"[..], UnsupportedKind::ZipContainer),
             (&b"II\x2B\x00"[..], UnsupportedKind::BigTiff),
             (&b"OggS"[..], UnsupportedKind::Ogg),
-            (&b"fLaC"[..], UnsupportedKind::Flac),
             (&b"ID3\x04"[..], UnsupportedKind::Mp3),
             // MP4 shares HEIF's container, so what makes it unsupported is the brand, not `ftyp`.
             (

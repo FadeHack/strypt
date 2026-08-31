@@ -21,6 +21,35 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **FLAC support — `.flac`.** The first tranche of Phase 2's fourth format group (ADR-0037).
+
+  What comes out: the Vorbis comment, itemised field by field — artist, album, date, location,
+  organisation, the ripping software and its settings; **cover art**, removed whole, so metadata
+  inside the embedded image goes with it; the **cuesheet**, which carries the disc's catalogue
+  number and each track's ISRC; vendor `APPLICATION` blocks; and any reserved block type, removed
+  unread rather than surviving by being unrecognised. A file with nothing to remove comes back
+  byte-identical, and the audio is never decoded or re-encoded.
+
+- **A FLAC's padding is emptied rather than dropped.** It keeps its original length, so a later
+  tagger still has the space it was written for, and loses whatever had been left in it.
+
+- **The MD5 of the unencoded audio in a FLAC's `STREAMINFO` is kept, and the report says so.** It
+  is a fingerprint that links the file to other copies of the same recording — but it is computed
+  from audio the file still carries, so anyone holding the file can recompute it, and removing it
+  would break verification while hiding nothing.
+
+- **Removing a FLAC's cuesheet means the file can no longer be split back into tracks**, and the
+  report says so on every file that had one.
+
+- **Measured against mat2 0.15.0 on 2026-09-01: an `APPLICATION` block, a cuesheet carrying a
+  catalogue number and ISRCs, and a reserved block type all survive mat2's FLAC cleanup and do not
+  survive strypt.** mat2 reaches FLAC through mutagen, which knows the Vorbis comment and the
+  picture block.
+
+- **A FLAC with an ID3v2 tag glued to the front is refused by name.** Non-standard but common;
+  reading that tag is a later tranche's work, and cleaning the blocks around it would report
+  success on a file that was not finished.
+
 - **JPEG XL support — `.jxl`, in both of its spellings.** The fifth tranche of Phase 2's third
   format group (ADR-0032).
 

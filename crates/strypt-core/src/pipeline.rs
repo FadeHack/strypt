@@ -125,7 +125,8 @@ fn handler(format: Format) -> Result<&'static dyn crate::formats::MetadataHandle
             | Format::Ods
             | Format::Odp
             | Format::Svg
-            | Format::Jxl => crate::error::UnsupportedKind::NotYetImplemented(format),
+            | Format::Jxl
+            | Format::Flac => crate::error::UnsupportedKind::NotYetImplemented(format),
         },
     })
 }

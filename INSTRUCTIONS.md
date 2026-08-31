@@ -11,14 +11,14 @@ commit as any change to the build, test, or lint workflow.**
 > **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19, the
 > Office Open XML ones on 2026-08-23, the OpenDocument ones on 2026-08-24, the TIFF ones on
 > 2026-08-26, and the GIF ones the same day. `strypt show` and `strypt strip` work on PDF, JPEG,
-> PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every
+> PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, FLAC, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every
 > other format is detected and reported as unsupported — never processed, and never passed through
 > untouched.
 >
 > Phase 2 opened 2026-08-23 (ADR-0027). OOXML and OpenDocument are its first two format groups;
-> the third is five image tranches (ADR-0032), of which TIFF, GIF, HEIF+AVIF and SVG are complete,
-> each with a clean sustained fuzz run. JPEG XL has landed and owes that run; audio/video is not
-> started. See
+> the third is five image tranches (ADR-0032), all five complete with a clean sustained fuzz run;
+> the fourth is five audio/video tranches (ADR-0037), of which FLAC has landed and owes that run.
+> See
 > [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
@@ -133,8 +133,8 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/jxl corpus/detect corpus/ooxml corpus/odf corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, svg, jxl, bmff, detect, ooxml, odf, zip
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/jxl corpus/flac corpus/detect corpus/ooxml corpus/odf corpus/zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, svg, jxl, flac, bmff, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
@@ -145,6 +145,7 @@ cargo +nightly fuzz run gif corpus/gif seeds/gif seeds/gif/malformed -- -max_tot
 cargo +nightly fuzz run heif corpus/heif seeds/heif seeds/heif/malformed -- -max_total_time=300
 cargo +nightly fuzz run svg corpus/svg seeds/svg seeds/svg/malformed -- -max_total_time=300
 cargo +nightly fuzz run jxl corpus/jxl seeds/jxl seeds/jxl/malformed -- -max_total_time=300
+cargo +nightly fuzz run flac corpus/flac seeds/flac seeds/flac/malformed -- -max_total_time=300
 cargo +nightly fuzz run bmff corpus/bmff seeds/bmff -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
 cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
@@ -194,7 +195,7 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all fourteen targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all fifteen targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
@@ -204,6 +205,7 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 heif bmff detect  # 12h each; group 3 tranche 3's debt, cleared 2026-08-27
 ./scripts/fuzz-sustained.sh -d 43200 svg detect   # 12h each; group 3 tranche 4's debt, cleared 2026-08-29
 ./scripts/fuzz-sustained.sh -d 43200 jxl detect   # 12h each; group 3 tranche 5's debt, cleared 2026-08-30
+./scripts/fuzz-sustained.sh -d 43200 flac detect  # 12h each; group 4 tranche 1's debt, OUTSTANDING
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:
@@ -212,11 +214,11 @@ nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```
 
-The default target list is **all fourteen** — `pdf jpeg png webp tiff gif heif bmff svg jxl ooxml
-odf zip detect`. The runner has now failed to know about a new target three times, so check it before
+The default target list is **all fifteen** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
+ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before
 trusting a run to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23,
 `odf` with Phase 2 group 2, `tiff` on 2026-08-25, `gif` on 2026-08-26, `heif` and `bmff` on
-2026-08-27, `svg` on 2026-08-29, and `jxl` on 2026-08-29. Each was rejected as an unknown name until it was added,
+2026-08-27, `svg` on 2026-08-29, `jxl` on 2026-08-29, and `flac` on 2026-09-01. Each was rejected as an unknown name until it was added,
 so **a run predating a target's addition covered fewer targets than its command line suggests**,
 silently.
 
@@ -305,6 +307,7 @@ python3 corpus/tools/make_gif_fixtures.py        # regenerate; carries its own L
 python3 corpus/tools/make_heif_fixtures.py       # regenerate; embeds one recorded AV1 and one recorded HEVC codestream, so every fixture really decodes
 python3 corpus/tools/make_svg_fixtures.py        # regenerate; every fixture is a real SVG that Rsvg can open
 python3 corpus/tools/make_jxl_fixtures.py        # regenerate; the codestream is a hand-written header stub — no encoder is needed
+python3 corpus/tools/make_flac_fixtures.py       # regenerate; every fixture is real decodable audio, so mat2 and ffmpeg can open it
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
@@ -519,6 +522,29 @@ therefore structural — the output must still identify as JXL at the dimensions
 Last run 2026-08-29 against mat2 0.15.0 and ExifTool 13.55: no gaps across 13 fixtures, and
 ExifTool leaving `jumb`, `jbrd`, `jxli`, `free` and `skip` where strypt removes them. Verified able
 to fail: against a pass-through binary it reports 28 gaps.
+
+### FLAC differential
+
+```sh
+cargo build --release
+./scripts/flac-differential.sh
+```
+
+Both tools edit the block list rather than re-encoding, so the comparison is fair in both
+directions, and **the reverse direction is the one worth reading**. The script walks metadata
+blocks with its own Python walker, because ExifTool names nothing at all for an `APPLICATION` block
+or a reserved type, and a block that survives one tool and not the other would otherwise be
+invisible.
+
+**No FLAC decoder is in strypt** — but the fixtures are real audio, so the "still the same
+recording" check is a real one: `ffmpeg` decodes input and output and their MD5s must match.
+`-map 0:a` in that check is load-bearing, because ffmpeg exposes cover art as a video stream.
+Requires `ffmpeg` in addition to mat2, ExifTool and python3.
+
+Last run 2026-09-01 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 10
+fixtures, every output the same audio sample for sample, and mat2 leaving `APPLICATION`, `CUESHEET`
+and reserved block types where strypt removes them. Verified able to fail: against a pass-through
+binary it reports 18 gaps.
 
 ### OpenDocument LibreOffice import validation
 
