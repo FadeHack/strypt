@@ -50,6 +50,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   reading that tag is a later tranche's work, and cleaning the blocks around it would report
   success on a file that was not finished.
 
+- **The FLAC handler has had a clean twelve-hour fuzz run** — 364 million inputs, zero crashes,
+  hangs or OOMs — alongside the format-detection target's 3.1 billion.
+
 - **JPEG XL support — `.jxl`, in both of its spellings.** The fifth tranche of Phase 2's third
   format group (ADR-0032).
 

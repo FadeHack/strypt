@@ -86,8 +86,8 @@
 > `jxl` and `detect` fuzz targets have each run 12 hours — 24 CPU-hours, 3.4 billion inputs, zero
 > crashes, hangs or OOMs.
 >
-> **FLAC landed 2026-09-01 — the first of Phase 2's five audio/video tranches, and the first one
-> not finished.** It is edited by block surgery, so a clean file comes back byte-identical: RFC 9639
+> **FLAC is finished as of 2026-09-01 — the first of Phase 2's five audio/video tranches.** It is
+> edited by block surgery, so a clean file comes back byte-identical: RFC 9639
 > measures a seek point from the first audio frame rather than from the start of the file, so
 > removing metadata moves nothing. Blocks reach the output through an allow-list, so a block type
 > strypt has never seen is removed unread. Measured on 2026-09-01, mat2 reaches FLAC through
@@ -99,9 +99,8 @@
 > audio it still carries; removing the cuesheet **ends splitting the file back into tracks**; and a
 > FLAC with an ID3v2 tag glued to the front is refused by name.
 >
-> **That tranche is not done.** Its sustained fuzz run has not been done — 300 seconds and 12.2
-> million inputs is a smoke test, not the twelve hours every other target has passed — so the next
-> tranche does not open until it has. WAV, MP3, Ogg and MP4 are **not started**.
+> The `flac` and `detect` fuzz targets have each run 12 hours — 24 CPU-hours, 3.5 billion inputs,
+> zero crashes, hangs or OOMs. WAV, MP3, Ogg and MP4 are **not started**.
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
 > tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
@@ -114,7 +113,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30 done; FLAC 2026-09-01 landed but owes its sustained fuzz run; WAV, MP3, Ogg, MP4 not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01 done; WAV, MP3, Ogg, MP4 not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >

@@ -42,8 +42,8 @@ ADR-0037 — under the same rule.
 | Group 3 — TIFF / GIF / HEIF+AVIF | ✅ 2026-08-26, 08-27, 08-27 |
 | Group 3 — SVG | ✅ 2026-08-29 |
 | Group 3 — JPEG XL | ✅ 2026-08-30 |
-| Group 4 — FLAC | 🔶 landed 2026-09-01; **sustained fuzz debt outstanding**, so tranche 2 is not open |
-| Group 4 — WAV / MP3 / Ogg / MP4 | ⬜ not started; five tranches by ADR-0037 |
+| Group 4 — FLAC | ✅ 2026-09-01 |
+| Group 4 — WAV / MP3 / Ogg / MP4 | ⬜ not started; tranche 2 (WAV) may open |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.

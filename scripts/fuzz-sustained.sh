@@ -230,10 +230,9 @@ delivered_cpu_hours() {
   echo "names — clean in a single run for the first time, which closed the standing caveat that"
   echo "criterion 2 rested on one run plus standing evidence for the rest."
   echo "heif, bmff and detect cleared theirs on 2026-08-27 as well, svg on 2026-08-29, and jxl"
-  echo "on 2026-08-30. flac landed on 2026-09-01 and its sustained-run debt is OUTSTANDING: it"
-  echo "has had a short run only. Every other target is clear. A new handler adds its own debt,"
-  echo "so update this paragraph when one lands rather than leaving it to read as blanket"
-  echo "coverage."
+  echo "on 2026-08-30, and flac on 2026-09-01. No target now has outstanding sustained-run debt;"
+  echo "a new handler adds its own, so update this paragraph when one lands rather than leaving"
+  echo "it to read as blanket coverage."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
   echo "'NO — still climbing' means this target needs a longer run before its number can be"

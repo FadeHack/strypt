@@ -1549,10 +1549,14 @@ plus — because deletion cannot synthesise bytes — that stripping never grows
 **guarded by a `detect()` check** that the input really is FLAC, which is the rule the aborted GIF
 run of 2026-08-26 produced.
 
-**Sustained-run debt is outstanding.** A 300-second run on 2026-09-01 covered **12,208,926 inputs**
-with no crash, hang, OOM or artefact. That is a smoke test, not Phase 1 exit criterion 2, and this
-paragraph must not be read as if it were: the twelve-hour run every other target has passed has not
-been done for `flac` yet.
+**Sustained, clean (2026-09-01).** `flac` and `detect` each ran twelve hours: **364,442,899 and
+3,106,317,026 inputs, zero crashes, hangs or OOMs**, peak RSS 1,267 MB and 626 MB, both exiting
+through libFuzzer's own `Done` line rather than dying early, and no artefact written. `flac` was
+still climbing at 39,896s of 43,202s, so this run clears the tranche's Phase 1 debt and sets no
+ADR-0014 plateau number — the two are different questions. Its peak RSS is the **highest any target
+has reached** (`jxl` peaked at 759 MB) and sits at 62% of libFuzzer's 2 GB default ceiling; nothing
+hit it, but a future handler sharing this pipeline has less headroom than the earlier numbers
+suggest.
 
 ---
 

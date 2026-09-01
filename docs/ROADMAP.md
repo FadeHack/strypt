@@ -521,7 +521,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full, and **group 3 is closed** — five
     tranches, five handlers, no outstanding debt. Group 4 may open (ADR-0032).
 
-- 🔶 **Group 4 — audio and video containers — in progress, one tranche of five landed.**
+- 🔶 **Group 4 — audio and video containers — in progress, one tranche of five complete.**
   **ADR-0037 splits it into five tranches** — FLAC, WAV, MP3, Ogg (Opus/Vorbis/FLAC-in-Ogg),
   MP4+M4A — landing in that order under ADR-0032's rules. What makes this group unlike the three
   before it: the payload is a timed stream and the container indexes into it, so MP4's `stco`/`co64`
@@ -531,7 +531,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
   shape, so it is not pre-rejected. **Nothing beyond tranche 1 exists**: the "check before
   referencing a later artefact" rule applies here.
 
-  - 🔶 **Tranche 1 — FLAC — landed 2026-09-01, sustained fuzz debt outstanding.** Landed:
+  - ✅ **Tranche 1 — FLAC — complete 2026-09-01.** Landed:
     ADR-0038, the handler, a `flac` fuzz target with seeds, 10 fixtures plus 8 malformed ones with
     their generator, 19 integration tests, 26 unit tests, a clean mat2/ExifTool/ffmpeg differential,
     and `docs/THREAT_MODEL.md` §7.13.
@@ -556,10 +556,15 @@ this order, and a group is not started until the previous one meets the Phase 1 
     padding is zeroed at its original length rather than dropped; and a FLAC with a prepended ID3v2
     tag is refused by name rather than cleaned around.
 
-    **Sustained fuzzing debt is OUTSTANDING.** A 300-second run on 2026-09-01 covered 12,208,926
-    inputs with no crash, hang, OOM or artefact — a smoke test, not exit criterion 2. Until
-    `./scripts/fuzz-sustained.sh -d 43200 flac detect` has run clean, **this tranche does not meet
-    the Phase 1 bar and tranche 2 does not open** (ADR-0032, carried over by ADR-0037).
+    **Sustained fuzzing debt cleared 2026-09-01.** Twelve hours per target, `flac` and `detect`
+    run together: **364,442,899 and 3,106,317,026 inputs, zero crashes, hangs or OOMs**, peak RSS
+    1,267MB and 626MB, both exiting through libFuzzer's own `Done` line. `flac` was still climbing
+    at **39,896s of 43,202s** — no plateau, so it has no ADR-0014 number yet; `detect` flattened at
+    3s, as it has in every run since 2026-08-26. `flac`'s peak RSS is the highest of any target so
+    far, at 62% of libFuzzer's 2GB default — worth watching as this group's later handlers land.
+
+    With that, this tranche meets the Phase 1 bar in full and **tranche 2 may open** (ADR-0032,
+    carried over by ADR-0037).
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
@@ -572,7 +577,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC landed 2026-09-01 and owes its sustained fuzz run.
+   ADR-0037; FLAC complete 2026-09-01. WAV is next; MP3, Ogg and MP4 not started.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level
