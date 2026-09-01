@@ -17,6 +17,7 @@
 //! smaller cost.
 
 use crate::container::bmff;
+use crate::container::riff;
 use crate::container::zip;
 use crate::formats::ParseLimits;
 
@@ -93,6 +94,45 @@ pub fn bmff_round_trip(data: &[u8]) {
         bmff::children(&out, 0, &mut read_budget).is_ok(),
         "the BMFF writer produced a tree the walker refuses"
     );
+}
+
+/// Walk a RIFF file and write it back out, exercising both directions of the RIFF layer.
+///
+/// Both form types the crate ships are tried, and every `LIST` body is walked as a nested chunk
+/// sequence, so the pad-byte arithmetic runs at two levels rather than only the top (ADR-0039).
+///
+/// # Panics
+///
+/// Never, by design — that is the property being fuzzed. A panic escaping this is a finding.
+pub fn riff_round_trip(data: &[u8]) {
+    let limits = ParseLimits::default();
+    for form in [*b"WEBP", *b"WAVE"] {
+        let mut budget = limits.max_items;
+        let Ok((chunks, _trailing)) = riff::read(data, form, &mut budget) else {
+            continue;
+        };
+
+        let mut body = Vec::new();
+        for chunk in &chunks {
+            if let Some((_, rest)) = riff::list_form(chunk.data) {
+                let _ = riff::chunks(rest, chunk.offset, &mut budget);
+            }
+            if riff::write_chunk(&mut body, chunk.kind, chunk.data).is_err() {
+                return;
+            }
+        }
+
+        let Ok(written) = riff::write(form, &body) else {
+            return;
+        };
+        // A file this module just wrote must be one it can read back. A writer emitting something
+        // its own reader refuses is the defect the round trip exists to surface.
+        let mut read_budget = limits.max_items;
+        assert!(
+            riff::read(&written, form, &mut read_budget).is_ok(),
+            "the RIFF writer produced a file the RIFF walker refuses"
+        );
+    }
 }
 
 /// Walk into `parent`, charging the descent against the depth and item ceilings.

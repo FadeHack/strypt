@@ -204,8 +204,21 @@ pub enum UnsupportedKind {
     /// Non-standard but common; ID3 parsing belongs to the MP3 tranche (ADR-0037), so a file
     /// whose tag strypt cannot read is refused rather than cleaned around.
     Id3PrefixedFlac,
-    /// A RIFF container that is not WebP, such as WAV or AVI.
+    /// A RIFF container that is neither WebP nor WAV, such as AVI.
     OtherRiff,
+    /// An RF64 or BW64 file: a WAV whose payload exceeds what a 32-bit RIFF size can express.
+    ///
+    /// A different container spelling, not a large WAV. The real sizes live in a `ds64` chunk and
+    /// the RIFF size field is a `-1` placeholder, so a handler that treated it as WAV would walk
+    /// the wrong extent. Named rather than left unrecognised (ADR-0039).
+    Rf64,
+    /// A WAV whose audio is a `wavl` wave list rather than a single `data` chunk.
+    ///
+    /// The one WAV shape where removing a chunk could move something: `cue ` offsets index into
+    /// the wave list's data section, which is exactly what ADR-0034 found in HEIF. Refused rather
+    /// than edited, because getting it wrong yields a file that still plays the wrong bytes
+    /// (ADR-0039).
+    WaveList,
     /// An XML document that is not an SVG this release claims.
     ///
     /// Also where an SVG with a *prefixed* root element — `<svg:svg>`, which very old Inkscape
@@ -260,7 +273,11 @@ impl std::fmt::Display for UnsupportedKind {
             Self::Id3PrefixedFlac => {
                 "a FLAC carrying a prepended ID3v2 tag, which strypt cannot read"
             }
-            Self::OtherRiff => "a RIFF container other than WebP",
+            Self::OtherRiff => "a RIFF container other than WebP or WAV",
+            Self::Rf64 => {
+                "an RF64 or BW64 file, which is a different container from WAV and not a large one"
+            }
+            Self::WaveList => "a WAV whose audio is a wave list rather than a single data chunk",
             Self::Xml => "an XML document that is not an SVG strypt can process",
             Self::Gzip => "a gzip-compressed file, most likely a .svgz; decompress it first",
             Self::UnknownJxlBox => "a JPEG XL carrying a top-level box strypt does not recognise",

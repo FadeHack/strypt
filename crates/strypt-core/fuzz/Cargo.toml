@@ -112,6 +112,20 @@ doc = false
 bench = false
 
 [[bin]]
+name = "wav"
+path = "fuzz_targets/wav.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "riff"
+path = "fuzz_targets/riff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "detect"
 path = "fuzz_targets/detect.rs"
 test = false

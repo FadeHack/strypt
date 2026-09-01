@@ -566,6 +566,40 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full and **tranche 2 may open** (ADR-0032,
     carried over by ADR-0037).
 
+  - 🔶 **Tranche 2 — WAV — landed 2026-09-01, sustained fuzzing outstanding.** Landed: ADR-0039,
+    `container/riff.rs`, the handler, `wav` and `riff` fuzz targets with seeds, 14 fixtures plus 10
+    malformed ones with their generator, 16 integration tests, 33 unit tests, a clean
+    mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.14.
+
+    **ADR-0039 is required reading before touching it**, and it answers ADR-0037's second open
+    question: **the RIFF walk moves out of `formats/webp.rs` into `container/riff.rs`**, because
+    two real consumers now exist and the shared part is attacker-driven length arithmetic, where a
+    duplicated copy is a fail-closed hazard. WebP's behaviour is preserved but its handler was
+    touched, so `webp` re-runs in the sustained run.
+
+    **The group's hazard is absent for a second tranche running.** `cue `'s offsets are measured
+    into the data section of a `wavl` list rather than into the file (verified 2026-09-01), so WAV
+    is edited by chunk surgery and a clean file comes back byte-identical. Output is an allow-list
+    — `fmt `, `data`, `fact`, `cue ` — so an unknown chunk is removed unread.
+
+    **A prediction that did not hold, and is recorded as measured rather than argued.** mat2's
+    `WAVParser` rebuilds the file through ffmpeg, which looked like it should reach data hidden in
+    the samples where chunk surgery cannot. It does not: for 16-bit PCM the rebuild reproduces the
+    `data` payload byte for byte on every fixture. `scripts/wav-differential.sh` is clean over 14
+    fixtures and **verified able to fail** (43 gaps against a pass-through stand-in).
+
+    **Deliberate limitations, recorded in §7.14:** the audio is never decoded, so anything hidden
+    in the sample values is out of reach — **a limit shared with mat2**, and declared on every
+    report; `cue ` is kept although ExifTool calls it metadata; `JUNK`, `PAD ` and `FLLR` are
+    zeroed at their length rather than dropped; `id3 ` is dropped unread, because no ID3 reader
+    enters the tree before tranche 3; `smpl` removal **ends sampler looping**, declared on every
+    file that had one; and RF64/BW64 and `wavl` wave lists are refused by name.
+
+    **Sustained fuzzing debt open.** Short runs are clean — `wav` 1,785,485 inputs, `riff`
+    5,461,380, `webp` 1,956,908 — but exit criterion 2 is not met for this tranche until a
+    sustained run over `wav`, `riff`, `webp` and `detect` is recorded here. **Tranche 3 does not
+    open until it is.**
+
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
    `app.xml`, custom properties, revision identifiers, comments, tracked changes,
@@ -577,7 +611,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC complete 2026-09-01. WAV is next; MP3, Ogg and MP4 not started.
+   ADR-0037; FLAC complete 2026-09-01, WAV landed 2026-09-01 with sustained fuzzing outstanding.
+   MP3, Ogg and MP4 not started.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level

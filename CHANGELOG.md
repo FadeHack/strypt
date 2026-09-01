@@ -21,6 +21,34 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **WAV support — `.wav`.** The second tranche of Phase 2's fourth format group (ADR-0037),
+  decided in ADR-0039.
+
+  What comes out: the `INFO` list — artist, engineer, technician, commissioner, copyright holder,
+  archival location, dates; the **broadcast extension**, whose originator, originator reference,
+  UMID and coding history name the desk, the operator and every processing step applied; field
+  recorder documents in `iXML` and `aXML`; XMP; **a whole ID3v2 tag**, dropped unread; radio
+  traffic metadata in `cart`; cue and region labels; display text, playlists and instrument
+  settings; and any private chunk, removed unread rather than surviving by being unrecognised.
+  Only the format, audio, sample-count and cue-point chunks are copied through. A file with
+  nothing to remove comes back byte-identical, and the audio is never decoded or re-encoded.
+
+- **A WAV's padding is emptied rather than dropped**, as a FLAC's is: it keeps its original length
+  and loses whatever had been left in it.
+
+- **Removing a WAV's sampler chunk means the file can no longer be looped by a sampler at the
+  points it recorded**, and the report says so on every file that had one.
+
+- **RF64 and BW64 files are refused by name rather than treated as large WAVs.** They are a
+  different container — their real sizes live in a chunk strypt does not read — and editing one as
+  a WAV would read the wrong lengths.
+
+- **Measured against mat2 0.15.0 on 2026-09-01: no gaps in either direction on the WAV corpus.**
+  mat2 rebuilds a WAV through ffmpeg where strypt edits its chunk list, and the measurement found
+  that this does *not* change the audio: for 16-bit PCM the rebuild reproduces the samples byte
+  for byte. So **neither tool reaches anything hidden inside the sample values of a WAV**, and
+  strypt's report says so on every file.
+
 - **FLAC support — `.flac`.** The first tranche of Phase 2's fourth format group (ADR-0037).
 
   What comes out: the Vorbis comment, itemised field by field — artist, album, date, location,
@@ -294,6 +322,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   project's own hardening target (Phase 3) is not met.
 
 ### Changed
+
+- **WebP and WAV now share one chunk walker (ADR-0039).** WebP's behaviour is unchanged, with one
+  exception that only makes it stricter: the per-frame sub-chunks of an animation are now subject
+  to the same item limit as the rest of the file. WebP's fuzz target was re-run against the change,
+  and the shared walker has a fuzz target of its own.
 
 - **`.heic`, `.heif` and `.avif` are no longer reported as unsupported.** They were refused as
   "an ISO base-media file" before; they are now detected by their `ftyp` brand and handled. MP4 and

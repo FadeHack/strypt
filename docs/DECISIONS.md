@@ -2291,3 +2291,90 @@ therefore moves nothing. That makes the choice available which ADR-0034 could no
   page, which is ADR-0037's default holding for one more tranche. `lofty` remains un-rejected.
 - **Decision 4 is the one to revisit** if a later tranche meets a payload-derived fingerprint that
   is *not* recomputable by the holder — the reasoning above does not transfer to that case.
+
+---
+
+## ADR-0039 — The RIFF walk moves into `container/riff.rs`, and WAV is edited by chunk surgery
+
+**Status:** Accepted (2026-09-01)
+
+**Context.** ADR-0037's second tranche, and the tranche its decision 5 named: *whether the RIFF walk
+moves out of `formats/webp.rs` into `container/riff.rs`*. A WAV is a RIFF file — a `RIFF` header, a
+`WAVE` form type, then a flat list of length-prefixed chunks, odd lengths padded to even
+(RIFFMCI.RTF, "Multimedia Programming Interface and Data Specifications 1.0"). WebP is the same
+container with a different form type, and strypt has walked it since Phase 1.
+
+The identifying material is all in the chunk list: an `INFO` list naming artist, engineer and
+copyright holder; a `bext` broadcast extension whose `Originator`, `OriginatorReference`, `UMID` and
+`CodingHistory` name the desk, the operator and every processing step; `iXML` and `aXML` documents
+from field recorders; XMP in `_PMX`; a whole ID3v2 tag in `id3 `; `cart` radio traffic fields down
+to a URL.
+
+The group's hazard — a container index into a timed payload (ADR-0037) — **is absent again**, and
+one sentence is why: the `cue ` chunk's `dwChunkStart` and `dwBlockStart` are each "a byte offset
+relative to the start of the data section of the 'wavl' LIST chunk" (verified 2026-09-01), never
+into the file. Removing chunks moves nothing, exactly as RFC 9639 §8.5 gave FLAC (ADR-0038).
+
+**Decision.**
+
+1. **Extract `container/riff.rs`, shared by WebP and WAV.** Two real consumers now exist;
+   `container/bmff.rs` was extracted on the strength of an *expected* one. What moves is the part
+   that is identical and dangerous: length arithmetic on attacker-chosen fields — the chunk size,
+   the odd-length pad byte, the tiling against the declared extent. A duplicated copy of that is a
+   fail-closed hazard, because a fix lands in one copy and not the other. The module refuses rather
+   than clamps, as `zip.rs` and `bmff.rs` do, and carries a format-agnostic `WalkError` each handler
+   converts into its own `StryptError`.
+
+2. **WebP keeps everything that is about WebP.** The form type, `VP8X`'s fixed-length rule,
+   `validate_shape`, the flag correction, and the `ANMF` sub-chunk rewrite all stay in
+   `formats/webp.rs`. The extraction is behaviour-preserving with one deliberate change: the `ANMF`
+   sub-chunk walk had no item budget and now gets one. A `riff` fuzz target lands with the module —
+   the `zip`/`bmff` precedent — and `webp` re-runs in the sustained run, because a shipped, heavily
+   fuzzed handler was touched.
+
+3. **WAV is edited by chunk surgery, never re-encoded.** Chunks are dropped whole, kept chunks are
+   copied as raw bytes, and the `data` payload crosses byte for byte, so a clean file comes back
+   **byte-identical** and the `RIFF` size is the only recomputed field in the file.
+
+4. **`fmt `, `data`, `fact` and `cue ` are copied; everything else goes.** An allow-list on the
+   output side (ADR-0033, ADR-0036, ADR-0038): an unknown chunk is removed unread rather than
+   surviving by being unrecognised. `cue ` is a deliberate keep — it names nobody, it is playback
+   structure, and per the context above nothing this handler removes can move its offsets.
+
+5. **`JUNK`, `PAD ` and `FLLR` keep their length and lose their contents**, ADR-0038 decision 3
+   carried across: a compliant file is unchanged, a file hiding data in its padding is scrubbed and
+   told about, and the space a later tagger writes in place is still there.
+
+6. **`id3 ` is dropped whole, and no ID3 reader enters the tree.** Reading it is tranche 3's job;
+   deleting a chunk does not require parsing it — ADR-0036's treatment of `brob`, applied again.
+   The same holds for `smpl`, whose removal costs the file its sampler loop points and is therefore
+   declared, and for `cart`, `DISP`, `CSET`, `inst`, `plst` and every unknown `LIST` form.
+
+7. **Three shapes are refused by name rather than as "unrecognised".** A file with no `fmt ` or no
+   `data`, or a `fmt ` under sixteen bytes, is malformed. `RF64` and `BW64` (EBU Tech 3306, ITU-R
+   BS.2088) are a **different container**, not a large WAV: their sizes live in a `ds64` chunk and
+   the RIFF fields hold a `-1` placeholder, so walking them as RIFF would read the wrong lengths. A
+   WAV whose audio is a `wavl` wave list is refused because *there* the `cue ` offsets index a
+   structure the handler would be editing — which is exactly what ADR-0034 found in HEIF.
+
+8. **mat2 is the contrast here, not the target — and the expected contrast did not appear.** Its
+   `WAVParser` is an `AbstractFFmpegParser`, so it rebuilds the file through ffmpeg rather than
+   editing it, and the reasonable prediction was that re-encoding would reach data hidden in the
+   samples where chunk surgery cannot. **Measured on 2026-09-01, it does not**: for 16-bit PCM the
+   re-encode reproduces the `data` payload byte for byte across all fourteen fixtures. The
+   difference between the two tools on this format is in the container, not the audio. The
+   prediction was worth testing and the measurement is what is recorded —
+   `scripts/wav-differential.sh` compares the payload on every file for exactly this reason.
+
+**Consequences.**
+
+- **Neither tool reaches data hidden inside the sample values of a PCM WAV**, and
+  `docs/THREAT_MODEL.md` §7.14 states that as a measured limit shared with mat2, not as a trade
+  strypt makes alone.
+- **A second handler now depends on `container/riff.rs`**, so a change there is a change to WebP.
+  Both handlers' fuzz targets and the module's own must run before one lands.
+- **The uninspected audio is declared on every file**, clean ones included: the samples are copied
+  without being decoded.
+- **No dependency was added.** `lofty` remains un-rejected (ADR-0037 decision 2).
+- **Decision 7's `wavl` refusal is the one to revisit** if a real-producer file turns up using it;
+  today it is a spec shape without a producer, and refusing costs nothing.

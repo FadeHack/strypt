@@ -23,7 +23,7 @@ by default.
 Phases 0 and 1 are complete. **Phase 2 opened 2026-08-23 (ADR-0027)**, which supersedes ADR-0005's
 scope lock and replaces it with a narrower one.
 
-`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, FLAC, `.docx`,
+`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, FLAC, WAV, `.docx`,
 `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other format is reported as unsupported and
 never passed through untouched.
 
@@ -43,7 +43,8 @@ ADR-0037 — under the same rule.
 | Group 3 — SVG | ✅ 2026-08-29 |
 | Group 3 — JPEG XL | ✅ 2026-08-30 |
 | Group 4 — FLAC | ✅ 2026-09-01 |
-| Group 4 — WAV / MP3 / Ogg / MP4 | ⬜ not started; tranche 2 (WAV) may open |
+| Group 4 — WAV | 🔶 landed 2026-09-01; sustained fuzzing outstanding |
+| Group 4 — MP3 / Ogg / MP4 | ⬜ not started; tranche 3 (MP3) opens once WAV's fuzzing debt clears |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.
@@ -66,6 +67,11 @@ applies *within* this phase as well as across phases.
   by block surgery. Two decisions to know before changing it: padding is zeroed at its length rather
   than dropped, and the `STREAMINFO` audio MD5 is **kept and declared** because the file's holder can
   recompute it.
+- **ADR-0039 (WAV + RIFF)** — answers ADR-0037's open question: the RIFF walk now lives in
+  `container/riff.rs` and is shared with WebP, so **a change there changes WebP too**. WAV is edited
+  by chunk surgery because `cue `'s offsets index the wave list's data section, not the file. Two
+  things to know: `cue ` is kept although ExifTool calls it metadata, and `id3 ` is dropped unread —
+  no ID3 reader enters the tree before tranche 3.
 - **ADR-0029** — the descent into embedded images is one level, images only. It exists exactly once,
   in `container/package.rs`.
 

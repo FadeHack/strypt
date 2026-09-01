@@ -13,4 +13,5 @@
 
 pub(crate) mod bmff;
 pub(crate) mod package;
+pub(crate) mod riff;
 pub(crate) mod zip;

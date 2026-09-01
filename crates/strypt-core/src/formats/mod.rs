@@ -39,9 +39,10 @@ pub mod pdf;
 pub mod png;
 pub mod svg;
 pub mod tiff;
+pub mod wav;
 pub mod webp;
 mod xml;
-mod xmp;
+pub(crate) mod xmp;
 
 /// Sanitised bytes and an account of what was done to produce them.
 #[derive(Debug, Clone)]

@@ -74,6 +74,9 @@ pub enum Format {
     Jxl,
     /// FLAC, in its native spelling — a `fLaC` marker and a list of metadata blocks.
     Flac,
+    /// WAV: a RIFF container of form type `WAVE`. RF64 and BW64 are a different container and
+    /// are named separately in `detect_unsupported`.
+    Wav,
 }
 
 impl Format {
@@ -100,6 +103,7 @@ impl Format {
             Self::Svg => "svg",
             Self::Jxl => "jxl",
             Self::Flac => "flac",
+            Self::Wav => "wav",
         }
     }
 
@@ -127,6 +131,7 @@ impl Format {
             Self::Svg => "svg",
             Self::Jxl => "jxl",
             Self::Flac => "flac",
+            Self::Wav => "wav",
         }
     }
 }
@@ -151,6 +156,7 @@ impl std::fmt::Display for Format {
             Self::Svg => "SVG",
             Self::Jxl => "JPEG XL",
             Self::Flac => "FLAC",
+            Self::Wav => "WAV",
         })
     }
 }
@@ -200,6 +206,9 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     }
     if is_riff_with_form(data, *b"WEBP") {
         return Some(Format::Webp);
+    }
+    if is_riff_with_form(data, *b"WAVE") {
+        return Some(Format::Wav);
     }
     // TIFF byte-order mark followed by the magic number 42, in that byte order. BigTIFF
     // spells 43 here and is refused by the handler by name rather than matched as TIFF.
@@ -296,7 +305,14 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     {
         return Some(UnsupportedKind::Mp3);
     }
-    // Any other RIFF payload: WAV, AVI, and friends.
+    // RF64 (EBU Tech 3306) and BW64 (ITU-R BS.2088) spell the >4 GB case with their own magic and
+    // a `ds64` chunk holding the real sizes, so a WAV handler would walk the wrong extent. Named
+    // rather than left unrecognised, because "unrecognised" is untrue for a file most users would
+    // call a WAV (ADR-0039).
+    if starts_with(data, b"RF64") || starts_with(data, b"BW64") {
+        return Some(UnsupportedKind::Rf64);
+    }
+    // Any other RIFF payload: AVI, and friends.
     if starts_with(data, b"RIFF") {
         return Some(UnsupportedKind::OtherRiff);
     }
@@ -704,16 +720,31 @@ mod tests {
     }
 
     #[test]
-    fn a_non_webp_riff_is_named_rather_than_mishandled() {
-        // WAV shares WebP's container. Routing it to the WebP handler would be a
-        // mis-dispatch; calling it "unrecognised" would be unhelpful. Name it.
-        let e = detect(b"RIFF\x00\x00\x00\x00WAVEfmt ").unwrap_err();
+    fn a_riff_is_routed_by_its_form_type_rather_than_by_its_magic() {
+        // WAV and WebP share a container, so the form type is what tells them apart. Anything
+        // else RIFF is named rather than called "unrecognised", which would be unhelpful.
+        assert_eq!(
+            detect(b"RIFF\x00\x00\x00\x00WAVEfmt ").unwrap(),
+            Format::Wav
+        );
         assert!(matches!(
-            e,
+            detect(b"RIFF\x00\x00\x00\x00AVI LIST").unwrap_err(),
             StryptError::UnsupportedFormat {
                 format: UnsupportedKind::OtherRiff
             }
         ));
+        // RF64 and BW64 are a different container, not a large WAV.
+        for magic in [
+            &b"RF64\x00\x00\x00\x00WAVEds64"[..],
+            &b"BW64\x00\x00\x00\x00WAVEds64"[..],
+        ] {
+            assert!(matches!(
+                detect(magic).unwrap_err(),
+                StryptError::UnsupportedFormat {
+                    format: UnsupportedKind::Rf64
+                }
+            ));
+        }
     }
 
     #[test]

@@ -42,13 +42,17 @@
 //! # What is checked, and what is not
 //!
 //! Every length in the file was chosen by whoever made it, so every one is read through
-//! [`Reader`] and every failure is a typed error rather than a panic. The declared RIFF size
-//! bounds the walk: bytes beyond it are trailing data and go, and a RIFF size that runs past
-//! the end of the file is a lie and the file is refused rather than clamped.
+//! [`crate::container::riff`] and every failure is a typed error rather than a panic. The
+//! declared RIFF size bounds the walk: bytes beyond it are trailing data and go, and a RIFF size
+//! that runs past the end of the file is a lie and the file is refused rather than clamped.
+//!
+//! The chunk walk itself is not here — it moved to [`crate::container::riff`] when WAV became its
+//! second caller (ADR-0039). What stays is everything that is WebP rather than RIFF: the form
+//! type, `VP8X`'s fixed length, the shape check, the flag correction, and `ANMF`.
 
-use crate::bytes::{Reader, u32_to_usize};
+use crate::container::riff::{self, Chunk, WalkError, name_of};
 use crate::detect::Format;
-use crate::error::{MalformedDetail, ResourceLimit, Result, StryptError};
+use crate::error::{MalformedDetail, Result, StryptError};
 use crate::formats::{MetadataHandler, ParseLimits, StripOptions, Stripped, exif, xmp};
 use crate::report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, Note, Retained, StripReport,
@@ -96,12 +100,8 @@ impl MetadataHandler for WebpHandler {
     }
 }
 
-/// The RIFF container's code, and the form type that makes it a WebP file (§2.3).
-const RIFF: &[u8; 4] = b"RIFF";
-const WEBP: &[u8; 4] = b"WEBP";
-
-/// Bytes in a chunk header: the four-character code and a 32-bit little-endian size (§2.3).
-const CHUNK_HEADER_BYTES: usize = 8;
+/// The form type that makes a RIFF file a WebP file (§2.3).
+const WEBP: riff::FourCc = *b"WEBP";
 
 /// `VP8X`'s payload is exactly ten bytes — one of flags, three reserved, and the canvas width
 /// and height each as a 24-bit value, both stored minus one (§2.7).
@@ -132,17 +132,6 @@ const EXIF_INTRODUCER: &[u8] = b"Exif\x00\x00";
 /// `VP8L` are the lossy and lossless bitstreams (§2.7.1.2–§2.7.1.4).
 const IMAGE_CHUNKS: [&[u8; 4]; 3] = [b"ALPH", b"VP8 ", b"VP8L"];
 
-/// One chunk, and the exact bytes it occupied.
-struct Chunk<'a> {
-    /// The four-character code.
-    kind: [u8; 4],
-    /// The payload, without the header or the RIFF padding byte around it.
-    data: &'a [u8],
-    /// The whole chunk as it appeared, header and padding included. Kept chunks are written
-    /// out from this, which is what makes the copy exact.
-    raw: &'a [u8],
-}
-
 /// The result of one pass over a file: what was found, and what the sanitised file looks like.
 struct Processed {
     findings: Vec<Finding>,
@@ -156,113 +145,46 @@ struct Processed {
 /// A file that does not parse is refused whole: there is no path here that returns a partial
 /// chunk list for a caller to strip and write out.
 fn walk<'a>(input: &'a [u8], limits: &ParseLimits) -> Result<(Vec<Chunk<'a>>, &'a [u8])> {
-    let mut r = Reader::new(input);
-    if r.take(RIFF.len()) != Some(RIFF.as_slice()) {
-        return Err(malformed(MalformedDetail::MissingMarker, Some(0)));
-    }
-
-    // §2.3: the size counts the `WEBP` form type and every chunk after it, but not the eight
-    // bytes of the RIFF header itself.
-    let declared = r
-        .u32_le()
-        .ok_or_else(|| malformed(MalformedDetail::Truncated, Some(0)))?;
-    let size = u32_to_usize(declared)
-        .ok_or_else(|| malformed(MalformedDetail::LengthOutOfRange, as_offset(4)))?;
-    if size < WEBP.len() || size > r.remaining() {
-        // Refused rather than clamped to the real file length. A clamp turns a lying size
-        // field into a silent parse of the wrong extent, and a "cleaned" copy of a truncated
-        // file would be a repair the user never asked for, presented as a clean version.
-        return Err(malformed(MalformedDetail::LengthOutOfRange, as_offset(4)));
-    }
-
-    let body_start = r.position();
-    if r.take(WEBP.len()) != Some(WEBP.as_slice()) {
-        return Err(malformed(
-            MalformedDetail::MissingMarker,
-            as_offset(body_start),
-        ));
-    }
-    // Cannot overflow: `size <= r.remaining()` was checked at `body_start`.
-    let end = body_start.saturating_add(size);
-
-    let mut chunks: Vec<Chunk<'a>> = Vec::new();
     let mut budget = limits.max_items;
+    let (chunks, trailing) = riff::read(input, WEBP, &mut budget).map_err(convert)?;
+    validate_shape(&chunks)?;
+    Ok((chunks, trailing))
+}
 
-    while r.position() < end {
-        if budget == 0 {
-            return Err(StryptError::LimitExceeded {
-                format: Format::Webp,
-                limit: ResourceLimit::ItemCount,
-            });
-        }
-        budget = budget.saturating_sub(1);
-
-        let start = r.position();
-        let kind: [u8; 4] = r
-            .take(4)
-            .and_then(|k| k.try_into().ok())
-            .ok_or_else(|| malformed(MalformedDetail::Truncated, as_offset(start)))?;
-        if !kind.iter().all(|b| b.is_ascii_graphic() || *b == b' ') {
-            // A four-character code is ASCII by definition, and the defined ones include a
-            // space (`VP8 `, `XMP `). Anything else means the walk is no longer where it
-            // thinks it is, and continuing would be slicing arbitrary bytes out of a file
-            // while reporting confidently about them.
-            return Err(malformed(
-                MalformedDetail::UnexpectedMarker,
-                as_offset(start),
-            ));
-        }
-
-        let declared = r
-            .u32_le()
-            .ok_or_else(|| malformed(MalformedDetail::Truncated, as_offset(start)))?;
-        if &kind == b"VP8X" && declared != VP8X_PAYLOAD_BYTES {
-            // §2.7 fixes this chunk's length. A different one means the flags byte and the
-            // canvas dimensions are not where the specification puts them, so the handler
-            // cannot correct the flags and must not guess.
-            return Err(malformed(
-                MalformedDetail::LengthOutOfRange,
-                as_offset(start),
-            ));
-        }
-        let length = u32_to_usize(declared)
-            .ok_or_else(|| malformed(MalformedDetail::LengthOutOfRange, as_offset(start)))?;
-
-        // §2.3: an odd-length payload is followed by one padding byte, which must be zero.
-        let padding = length & 1;
-        let padded = length
-            .checked_add(padding)
-            .ok_or_else(|| malformed(MalformedDetail::LengthOutOfRange, as_offset(start)))?;
-        if padded > end.saturating_sub(r.position()) {
-            // The chunk claims more than the RIFF size says is left, which is the field a
-            // hostile file lies about.
-            return Err(malformed(
-                MalformedDetail::LengthOutOfRange,
-                as_offset(start),
-            ));
-        }
-
-        let data = r
-            .take(length)
-            .ok_or_else(|| malformed(MalformedDetail::LengthOutOfRange, as_offset(start)))?;
-        r.skip(padding)
-            .ok_or_else(|| malformed(MalformedDetail::Truncated, as_offset(start)))?;
-        let raw = input.get(start..r.position()).unwrap_or_default();
-
-        chunks.push(Chunk { kind, data, raw });
+/// A container-layer walk failure as this format's error.
+fn convert(error: WalkError) -> StryptError {
+    match error {
+        WalkError::Malformed { detail, offset } => malformed(detail, as_offset(offset)),
+        WalkError::Limit(limit) => StryptError::LimitExceeded {
+            format: Format::Webp,
+            limit,
+        },
     }
-
-    validate_shape(&chunks, body_start)?;
-    Ok((chunks, input.get(end..).unwrap_or_default()))
 }
 
 /// Refuse a chunk list that is not a shape this handler has understood.
 ///
-/// Both checks exist to stop the handler emitting something that passes for a WebP file and is
-/// not one. The second matters most: a file consisting of nothing but a `VP8X` and an `EXIF`
-/// chunk would otherwise strip to a container with no picture in it, and be reported as a
+/// These checks exist to stop the handler emitting something that passes for a WebP file and is
+/// not one. The picture check matters most: a file consisting of nothing but a `VP8X` and an
+/// `EXIF` chunk would otherwise strip to a container with no picture in it, and be reported as a
 /// success.
-fn validate_shape(chunks: &[Chunk<'_>], body_start: usize) -> Result<()> {
+fn validate_shape(chunks: &[Chunk<'_>]) -> Result<()> {
+    // Offsets reported here point at the RIFF body rather than at a chunk, as they did when
+    // these checks ran inside the walk.
+    let body_start = riff::HEADER_BYTES;
+
+    for chunk in chunks {
+        // §2.7 fixes this chunk's length. A different one means the flags byte and the canvas
+        // dimensions are not where the specification puts them, so the handler cannot correct
+        // the flags and must not guess.
+        if &chunk.kind == b"VP8X" && as_u64(chunk.data.len()) != u64::from(VP8X_PAYLOAD_BYTES) {
+            return Err(malformed(
+                MalformedDetail::LengthOutOfRange,
+                as_offset(chunk.offset),
+            ));
+        }
+    }
+
     // §2.7: an extended file opens with `VP8X`, and a simple file is one bitstream chunk.
     let opens_correctly =
         matches!(chunks.first(), Some(c) if matches!(&c.kind, b"VP8X" | b"VP8 " | b"VP8L"));
@@ -341,7 +263,6 @@ fn process(input: &[u8], options: &InspectOptions, limits: &ParseLimits) -> Resu
     // The RIFF payload is assembled first, because the size field in front of it is the one
     // field in a WebP file that cannot be copied and has to be computed.
     let mut body: Vec<u8> = Vec::with_capacity(input.len());
-    body.extend_from_slice(WEBP);
 
     for chunk in &chunks {
         let decision = decide(chunk, options, limits);
@@ -359,7 +280,7 @@ fn process(input: &[u8], options: &InspectOptions, limits: &ParseLimits) -> Resu
         // Nothing reads past the length the RIFF header declares, and few users know anything
         // can be there. It is a convenient place to keep a second copy of an image whose
         // visible version was cropped.
-        let kind = if trailing.starts_with(RIFF) {
+        let kind = if trailing.starts_with(&riff::RIFF) {
             MetadataKind::Thumbnail
         } else {
             MetadataKind::Other
@@ -372,15 +293,8 @@ fn process(input: &[u8], options: &InspectOptions, limits: &ParseLimits) -> Resu
     }
 
     // Unreachable in practice: the output body is never larger than the input's declared RIFF
-    // size, which was itself read as a `u32`. Written as a refusal rather than a saturating
-    // cast because the alternative is a file whose size field lies.
-    let size = u32::try_from(body.len())
-        .map_err(|_| malformed(MalformedDetail::LengthOutOfRange, None))?;
-
-    let mut output = Vec::with_capacity(body.len().saturating_add(CHUNK_HEADER_BYTES));
-    output.extend_from_slice(RIFF);
-    output.extend_from_slice(&size.to_le_bytes());
-    output.extend_from_slice(&body);
+    // size, which was itself read as a `u32`.
+    let output = riff::write(WEBP, &body).map_err(|d| malformed(d, None))?;
 
     Ok(Processed {
         findings,
@@ -401,7 +315,7 @@ fn decide(chunk: &Chunk<'_>, options: &InspectOptions, limits: &ParseLimits) -> 
         // colour and loop count, neither of which names anyone.
         b"VP8 " | b"VP8L" | b"ALPH" | b"ANIM" => Decision::keep(),
         // One animation frame, which is a container of its own.
-        b"ANMF" => animation_frame(chunk),
+        b"ANMF" => animation_frame(chunk, limits),
         // An embedded ICC colour profile. A per-device profile is a fingerprint, and its
         // internal tags routinely carry the vendor, the model, and the calibration date.
         b"ICCP" => Decision::drop_one(MetadataKind::ColourProfile, "ICCP", size),
@@ -466,7 +380,7 @@ fn extended_header(chunk: &Chunk<'_>) -> Decision {
 /// A sub-chunk area that does not parse is left exactly as it arrived, with a note saying so.
 /// Refusing the whole file would be the wrong call for a frame strypt only partly understands,
 /// and silently keeping it would let the user believe the frame had been scrubbed.
-fn animation_frame(chunk: &Chunk<'_>) -> Decision {
+fn animation_frame(chunk: &Chunk<'_>, limits: &ParseLimits) -> Decision {
     let Some(header) = chunk.data.get(0..ANMF_HEADER_BYTES) else {
         return unexamined("ANMF", as_u64(chunk.data.len()));
     };
@@ -474,7 +388,8 @@ fn animation_frame(chunk: &Chunk<'_>) -> Decision {
         return unexamined("ANMF", as_u64(chunk.data.len()));
     };
 
-    let Some(sub_chunks) = walk_sub_chunks(rest) else {
+    let mut budget = limits.max_items;
+    let Ok(sub_chunks) = riff::chunks(rest, 0, &mut budget) else {
         return unexamined("ANMF", as_u64(chunk.data.len()));
     };
 
@@ -499,16 +414,10 @@ fn animation_frame(chunk: &Chunk<'_>) -> Decision {
         return Decision::keep();
     }
 
-    let Ok(size) = u32::try_from(payload.len()) else {
+    let mut rewritten = Vec::with_capacity(payload.len().saturating_add(riff::HEADER_BYTES + 1));
+    if riff::write_chunk(&mut rewritten, *b"ANMF", &payload).is_err() {
         // Unreachable: the rebuilt payload is never larger than the one that was parsed.
         return unexamined("ANMF", as_u64(chunk.data.len()));
-    };
-    let mut rewritten = Vec::with_capacity(payload.len().saturating_add(CHUNK_HEADER_BYTES + 1));
-    rewritten.extend_from_slice(b"ANMF");
-    rewritten.extend_from_slice(&size.to_le_bytes());
-    rewritten.extend_from_slice(&payload);
-    if payload.len() & 1 == 1 {
-        rewritten.push(0);
     }
 
     Decision {
@@ -517,33 +426,6 @@ fn animation_frame(chunk: &Chunk<'_>) -> Decision {
         retained: Vec::new(),
         notes: Vec::new(),
     }
-}
-
-/// Walk the sub-chunk area inside an `ANMF` payload, or [`None`] if it does not parse cleanly.
-///
-/// Deliberately total and deliberately strict: any short read, any lying length, and the whole
-/// area is declared not understood rather than half-parsed.
-fn walk_sub_chunks(data: &[u8]) -> Option<Vec<Chunk<'_>>> {
-    let mut r = Reader::new(data);
-    let mut out = Vec::new();
-    while !r.is_empty() {
-        let start = r.position();
-        let kind: [u8; 4] = r.take(4)?.try_into().ok()?;
-        if !kind.iter().all(|b| b.is_ascii_graphic() || *b == b' ') {
-            return None;
-        }
-        let length = u32_to_usize(r.u32_le()?)?;
-        let payload = r.take(length)?;
-        r.skip(length & 1)?;
-        out.push(Chunk {
-            kind,
-            data: payload,
-            // Every iteration consumes at least the eight bytes of a header, so this loop
-            // cannot spin on a zero-length chunk.
-            raw: data.get(start..r.position())?,
-        });
-    }
-    Some(out)
 }
 
 /// `EXIF`: a raw TIFF block, byte-order mark first.
@@ -579,14 +461,6 @@ fn unexamined(location: &'static str, bytes: u64) -> Decision {
             bytes,
         }],
     }
-}
-
-/// A four-character code as a reportable name.
-///
-/// Trailing spaces are padding, not part of the name — the defined codes include `VP8 ` and
-/// `XMP ` — and a report reads better without them.
-fn name_of(kind: &[u8]) -> String {
-    xmp::name_of(kind).trim_end().to_owned()
 }
 
 /// A malformed-file error for this format.
@@ -635,14 +509,7 @@ mod tests {
 
     /// A RIFF/WEBP container around the given chunks, with a correct size field.
     fn webp(chunks: &[Vec<u8>]) -> Vec<u8> {
-        let mut body = WEBP.to_vec();
-        for c in chunks {
-            body.extend_from_slice(c);
-        }
-        let mut out = RIFF.to_vec();
-        out.extend_from_slice(&u32::try_from(body.len()).unwrap().to_le_bytes());
-        out.extend_from_slice(&body);
-        out
+        riff::write(WEBP, &chunks.concat()).unwrap()
     }
 
     /// A `VP8X` payload with the given flags and a 16x16 canvas.
@@ -1011,6 +878,8 @@ mod tests {
             WebpHandler.inspect(b"RIFX\x04\x00\x00\x00WEBP", &InspectOptions::names_only()),
             Err(StryptError::Malformed { .. })
         ));
+        // Detection routes this to the WAV handler (ADR-0039); reaching this one directly is
+        // still a refusal, because the form type is not `WEBP`.
         assert!(matches!(
             WebpHandler.inspect(b"RIFF\x04\x00\x00\x00WAVE", &InspectOptions::names_only()),
             Err(StryptError::Malformed {
