@@ -102,10 +102,8 @@
 > The `flac` and `detect` fuzz targets have each run 12 hours — 24 CPU-hours, 3.5 billion inputs,
 > zero crashes, hangs or OOMs.
 >
-> **WAV landed 2026-09-01 — the second audio tranche — and its sustained fuzz run is still owed.**
-> Short runs are clean, but until a 12-hour run over `wav`, `riff` and `webp` is recorded, this
-> handler has not met the same bar as the ones above it, and MP3 does not start. It is edited by
-> chunk surgery, so a clean file comes back byte-identical, and only four chunks are copied through
+> **WAV is finished as of 2026-09-02 — the second of Phase 2's five audio/video tranches.** It is
+> edited by chunk surgery, so a clean file comes back byte-identical, and only four chunks are copied through
 > — everything else, named or private, is removed unread. Its walker is now shared with WebP.
 > Measured on 2026-09-01 against mat2 0.15.0: no gaps in either direction. **The interesting result
 > is one that did not go strypt's way and is recorded anyway**: mat2 rebuilds a WAV through ffmpeg,
@@ -116,7 +114,11 @@
 > than parsed; removing the sampler chunk **ends looping the file in a sampler**; and RF64/BW64
 > files are refused by name rather than treated as large WAVs.
 >
-> MP3, Ogg and MP4 are **not started**.
+> The `wav`, `riff`, `webp` and `detect` fuzz targets have each run 12 hours — 48 CPU-hours, 8.1
+> billion inputs, zero crashes, hangs or OOMs. `webp` was in that run because its chunk walk is now
+> shared with WAV, and it kept finding new code paths for eleven of its twelve hours where its
+> earlier run had flattened — it found no defect, and it is why touching a shipped handler costs a
+> re-run. MP3, Ogg and MP4 are **not started**.
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
 > tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
@@ -129,7 +131,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01 done; WAV landed 2026-09-01 with its sustained fuzz run still owed; MP3, Ogg, MP4 not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02 done; MP3, Ogg, MP4 not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >

@@ -1638,9 +1638,17 @@ run of 2026-08-26 produced. A second target, `riff`, drives the shared walker di
 that what the writer emits the walker reads back, as `zip` and `bmff` do for their containers.
 `webp` is re-run alongside both, because ADR-0039 moved code out of a shipped handler.
 
-**Sustained: outstanding.** Short runs of 90 seconds each are clean — `wav` 1,785,485 inputs, `riff`
-5,461,380, `webp` 1,956,908 after the refactor, no artefact written — but the tranche's Phase 1
-exit-criterion-2 debt is not cleared until a sustained run is recorded here, as §7.13's was.
+**Sustained, clean (2026-09-02).** `wav`, `riff`, `webp` and `detect` each ran twelve hours:
+**1,409,562,055, 3,156,792,583, 824,711,801 and 2,707,768,453 inputs, zero crashes, hangs or
+OOMs**, peak RSS 985 MB, 447 MB, 750 MB and 481 MB, all four exiting through libFuzzer's own `Done`
+line rather than dying early, and no artefact written. `wav` was still climbing at 42,672s of
+43,204s, so this run clears the tranche's Phase 1 debt and sets no ADR-0014 plateau number — the two
+are different questions.
+
+**`webp` was still climbing too, at 41,349s** — on a handler shipped since Phase 1, whose previous
+sustained run flattened. ADR-0039 moved its chunk walk into shared code, and the honest reading is
+that the re-run explored paths the earlier one had not; it found nothing, but it is the reason the
+re-run was required rather than optional, and a later change to `container/riff.rs` owes the same.
 
 ---
 

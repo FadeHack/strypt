@@ -43,8 +43,8 @@ ADR-0037 — under the same rule.
 | Group 3 — SVG | ✅ 2026-08-29 |
 | Group 3 — JPEG XL | ✅ 2026-08-30 |
 | Group 4 — FLAC | ✅ 2026-09-01 |
-| Group 4 — WAV | 🔶 landed 2026-09-01; sustained fuzzing outstanding |
-| Group 4 — MP3 / Ogg / MP4 | ⬜ not started; tranche 3 (MP3) opens once WAV's fuzzing debt clears |
+| Group 4 — WAV | ✅ 2026-09-02 |
+| Group 4 — MP3 / Ogg / MP4 | ⬜ not started; tranche 3 (MP3) may open |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.

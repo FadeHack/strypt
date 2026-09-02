@@ -17,8 +17,8 @@ commit as any change to the build, test, or lint workflow.**
 >
 > Phase 2 opened 2026-08-23 (ADR-0027). OOXML and OpenDocument are its first two format groups;
 > the third is five image tranches (ADR-0032), all five complete with a clean sustained fuzz run;
-> the fourth is five audio/video tranches (ADR-0037), of which FLAC is complete with a clean
-> sustained run and WAV has landed with that run still owed. See
+> the fourth is five audio/video tranches (ADR-0037), of which FLAC and WAV are complete, both
+> with a clean sustained run. See
 > [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
@@ -208,7 +208,7 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 svg detect   # 12h each; group 3 tranche 4's debt, cleared 2026-08-29
 ./scripts/fuzz-sustained.sh -d 43200 jxl detect   # 12h each; group 3 tranche 5's debt, cleared 2026-08-30
 ./scripts/fuzz-sustained.sh -d 43200 flac detect  # 12h each; group 4 tranche 1's debt, cleared 2026-09-01
-./scripts/fuzz-sustained.sh -d 43200 wav riff webp detect  # 12h each; group 4 tranche 2's debt — webp is here because ADR-0039 moved code out of it
+./scripts/fuzz-sustained.sh -d 43200 wav riff webp detect  # 12h each; group 4 tranche 2's debt, cleared 2026-09-02 — webp is here because ADR-0039 moved code out of it
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:

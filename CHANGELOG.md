@@ -49,6 +49,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   for byte. So **neither tool reaches anything hidden inside the sample values of a WAV**, and
   strypt's report says so on every file.
 
+- **The WAV handler has had a clean twelve-hour fuzz run** — 1.4 billion inputs, zero crashes,
+  hangs or OOMs — alongside the shared chunk walker's 3.2 billion, WebP's 824 million and the
+  format-detection target's 2.7 billion. WebP was re-run because its chunk walk is now shared.
+
 - **FLAC support — `.flac`.** The first tranche of Phase 2's fourth format group (ADR-0037).
 
   What comes out: the Vorbis comment, itemised field by field — artist, album, date, location,

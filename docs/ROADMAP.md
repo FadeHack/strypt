@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-09-01
+**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-09-02
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -566,7 +566,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full and **tranche 2 may open** (ADR-0032,
     carried over by ADR-0037).
 
-  - 🔶 **Tranche 2 — WAV — landed 2026-09-01, sustained fuzzing outstanding.** Landed: ADR-0039,
+  - ✅ **Tranche 2 — WAV — complete 2026-09-02.** Landed: ADR-0039,
     `container/riff.rs`, the handler, `wav` and `riff` fuzz targets with seeds, 14 fixtures plus 10
     malformed ones with their generator, 16 integration tests, 33 unit tests, a clean
     mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.14.
@@ -595,10 +595,17 @@ this order, and a group is not started until the previous one meets the Phase 1 
     enters the tree before tranche 3; `smpl` removal **ends sampler looping**, declared on every
     file that had one; and RF64/BW64 and `wavl` wave lists are refused by name.
 
-    **Sustained fuzzing debt open.** Short runs are clean — `wav` 1,785,485 inputs, `riff`
-    5,461,380, `webp` 1,956,908 — but exit criterion 2 is not met for this tranche until a
-    sustained run over `wav`, `riff`, `webp` and `detect` is recorded here. **Tranche 3 does not
-    open until it is.**
+    **Sustained fuzzing debt cleared 2026-09-02.** Twelve hours per target, `wav`, `riff`, `webp`
+    and `detect` run together: **1,409,562,055, 3,156,792,583, 824,711,801 and 2,707,768,453
+    inputs, zero crashes, hangs or OOMs**, peak RSS 985MB, 447MB, 750MB and 481MB, all four exiting
+    through libFuzzer's own `Done` line. `wav` was still climbing at **42,672s of 43,204s** — no
+    plateau, so it has no ADR-0014 number yet. **So was `webp`, at 41,349s**, on a handler whose
+    earlier run flattened: ADR-0039 moved its chunk walk into shared code and the re-run explored
+    paths the first had not. It found nothing, and it is why the re-run was required rather than
+    optional — a later change to `container/riff.rs` owes the same.
+
+    With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032,
+    carried over by ADR-0037).
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
@@ -611,8 +618,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC complete 2026-09-01, WAV landed 2026-09-01 with sustained fuzzing outstanding.
-   MP3, Ogg and MP4 not started.
+   ADR-0037; FLAC complete 2026-09-01 and WAV 2026-09-02. MP3, Ogg and MP4 not started.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level
