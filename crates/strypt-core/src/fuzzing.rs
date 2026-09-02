@@ -20,6 +20,8 @@ use crate::container::bmff;
 use crate::container::riff;
 use crate::container::zip;
 use crate::formats::ParseLimits;
+use crate::formats::tags;
+use crate::report::InspectOptions;
 
 /// Read an archive and write it back out, exercising both directions of the ZIP layer.
 ///
@@ -152,4 +154,35 @@ fn descend(parent: &bmff::Box<'_>, depth: u32, budget: &mut u32) {
     for child in &children {
         descend(child, depth.saturating_sub(1), budget);
     }
+}
+
+/// Peel the tags off both ends of `data` and itemise every one.
+///
+/// Separate from the `mp3` and `flac` targets for the reason ADR-0028 gives for separating `zip`
+/// from `ooxml`: reaching the tag reader only through a handler means every input has to look like
+/// plausible audio before the reader sees it. The `tail` scan in particular is the part no handler
+/// target reaches with arbitrary bytes — it searches backwards, and its floor is the one number
+/// standing between a lying tag size and the payload (ADR-0040).
+///
+/// # Panics
+///
+/// Never, by design — that is the property being fuzzed. A panic escaping this is a finding.
+pub fn tags_scan(data: &[u8]) {
+    let options = InspectOptions::with_values();
+    let Ok((head, start)) = tags::head(data) else {
+        return;
+    };
+    for tag in &head {
+        let _ = tags::findings(tag, &options);
+    }
+    let Ok((tail, end)) = tags::tail(data, start) else {
+        return;
+    };
+    for tag in &tail {
+        let _ = tags::findings(tag, &options);
+    }
+    // The payload boundary is what the whole module exists to compute. A tail tag reaching below
+    // the head tags would let a strip delete audio and report success (`docs/THREAT_MODEL.md` §4).
+    assert!(end >= start, "a tail tag reached below the head tags");
+    assert!(end <= data.len(), "a tag span ran past the end of the file");
 }

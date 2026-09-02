@@ -77,6 +77,8 @@ pub enum Format {
     /// WAV: a RIFF container of form type `WAVE`. RF64 and BW64 are a different container and
     /// are named separately in `detect_unsupported`.
     Wav,
+    /// MP3: MPEG-1 Audio Layer III frames, with or without the tags glued to either end of them.
+    Mp3,
 }
 
 impl Format {
@@ -104,6 +106,7 @@ impl Format {
             Self::Jxl => "jxl",
             Self::Flac => "flac",
             Self::Wav => "wav",
+            Self::Mp3 => "mp3",
         }
     }
 
@@ -132,6 +135,7 @@ impl Format {
             Self::Jxl => "jxl",
             Self::Flac => "flac",
             Self::Wav => "wav",
+            Self::Mp3 => "mp3",
         }
     }
 }
@@ -157,6 +161,7 @@ impl std::fmt::Display for Format {
             Self::Jxl => "JPEG XL",
             Self::Flac => "FLAC",
             Self::Wav => "WAV",
+            Self::Mp3 => "MP3",
         })
     }
 }
@@ -230,9 +235,17 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
         return Some(Format::Jxl);
     }
     // The stream marker (RFC 9639 §8). A FLAC carrying a prepended ID3v2 tag does not start with
-    // it, and is named separately in `detect_unsupported` rather than routed here.
-    if starts_with(data, b"fLaC") {
+    // it, and used to be refused by name here. It is routed to the handler now: the MP3 tranche
+    // put an ID3 reader in the tree, so the tag is read and removed rather than left in front of
+    // blocks strypt had cleaned (ADR-0040 lifts ADR-0038 decision 7).
+    if starts_with(data, b"fLaC") || id3_precedes(data, b"fLaC") {
         return Some(Format::Flac);
+    }
+    // MPEG audio: an ID3v2 tag with frames behind it, or the frames on their own. It has to come
+    // after JPEG XL's bare `FF 0A` codestream, which a frame sync matches, and after the FLAC
+    // check above, which claims the other thing an ID3v2 tag gets stuck in front of.
+    if starts_with(data, b"ID3") || crate::formats::mp3::frame_header(data).is_some() {
+        return Some(Format::Mp3);
     }
     if let Some(format) = iso_base_media_still(data) {
         return Some(format);
@@ -287,23 +300,6 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     }
     if starts_with(data, b"OggS") {
         return Some(UnsupportedKind::Ogg);
-    }
-    // ID3v2-tagged MP3, or a bare MPEG audio frame sync (11 set bits).
-    if starts_with(data, b"ID3") {
-        // Taggers write ID3 onto FLAC too, though no FLAC specification has ever permitted it.
-        // Naming that file for what it is beats calling it an MP3: the tag is metadata strypt
-        // has no reader for until Group 4's third tranche (ADR-0037), so the file is refused —
-        // but refused accurately.
-        return Some(if id3_precedes(data, b"fLaC") {
-            UnsupportedKind::Id3PrefixedFlac
-        } else {
-            UnsupportedKind::Mp3
-        });
-    }
-    if let (Some(&0xFF), Some(&second)) = (data.first(), data.get(1))
-        && (second & 0xE0) == 0xE0
-    {
-        return Some(UnsupportedKind::Mp3);
     }
     // RF64 (EBU Tech 3306) and BW64 (ITU-R BS.2088) spell the >4 GB case with their own magic and
     // a `ds64` chunk holding the real sizes, so a WAV handler would walk the wrong extent. Named
@@ -748,12 +744,46 @@ mod tests {
     }
 
     #[test]
+    fn mpeg_audio_is_claimed_by_its_tag_or_by_a_frame_header() {
+        // A bare frame sync is only four bytes, so the reserved values in the version, layer,
+        // bitrate and sampling-frequency fields are what keep `FF Ex` in an unrelated binary from
+        // being read as audio (ADR-0040).
+        for bytes in [
+            &b"ID3\x04\x00\x00\x00\x00\x00\x00"[..],
+            &b"ID3\x03\x00\x00\x00\x00\x00\x00"[..],
+            // MPEG-1 Layer III, 128 kbps, 44.1 kHz.
+            &b"\xFF\xFB\x90\xC0"[..],
+        ] {
+            assert_eq!(detect(bytes).unwrap(), Format::Mp3, "{bytes:?}");
+        }
+        for bytes in [
+            // Reserved version, reserved layer, forbidden bitrate, forbidden sample rate.
+            &b"\xFF\xEB\x90\xC0"[..],
+            &b"\xFF\xF9\x90\xC0"[..],
+            &b"\xFF\xFB\xF0\xC0"[..],
+            &b"\xFF\xFB\x9C\xC0"[..],
+        ] {
+            assert!(detect(bytes).is_err(), "{bytes:?}");
+        }
+    }
+
+    #[test]
+    fn an_id3_prefixed_flac_is_routed_to_the_flac_handler_not_to_mp3() {
+        // Both formats get an ID3v2 tag stuck in front of them, so the order of the two sniffs is
+        // what tells them apart (ADR-0040).
+        let mut input = b"ID3\x04\x00\x00".to_vec();
+        input.extend_from_slice(&[0, 0, 0, 4]);
+        input.extend_from_slice(&[0u8; 4]);
+        input.extend_from_slice(b"fLaC");
+        assert_eq!(detect(&input).unwrap(), Format::Flac);
+    }
+
+    #[test]
     fn phase_two_formats_are_named_in_the_refusal() {
         for (bytes, expected) in [
             (&b"PK\x03\x04"[..], UnsupportedKind::ZipContainer),
             (&b"II\x2B\x00"[..], UnsupportedKind::BigTiff),
             (&b"OggS"[..], UnsupportedKind::Ogg),
-            (&b"ID3\x04"[..], UnsupportedKind::Mp3),
             // MP4 shares HEIF's container, so what makes it unsupported is the brand, not `ftyp`.
             (
                 &b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2"[..],

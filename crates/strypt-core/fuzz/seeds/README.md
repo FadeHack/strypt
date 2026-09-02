@@ -40,6 +40,10 @@ git history is forever — so it is ignored, and only what a human chose lives h
   archive into malformed ones, and a container fuzzer seeded only with hand-written stubs never
   reaches the structures a real producer writes. The ODF packages add a shape no OOXML package
   has — a stored first entry followed by deflated ones.
+- `mp3/` — copies of `corpus/mp3/`, valid and malformed alike. Refresh after regenerating them.
+- `tags/` — the fixtures that actually carry a tag, seeding the shared tag reader rather than
+  either handler. Both audio formats are in there, because the same reader serves both and a FLAC
+  is the one shape where a tag sits in front of something that is not MPEG audio.
 - `detect/` — one specimen of every signature the detector knows, plus an empty file and a
   plain-text file. `xml` is deliberately an RSS feed rather than an SVG: it is there to exercise
   the *refusal*, and once SVG became a supported format an `<svg>` root stopped reaching it. Coverage-guided fuzzing explores outward from what it is given, so the

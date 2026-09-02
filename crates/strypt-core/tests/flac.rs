@@ -56,11 +56,12 @@ const FIXTURES: &[&str] = &[
     "padding-with-data.flac",
     "reserved-block.flac",
     "no-audio-md5.flac",
+    "id3-prefixed.flac",
+    "appended-tags.flac",
     "kitchen-sink.flac",
 ];
 
 const MALFORMED: &[&str] = &[
-    "malformed/id3-prefixed.flac",
     "malformed/wrong-marker.flac",
     "malformed/no-streaminfo.flac",
     "malformed/streaminfo-wrong-length.flac",
@@ -75,6 +76,20 @@ const MALFORMED: &[&str] = &[
 ///
 /// Deliberately written here rather than borrowed from `strypt_core`: see this file's header.
 fn blocks(data: &[u8]) -> (Vec<(u8, Vec<u8>)>, Vec<u8>) {
+    // A tag at either end is not FLAC, and both are stepped over here for the same reason the
+    // handler peels them (ADR-0040).
+    let mut at = 0;
+    while data[at..].starts_with(b"ID3") {
+        let size = data[at + 6..at + 10]
+            .iter()
+            .fold(0usize, |n, b| n * 128 + usize::from(b & 0x7F));
+        at += 10 + size + if data[at + 5] & 0x10 != 0 { 10 } else { 0 };
+    }
+    let mut end = data.len();
+    if end - at >= 128 && &data[end - 128..end - 125] == b"TAG" {
+        end -= 128;
+    }
+    let data = &data[at..end];
     assert_eq!(&data[..4], b"fLaC", "not a FLAC stream");
     let mut at = 4;
     let mut out = Vec::new();
@@ -115,10 +130,9 @@ fn every_fixture_is_detected_as_flac() {
         );
     }
     // The malformed ones too — a file has to be routed here before it can be refused here. The
-    // two exceptions no longer *are* FLAC at the detection layer: one has a corrupted marker, and
-    // the other opens with an ID3v2 tag, which is refused by name rather than routed (ADR-0037).
+    // one exception no longer *is* a FLAC at the detection layer: its stream marker is corrupted.
     for name in MALFORMED {
-        if name.contains("wrong-marker") || name.contains("id3-prefixed") {
+        if name.contains("wrong-marker") {
             continue;
         }
         assert_eq!(
@@ -286,6 +300,30 @@ fn the_audio_md5_is_kept_and_declared_rather_than_quietly_left() {
         .unwrap()
         .report;
     assert!(absent.retained.is_empty(), "{:?}", absent.retained);
+}
+
+#[test]
+fn tags_glued_to_either_end_are_read_and_removed() {
+    // The refusal ADR-0038 recorded stood only because there was no ID3 reader in the tree; the
+    // MP3 tranche put one there (ADR-0040 lifts ADR-0038 decision 7). Left in place, the tag would
+    // sit in front of blocks strypt had just cleaned.
+    for name in ["id3-prefixed.flac", "appended-tags.flac"] {
+        let output = strip(name);
+        assert!(output.starts_with(b"fLaC"), "{name} kept its ID3v2 tag");
+        assert!(
+            output.len() < 128 || &output[output.len() - 128..output.len() - 125] != b"TAG",
+            "{name} kept its ID3v1 tag"
+        );
+        assert!(!contains(&output, "SYNTHETIC-ID3"), "{name}");
+    }
+    let removed = strip_bytes(&fixture("id3-prefixed.flac"), &StripOptions::default())
+        .unwrap()
+        .report
+        .removed;
+    assert!(
+        removed.iter().any(|f| f.location.starts_with("ID3v2")),
+        "the tag went unreported"
+    );
 }
 
 #[test]

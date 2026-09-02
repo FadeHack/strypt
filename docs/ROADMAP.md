@@ -607,6 +607,45 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032,
     carried over by ADR-0037).
 
+  - 🔶 **Tranche 3 — MP3 — landed 2026-09-02, sustained fuzzing outstanding.** Landed: ADR-0040,
+    `formats/tags.rs`, the handler, `mp3` and `tags` fuzz targets with seeds, 23 fixtures plus 11
+    malformed ones with their generator, 16 integration tests, 33 unit tests, a clean
+    mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.15.
+
+    **ADR-0040 is required reading before touching it**, and it answers ADR-0037's third open
+    question: **the ID3 reader is hand-written** rather than taken from the `id3` crate — on shape
+    (that crate models a tag as something to read, convert and write back, where strypt needs a byte
+    range to delete and a reason to refuse) and on its optional `tokio`, where the honest finding is
+    that `scripts/check-no-network.sh` **passes and proves less than it looks like**: `--all-features`
+    reaches workspace members, not dependencies.
+
+    **MP3 is not a container at all**, so the group's hazard is absent a third time and for a
+    stronger reason: nothing in the file points at anything else. It is edited by deletion at both
+    ends, and a file with no tags comes back byte-identical. There is no allow-list because there is
+    nothing to allow-list — the frames are the payload — which makes the boundary the whole safety
+    argument, so a tag length is refused rather than clamped and a real frame header is demanded
+    where the tags stop.
+
+    **ADR-0038 decision 7 is lifted.** An ID3-prefixed FLAC is read and removed rather than refused,
+    and a trailing tag on a FLAC — which used to survive a strip in silence — is peeled too. `flac`
+    and `detect` therefore owe a re-run alongside the two new targets.
+
+    **Deliberate limitations, recorded in §7.15:** the frames are never decoded, so anything in a
+    frame's ancillary data or reserved bits is out of reach — **a limit shared with mat2**, and
+    declared on every report; the `Xing`/`Info`/`VBRI` header frame is **kept and declared**,
+    because it is a real audio frame and removing it would break VBR seeking, and the LAME extension
+    in it names the encoder; Layers I and II are refused by name.
+
+    **The differential goes both ways, and is recorded that way.** `scripts/mp3-differential.sh` is
+    clean over 23 fixtures and **verified able to fail**. A Lyrics3 tag alone on a file survives
+    mat2 0.15.0 and does not survive strypt; and strypt **refuses** files mat2 will still clean — an
+    `.mp2`, or a file with bytes in front of the audio — for which **mat2 is the better
+    recommendation** (ADR-0012).
+
+    **Outstanding: the sustained fuzz run.** `mp3`, `tags`, `flac` and `detect` have had a clean
+    90-second smoke run only, which is not the Phase 1 bar. Until that run lands, this tranche does
+    not meet the bar and **tranche 4 may not open**.
+
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
    `app.xml`, custom properties, revision identifiers, comments, tracked changes,
@@ -618,7 +657,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC complete 2026-09-01 and WAV 2026-09-02. MP3, Ogg and MP4 not started.
+   ADR-0037; FLAC complete 2026-09-01 and WAV 2026-09-02. MP3 landed 2026-09-02 with its sustained
+   fuzz run outstanding. Ogg and MP4 not started.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level

@@ -195,15 +195,14 @@ pub enum UnsupportedKind {
     /// (`docs/PRD.md` §8.1) and would delete a track carrying its own metadata that nobody
     /// parsed (ADR-0034).
     MotionHeif,
-    /// An MP3 audio file.
-    Mp3,
     /// An Ogg container.
     Ogg,
-    /// A FLAC carrying a prepended `ID3v2` tag, which the FLAC handler does not claim.
+    /// MPEG audio that is not Layer III — an `.mp1` or `.mp2`.
     ///
-    /// Non-standard but common; ID3 parsing belongs to the MP3 tranche (ADR-0037), so a file
-    /// whose tag strypt cannot read is refused rather than cleaned around.
-    Id3PrefixedFlac,
+    /// The same frame grammar as MP3 and a different format, so it is named rather than stripped
+    /// as one. Phase 2's scope is MP3 (ADR-0027), and the layer field is what says which of the
+    /// three a file is (ADR-0040).
+    MpegAudioNotLayerThree,
     /// A RIFF container that is neither WebP nor WAV, such as AVI.
     OtherRiff,
     /// An RF64 or BW64 file: a WAV whose payload exceeds what a 32-bit RIFF size can express.
@@ -268,10 +267,9 @@ impl std::fmt::Display for UnsupportedKind {
             Self::BigTiff => "BigTIFF",
             Self::IsoBaseMedia => "an ISO base-media file (MP4 or M4A)",
             Self::MotionHeif => "a motion HEIF or AVIF (an Apple Live Photo, for instance)",
-            Self::Mp3 => "MP3",
             Self::Ogg => "Ogg",
-            Self::Id3PrefixedFlac => {
-                "a FLAC carrying a prepended ID3v2 tag, which strypt cannot read"
+            Self::MpegAudioNotLayerThree => {
+                "MPEG audio that is not Layer III (an .mp1 or .mp2), which is a different format"
             }
             Self::OtherRiff => "a RIFF container other than WebP or WAV",
             Self::Rf64 => {

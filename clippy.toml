@@ -1,0 +1,3 @@
+# Format and tag names clippy's `doc_markdown` lint mistakes for code items. `..` keeps clippy's
+# own default list rather than replacing it.
+doc-valid-idents = ["ID3v1", "ID3v2", "APEv1", "APEv2", "Lyrics3v1", "Lyrics3v2", ".."]

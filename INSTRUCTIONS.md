@@ -197,7 +197,7 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all seventeen targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all nineteen targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
@@ -209,6 +209,7 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 jxl detect   # 12h each; group 3 tranche 5's debt, cleared 2026-08-30
 ./scripts/fuzz-sustained.sh -d 43200 flac detect  # 12h each; group 4 tranche 1's debt, cleared 2026-09-01
 ./scripts/fuzz-sustained.sh -d 43200 wav riff webp detect  # 12h each; group 4 tranche 2's debt, cleared 2026-09-02 — webp is here because ADR-0039 moved code out of it
+./scripts/fuzz-sustained.sh -d 43200 mp3 tags flac detect  # 12h each; group 4 tranche 3's debt — flac is here because ADR-0040 changed it
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:
@@ -217,11 +218,11 @@ nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```
 
-The default target list is **all seventeen** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
-wav riff ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before
+The default target list is **all nineteen** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
+wav mp3 tags riff ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before
 trusting a run to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23,
 `odf` with Phase 2 group 2, `tiff` on 2026-08-25, `gif` on 2026-08-26, `heif` and `bmff` on
-2026-08-27, `svg` on 2026-08-29, `jxl` on 2026-08-29, `flac` on 2026-09-01, and `wav` and `riff` the same day. Each was rejected as an unknown name until it was added,
+2026-08-27, `svg` on 2026-08-29, `jxl` on 2026-08-29, `flac` on 2026-09-01, `wav` and `riff` on 2026-09-02, and `mp3` and `tags` the same day. Each was rejected as an unknown name until it was added,
 so **a run predating a target's addition covered fewer targets than its command line suggests**,
 silently.
 
@@ -312,6 +313,7 @@ python3 corpus/tools/make_svg_fixtures.py        # regenerate; every fixture is 
 python3 corpus/tools/make_jxl_fixtures.py        # regenerate; the codestream is a hand-written header stub — no encoder is needed
 python3 corpus/tools/make_flac_fixtures.py       # regenerate; every fixture is real decodable audio, so mat2 and ffmpeg can open it
 python3 corpus/tools/make_wav_fixtures.py        # regenerate; every fixture is real 16-bit PCM, so mat2, ExifTool and ffmpeg can open it
+python3 corpus/tools/make_mp3_fixtures.py        # regenerate; every fixture is real MPEG-1 Layer III, so mat2, ExifTool and ffmpeg can open it
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
@@ -570,6 +572,30 @@ survive strypt and not mat2 — `cue ` and `JUNK` — and both are deliberate ke
 Last run 2026-09-01 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 14
 fixtures, no ExifTool tag surviving any output, and every output the same audio sample for sample.
 Verified able to fail: against a pass-through stand-in it reports 43 gaps.
+
+### MP3 differential
+
+```sh
+cargo build --release
+./scripts/mp3-differential.sh
+```
+
+The closest comparison in the project: neither tool re-encodes, so this compares like with like.
+mat2 deletes the ID3 tag through mutagen; strypt deletes every tag at both ends (ADR-0040). Four
+things are checked — ExifTool's tags, an independent Python walk of both ends (ExifTool names
+nothing at all for an APE item or a Lyrics3 field, so a whole tag can survive invisibly), a decode
+comparison, and the frame bytes themselves. Requires `ffmpeg` in addition to mat2, ExifTool and
+python3.
+
+`VBRFrames` and `VBRBytes` are deliberately not filtered out: they come from the `Xing` header frame
+strypt keeps on purpose, and a keep the differential hides is a keep nobody can audit.
+
+Last run 2026-09-02 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 23
+fixtures, no tag surviving either end of any output, and every output the same audio with the frames
+identical byte for byte. Verified able to fail on both its tag walk and its marker sweep, against an
+unstripped pass-through stand-in. The measured difference: a Lyrics3 tag alone on a file survives
+mat2 and does not survive strypt; and strypt refuses files mat2 will still clean, for which mat2 is
+the better recommendation.
 
 ### OpenDocument LibreOffice import validation
 

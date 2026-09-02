@@ -227,11 +227,18 @@ def main():
         ),
     )
 
-    # A FLAC with an ID3v2 tag glued to the front. Non-standard but common; refused by name,
-    # because reading the tag is the MP3 tranche's job (ADR-0037).
+
+    # Tags glued to the ends of a FLAC. Neither is FLAC and a decoder skips both, so they survive
+    # every block this handler cleans. Refused outright until the MP3 tranche put an ID3 reader in
+    # the tree; read and removed since (ADR-0040 lifts ADR-0038 decision 7).
     id3_body = b"TXXX" + struct.pack(">I", 30) + b"\x00\x00" + b"\x00SYNTHETIC-ID3-0018\x00"
     id3 = b"ID3\x04\x00\x00" + bytes([0, 0, 1, 0x7F]) + id3_body.ljust(255, b"\x00")
-    write(MALFORMED / "id3-prefixed.flac", id3 + flac(TAGS))
+    write(OUT / "id3-prefixed.flac", id3 + flac(TAGS))
+
+    v1 = bytearray(b"\x00" * 128)
+    v1[0:3] = b"TAG"
+    v1[33:33 + len(b"SYNTHETIC-ID3V1-0019")] = b"SYNTHETIC-ID3V1-0019"
+    write(OUT / "appended-tags.flac", id3 + flac(TAGS) + bytes(v1))
 
     write(MALFORMED / "wrong-marker.flac", b"fLaD" + flac(TAGS)[4:])
 

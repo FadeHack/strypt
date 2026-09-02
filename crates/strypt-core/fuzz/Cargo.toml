@@ -119,6 +119,20 @@ doc = false
 bench = false
 
 [[bin]]
+name = "mp3"
+path = "fuzz_targets/mp3.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tags"
+path = "fuzz_targets/tags.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "riff"
 path = "fuzz_targets/riff.rs"
 test = false

@@ -27,6 +27,14 @@
 //! compliant file is unchanged, a file hiding data in its padding is scrubbed and told about, and
 //! the room a tagger needs is still there.
 //!
+//! # Tags glued to the ends, which are not FLAC at all
+//!
+//! Taggers write an ID3v2 tag in front of the stream marker and an ID3v1, APE or Lyrics3 tag past
+//! the last frame. Neither is FLAC — §8 has no room for either — and a decoder skips them, so they
+//! survive every block this handler cleans. They were refused outright until the MP3 tranche put a
+//! reader in the tree; now they are peeled by [`super::tags`] and the FLAC in between is walked
+//! (ADR-0040 lifts ADR-0038 decision 7).
+//!
 //! # What is kept, and the one thing that is kept and declared
 //!
 //! `STREAMINFO` is mandatory and first (§8.2), and its last sixteen bytes are an MD5 of the
@@ -38,6 +46,7 @@
 use crate::bytes::Reader;
 use crate::detect::Format;
 use crate::error::{MalformedDetail, ResourceLimit, Result, StryptError};
+use crate::formats::tags::{self, TagError};
 use crate::formats::{MetadataHandler, ParseLimits, StripOptions, Stripped, xmp};
 use crate::report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, MetadataValue, Note, Retained,
@@ -230,13 +239,24 @@ fn spend(budget: &mut u32) -> Result<()> {
 
 /// Walk `input`, decide about every block, and build the sanitised file.
 fn process(input: &[u8], options: &InspectOptions, limits: &ParseLimits) -> Result<Processed> {
-    let (blocks, audio) = walk(input, limits)?;
+    // Peeled before the stream marker is looked for, because a prepended ID3v2 tag is what stands
+    // in front of it (ADR-0040).
+    let (head_tags, start) = tags::head(input).map_err(convert)?;
+    let (tail_tags, end) = tags::tail(input, start).map_err(convert)?;
+    let body = input
+        .get(start..end)
+        .ok_or_else(|| malformed(MalformedDetail::LengthOutOfRange, as_offset(start)))?;
+
+    let (blocks, audio) = walk(body, limits)?;
     let mut out = Processed {
         findings: Vec::new(),
         retained: Vec::new(),
         notes: Vec::new(),
-        output: Vec::with_capacity(input.len()),
+        output: Vec::with_capacity(body.len()),
     };
+    for tag in head_tags.iter().chain(tail_tags.iter()) {
+        out.findings.extend(tags::findings(tag, options));
+    }
 
     let mut kept: Vec<(u8, Payload<'_>)> = Vec::new();
     for block in &blocks {
@@ -314,12 +334,24 @@ fn process(input: &[u8], options: &InspectOptions, limits: &ParseLimits) -> Resu
     out.output.extend_from_slice(audio);
 
     // Said on every file, clean ones included. The frames are copied without being decoded, so
-    // anything hidden in or after them — a tag appended past the last frame, data in a frame's
-    // reserved bits — is out of reach rather than absent.
+    // anything hidden inside one — data in a frame's reserved bits, a payload in the last partial
+    // frame — is out of reach rather than absent. What is appended *past* them is now removed.
     out.notes.push(Note::OutOfScopeContent {
         location: "audio frames, which are copied without being decoded".to_owned(),
     });
     Ok(out)
+}
+
+/// Re-label a tag failure as this format's error, so a caller sees "a FLAC failed" rather than a
+/// module it has no reason to know about.
+fn convert(error: TagError) -> StryptError {
+    match error {
+        TagError::Malformed { detail, offset } => malformed(detail, as_offset(offset)),
+        TagError::Limit(limit) => StryptError::LimitExceeded {
+            format: Format::Flac,
+            limit,
+        },
+    }
 }
 
 /// True when `STREAMINFO`'s MD5 field is all zeros, which §8.2 defines as "unknown".
@@ -841,6 +873,84 @@ mod tests {
         let once = strip_ok(&input).bytes;
         let twice = strip_ok(&once).bytes;
         assert_eq!(once, twice, "strip is not idempotent");
+    }
+
+    /// An ID3v2.4 tag carrying one text frame.
+    fn id3v2(id: &[u8], text: &[u8]) -> Vec<u8> {
+        let syncsafe = |n: usize| {
+            [
+                u8::try_from((n >> 21) & 0x7F).unwrap(),
+                u8::try_from((n >> 14) & 0x7F).unwrap(),
+                u8::try_from((n >> 7) & 0x7F).unwrap(),
+                u8::try_from(n & 0x7F).unwrap(),
+            ]
+        };
+        let mut payload = vec![0x03u8];
+        payload.extend_from_slice(text);
+        let mut body = id.to_vec();
+        body.extend_from_slice(&syncsafe(payload.len()));
+        body.extend_from_slice(&[0, 0]);
+        body.extend_from_slice(&payload);
+        let mut out = b"ID3\x04\x00\x00".to_vec();
+        out.extend_from_slice(&syncsafe(body.len()));
+        out.extend_from_slice(&body);
+        out
+    }
+
+    #[test]
+    fn a_prepended_id3v2_tag_is_read_and_removed_rather_than_refused() {
+        // ADR-0040 lifts ADR-0038 decision 7: the refusal stood only because there was no ID3
+        // reader in the tree.
+        let clean = flac(&[]);
+        let mut input = id3v2(b"TPE1", b"SYNTHETIC-ARTIST-0101");
+        input.extend_from_slice(&clean);
+        let result = strip_ok(&input);
+        assert_eq!(result.bytes, clean, "the FLAC behind the tag moved");
+        assert!(!contains(&result.bytes, b"SYNTHETIC-ARTIST-0101"));
+        assert!(
+            result
+                .report
+                .removed
+                .iter()
+                .any(|f| f.location == "ID3v2.4" && f.field.as_deref() == Some("TPE1"))
+        );
+    }
+
+    #[test]
+    fn tags_appended_past_the_last_frame_are_removed_too() {
+        let clean = flac(&[]);
+        let mut input = clean.clone();
+        let mut v1 = vec![0u8; 128];
+        v1[0..3].copy_from_slice(b"TAG");
+        v1[33..54].copy_from_slice(b"SYNTHETIC-ARTIST-0102");
+        input.extend_from_slice(&v1);
+        let result = strip_ok(&input);
+        assert_eq!(result.bytes, clean);
+        assert!(
+            result
+                .report
+                .removed
+                .iter()
+                .any(|f| f.location == "ID3v1" && f.field.as_deref() == Some("Artist"))
+        );
+    }
+
+    #[test]
+    fn a_tag_at_each_end_leaves_the_stream_between_them_untouched() {
+        let clean = flac(&[comment_block(b"SYNTHETIC-VENDOR-0103", &[])]);
+        let mut input = id3v2(b"TIT2", b"SYNTHETIC-TITLE-0104");
+        input.extend_from_slice(&clean);
+        input.extend_from_slice(b"LYRICSBEGINSYNTHETIC-LYRIC-0105");
+        input.extend_from_slice(b"LYRICSEND");
+        let result = strip_ok(&input);
+        assert_eq!(result.bytes, strip_ok(&clean).bytes);
+        for secret in [
+            &b"SYNTHETIC-TITLE-0104"[..],
+            &b"SYNTHETIC-LYRIC-0105"[..],
+            &b"SYNTHETIC-VENDOR-0103"[..],
+        ] {
+            assert!(!contains(&result.bytes, secret));
+        }
     }
 
     #[test]

@@ -21,6 +21,42 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **MP3 support — `.mp3`.** The third tranche of Phase 2's fourth format group (ADR-0037), decided
+  in ADR-0040.
+
+  What comes out: the **ID3v2 tag**, itemised frame by frame across all three major versions —
+  artist, composer, conductor, publisher, copyright holder, the tagging software, recording and
+  encoding timestamps, the disc and recording identifiers, comments and lyrics, and a place where
+  the geotagging convention was used; **cover art and any embedded file**, removed whole, so
+  metadata inside them goes with it; a vendor's private frames; the **ID3v1 tag and its `TAG+`
+  extension**; **APE tags**, itemised by key; and **Lyrics3 tags**, v1 and v2. Any frame strypt has
+  never seen goes too, rather than surviving by being unrecognised. A file with nothing to remove
+  comes back byte-identical, and the audio frames are copied without ever being decoded.
+
+- **What an MP3 keeps, and why you are told:** the `Xing`, `Info` or `VBRI` header frame stays,
+  because it is a real audio frame and removing it would break variable-bitrate seeking and gapless
+  playback. The encoder that made the file — its name and its settings — is named in there, so the
+  report says the frame was kept on every file that has one. **mat2 leaves it too.**
+
+- **An MP3 with anything other than zeros between its tags and its first audio frame is refused.**
+  That is exactly where something would be hidden from a tool that skipped ahead to the first frame.
+  So is a tag whose declared length runs past the end of the file, and a file that is nothing but
+  tags — which would otherwise strip to an empty file reported as a success.
+
+- **`.mp1` and `.mp2` files are refused by name rather than as "unrecognised".** They share MP3's
+  frame grammar and are a different format.
+
+- **A FLAC with an ID3v2 tag in front of it is now cleaned rather than refused**, and an ID3v1, APE
+  or Lyrics3 tag appended past a FLAC's last frame is now removed. The tag reader that arrived with
+  MP3 made both possible; the appended case previously survived a strip in silence.
+
+- **Measured against mat2 0.15.0 on 2026-09-02: no gaps on the MP3 corpus, and the frames come
+  through byte for byte.** Neither tool re-encodes, so the two are close here. Two differences are
+  worth knowing: a **Lyrics3 tag alone on a file survives mat2** and does not survive strypt; and
+  **strypt refuses files mat2 will still clean** — an `.mp2`, or a file with arbitrary bytes in
+  front of the audio. Refusing is the correct behaviour for a file strypt cannot fully account for,
+  and **for those files mat2 is the better recommendation**.
+
 - **WAV support — `.wav`.** The second tranche of Phase 2's fourth format group (ADR-0037),
   decided in ADR-0039.
 

@@ -2378,3 +2378,98 @@ into the file. Removing chunks moves nothing, exactly as RFC 9639 §8.5 gave FLA
 - **No dependency was added.** `lofty` remains un-rejected (ADR-0037 decision 2).
 - **Decision 7's `wavl` refusal is the one to revisit** if a real-producer file turns up using it;
   today it is a spec shape without a producer, and refusing costs nothing.
+
+## ADR-0040 — MP3 is edited by deletion at both ends, and the ID3 reader is hand-written
+
+**Status:** Accepted (2026-09-02)
+
+**Context.** ADR-0037's third tranche. MP3 is the one format in this project that is **not a
+container**: there is no header describing the file and no index. An MP3 is a run of self-describing
+MPEG audio frames (ISO/IEC 11172-3 §2.4.2.3), and every piece of metadata it carries was glued to
+one end or the other by a tagger — ID3v2 at the head; ID3v1, its `TAG+` extension, APEv1/v2 and
+Lyrics3 v1/v2 at the tail.
+
+The group's hazard — a container index into a timed payload (ADR-0037) — is absent for the third
+time, and for a stronger reason than FLAC's or WAV's: **nothing in an MP3 points at anything else**.
+There is no offset, length or flag anywhere that removing a tag could invalidate.
+
+The open question the tranche inherited was the reader. ID3v2 is not a trivial format: three major
+versions with different frame-identifier widths and size encodings, syncsafe integers, an optional
+extended header counted differently in v2.3 and v2.4, an optional footer, and §6.1's
+unsynchronisation.
+
+**Decision.**
+
+1. **The ID3 reader is hand-written, in `formats/tags.rs`.** The `id3` crate (1.17.1, MIT, edition
+   2024, `rust-version` 1.85 — checked 2026-09-02) was evaluated and declined on two grounds. The
+   first is shape: it models a tag as something to read, convert and **write back**, where strypt
+   needs a byte range to delete and a reason to refuse a structure it cannot account for, which that
+   API has no notion of. The second is the optional `tokio` dependency, and it is worth recording
+   what the check actually proved: trial-adding the crate and running `scripts/check-no-network.sh`
+   **passed**, and `cargo metadata --all-features` showed no `tokio` — because `--all-features`
+   applies to workspace members, not to dependencies. So the gate neither opened the door nor
+   flagged it. That is a finding about the gate as much as about the crate (ADR-0004, CLAUDE.md §6),
+   and it is the reason the decision did not rest on a green run.
+
+2. **`formats/tags.rs` is shared by `mp3` and `flac`,** as `formats/xmp.rs` is shared by the image
+   handlers and for the same reason: the tag is the same wherever it is stuck, and two handlers have
+   no business disagreeing about what is in one. It names byte ranges and never rewrites one.
+
+3. **Itemising is best-effort; removal is not.** A tag whose insides do not add up is reported in
+   one line and deleted whole — ADR-0038's treatment of a Vorbis comment. The split keeps the
+   fail-closed surface small: a mis-parsed frame costs a line of a report, while a mis-parsed tag
+   *length* would cost the boundary between metadata and audio.
+
+4. **A tag length is refused, never clamped.** A size field that is not the syncsafe integer §6.2
+   requires, a span running past the end of the file, a major version whose header this code has
+   never read, an APE footer claiming a header that is not there — each refuses the file. Lyrics3 v1
+   is the one exception and it goes the other way: it carries no size at all, so a `LYRICSEND` that
+   is really audio yields "no tag" rather than a refusal, because there is no number to have lied.
+
+5. **The tail scan has a floor.** Tail tags are peeled down to where the head tags stopped and no
+   further. Without it a lying tail-tag size would swallow the audio, and the file would strip to
+   nothing while reporting success — the fail-closed rule's worst case.
+
+6. **The handler demands a real frame header where the tags stop.** It is the format's only
+   structural check and it carries the whole safety argument: there is no allow-list here because
+   the frames *are* the payload and everything that is not a frame goes. A bounded run of **zeros**
+   between the tags and the first frame is dropped and reported; anything else there refuses the
+   file, because a run of arbitrary bytes in front of the audio is exactly where something would be
+   hidden from a tool that skipped ahead to the first sync.
+
+7. **A VBR header frame — `Xing`, `Info` or `VBRI` — is kept and declared.** It is a real MPEG frame
+   that decoders play as silence, and the LAME extension inside it names the encoder and its
+   settings. It is *inside the encoded stream*, which ADR-0037 commits this group to never entering,
+   and removing it would break VBR seeking and gapless playback. mat2 leaves it too. A keep nobody
+   is told about is a leak with a clean report, so it is in the report.
+
+8. **Layers I and II are refused by name.** The same frame grammar, a different format, and Phase
+   2's scope is MP3 (ADR-0027). "Unrecognised" would be untrue for a file most tools would call
+   MPEG audio.
+
+9. **ADR-0038 decision 7 is lifted: an ID3-prefixed FLAC is no longer refused.** That refusal stood
+   only because there was no ID3 reader in the tree, and there is one now. Symmetrically, a trailing
+   ID3v1, APE or Lyrics3 tag on a FLAC is peeled too — it used to survive silently under the generic
+   "the frames are not decoded" note. mat2's `FLACParser` already did both, so this closes a place
+   where mat2 was the better recommendation. `flac` and `detect` therefore re-run in the sustained
+   fuzz run alongside the two new targets.
+
+10. **mat2 is the contrast here, and the difference is measurable in both directions.** Its
+    `MP3Parser` deletes the ID3 tag through mutagen; neither tool re-encodes, so this is the closest
+    comparison in the project so far. Measured 2026-09-02 against mat2 0.15.0: a Lyrics3 tag that is
+    the only tag on a file survives mat2 and does not survive strypt. In the other direction, strypt
+    **refuses** files mat2 will still clean — an `.mp2`, or a file with arbitrary bytes in front of
+    the audio — and for those files mat2 is the better recommendation (ADR-0012).
+
+**Consequences.**
+
+- **A file with no tags comes back byte-identical**, GIF's, JPEG XL's, FLAC's and WAV's property.
+- **Nothing in the encoded stream is reachable by either tool**, and `docs/THREAT_MODEL.md` §7.15
+  states that as a limit shared with mat2 rather than a trade strypt makes alone.
+- **A second module is now shared between handlers**, so a change to `formats/tags.rs` is a change to
+  FLAC as well as MP3. Both handler targets and the `tags` target must run before one lands.
+- **No dependency was added.** `lofty` remains un-rejected (ADR-0037 decision 2), and `id3` is now
+  declined with a reason.
+- **`scripts/check-no-network.sh` does not see a dependency's optional features.** Recorded here
+  because the next person to evaluate a crate with an optional networking feature will get the same
+  clean result, and it means less than it looks like.

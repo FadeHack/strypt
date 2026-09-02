@@ -38,7 +38,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FUZZ_DIR="$REPO_ROOT/crates/strypt-core/fuzz"
-ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl flac wav riff ooxml odf zip detect)
+ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags riff ooxml odf zip detect)
 
 DURATION=7200
 OUT_DIR=""
@@ -50,13 +50,13 @@ Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
   -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
 
-Targets default to all seventeen: pdf jpeg png webp tiff gif heif bmff svg jxl flac wav riff ooxml odf zip detect
+Targets default to all nineteen: pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags riff ooxml odf zip detect
 
 Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of how many
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.
 
 Examples:
-  scripts/fuzz-sustained.sh -d 300                 # smoke test, all seventeen
+  scripts/fuzz-sustained.sh -d 300                 # smoke test, all nineteen
   scripts/fuzz-sustained.sh -d 28800 pdf           # 8h on PDF alone
   scripts/fuzz-sustained.sh -d 14400 png webp      # 4h each, in parallel
 
@@ -120,6 +120,7 @@ corpus_args() {
     jxl)  echo "corpus/jxl seeds/jxl seeds/jxl/malformed" ;;
     flac) echo "corpus/flac seeds/flac seeds/flac/malformed" ;;
     wav)  echo "corpus/wav seeds/wav seeds/wav/malformed" ;;
+    mp3)  echo "corpus/mp3 seeds/mp3 seeds/mp3/malformed" ;;
     *)    echo "corpus/$1 seeds/$1" ;;
   esac
 }
@@ -224,7 +225,7 @@ delivered_cpu_hours() {
   echo
   echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across every"
   echo "handler after a sustained run, with nothing set aside as not worth fixing. Criterion 2"
-  echo "was written when there were four targets; there are now seventeen. The ooxml and zip"
+  echo "was written when there were four targets; there are now nineteen. The ooxml and zip"
   echo "targets cleared their sustained-run debt on 2026-08-24, odf and pdf cleared theirs on"
   echo "2026-08-25, tiff and detect cleared theirs on 2026-08-26, and gif cleared its on"
   echo "2026-08-27. The same run put pdf, jpeg, png and webp — the four the criterion actually"
@@ -232,8 +233,9 @@ delivered_cpu_hours() {
   echo "criterion 2 rested on one run plus standing evidence for the rest."
   echo "heif, bmff and detect cleared theirs on 2026-08-27 as well, svg on 2026-08-29, and jxl"
   echo "on 2026-08-30, flac on 2026-09-01, and wav and riff on 2026-09-02 — that run took webp"
-  echo "with them, because ADR-0039 moved its chunk walk into shared code. No target now has"
-  echo "outstanding sustained-run debt; a new handler adds its own, so update this paragraph when"
+  echo "with them, because ADR-0039 moved its chunk walk into shared code. The mp3 and tags"
+  echo "targets are new with ADR-0040 and carry that debt now; flac and detect carry it again,"
+  echo "because ADR-0040 changed both. A new handler adds its own, so update this paragraph when"
   echo "one lands rather than leaving it to read as blanket coverage."
   echo
   echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
