@@ -17,6 +17,7 @@
 //! smaller cost.
 
 use crate::container::bmff;
+use crate::container::ogg;
 use crate::container::riff;
 use crate::container::zip;
 use crate::formats::ParseLimits;
@@ -185,4 +186,49 @@ pub fn tags_scan(data: &[u8]) {
     // the head tags would let a strip delete audio and report success (`docs/THREAT_MODEL.md` §4).
     assert!(end >= start, "a tail tag reached below the head tags");
     assert!(end <= data.len(), "a tag span ran past the end of the file");
+}
+
+/// Walk an Ogg stream and write it back out, exercising both directions of the page layer.
+///
+/// Separate from the `ogg` handler target for the reason ADR-0028 gives for separating `zip` from
+/// `ooxml`: reaching the page walk only through the handler means every input has to look like a
+/// plausible Vorbis, Opus or FLAC stream before the walk sees it. What this reaches that the
+/// handler target does not is the packet assembly across page boundaries, the CRC, and the writer.
+///
+/// # Panics
+///
+/// Never, by design — that is the property being fuzzed. A panic escaping this is a finding.
+pub fn ogg_round_trip(data: &[u8]) {
+    let limits = ParseLimits::default();
+    let mut budget = limits.max_items;
+    let Ok(pages) = ogg::pages(data, &mut budget) else {
+        return;
+    };
+    let Ok(packets) = ogg::packets(&pages) else {
+        return;
+    };
+
+    let emitted: Vec<ogg::Emit<'_>> = packets.iter().map(ogg::Emit::copied).collect();
+    let Ok(written) = ogg::write(0, &emitted) else {
+        return;
+    };
+
+    // A stream this module just wrote must be one it can read back, with the same packets in the
+    // same order — a writer whose own reader refuses it is the defect the round trip exists to
+    // surface, and a writer that quietly loses a packet is a worse one.
+    let mut read_budget = limits.max_items;
+    let reread = ogg::pages(&written, &mut read_budget)
+        .ok()
+        .and_then(|pages| ogg::packets(&pages).ok());
+    let Some(reread) = reread else {
+        panic!("the Ogg writer produced a stream the page walker refuses");
+    };
+    assert!(
+        reread.len() == packets.len(),
+        "the Ogg round trip changed the packet count"
+    );
+    for (before, after) in packets.iter().zip(&reread) {
+        assert!(before.bytes() == after.bytes(), "a packet's bytes changed");
+        assert!(before.granule == after.granule, "a granule position moved");
+    }
 }

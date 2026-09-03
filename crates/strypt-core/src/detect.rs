@@ -34,7 +34,7 @@
 
 use crate::bytes::Reader;
 use crate::error::{Result, StryptError, UnsupportedKind};
-use crate::formats::jxl;
+use crate::formats::{jxl, ogg};
 
 /// A format strypt has a handler for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -79,6 +79,13 @@ pub enum Format {
     Wav,
     /// MP3: MPEG-1 Audio Layer III frames, with or without the tags glued to either end of them.
     Mp3,
+    /// Ogg Vorbis. One handler serves all three Ogg spellings; they are separate formats here
+    /// because they are separate mappings with separate header packets (ADR-0041).
+    Ogg,
+    /// Opus, in its Ogg encapsulation (RFC 7845). The only encapsulation strypt handles.
+    Opus,
+    /// FLAC carried in Ogg pages rather than in its native container.
+    OggFlac,
 }
 
 impl Format {
@@ -107,6 +114,9 @@ impl Format {
             Self::Flac => "flac",
             Self::Wav => "wav",
             Self::Mp3 => "mp3",
+            Self::Ogg => "ogg",
+            Self::Opus => "opus",
+            Self::OggFlac => "ogg-flac",
         }
     }
 
@@ -136,6 +146,10 @@ impl Format {
             Self::Flac => "flac",
             Self::Wav => "wav",
             Self::Mp3 => "mp3",
+            Self::Ogg => "ogg",
+            Self::Opus => "opus",
+            // `.oga` rather than `.ogg`: the Xiph naming note reserves `.ogg` for Vorbis.
+            Self::OggFlac => "oga",
         }
     }
 }
@@ -162,6 +176,9 @@ impl std::fmt::Display for Format {
             Self::Flac => "FLAC",
             Self::Wav => "WAV",
             Self::Mp3 => "MP3",
+            Self::Ogg => "Ogg Vorbis",
+            Self::Opus => "Opus",
+            Self::OggFlac => "Ogg FLAC",
         })
     }
 }
@@ -247,6 +264,11 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if starts_with(data, b"ID3") || crate::formats::mp3::frame_header(data).is_some() {
         return Some(Format::Mp3);
     }
+    // Ogg carries somebody else's codec, so the container's magic is not the answer: the first
+    // page's packet is. A mapping with no handler is named in `detect_unsupported` (ADR-0041).
+    if let Some(ogg::Sniff::Supported(format)) = ogg::sniff(data) {
+        return Some(format);
+    }
     if let Some(format) = iso_base_media_still(data) {
         return Some(format);
     }
@@ -298,8 +320,13 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     if data.get(4..8) == Some(b"ftyp") {
         return Some(UnsupportedKind::IsoBaseMedia);
     }
+    // Theora, Speex, Skeleton, anything unrecognised, and any file carrying more than one logical
+    // bitstream. Named rather than left unrecognised, for a file every player calls an Ogg.
+    if let Some(ogg::Sniff::Refused(kind)) = ogg::sniff(data) {
+        return Some(kind);
+    }
     if starts_with(data, b"OggS") {
-        return Some(UnsupportedKind::Ogg);
+        return Some(UnsupportedKind::OtherOggCodec);
     }
     // RF64 (EBU Tech 3306) and BW64 (ITU-R BS.2088) spell the >4 GB case with their own magic and
     // a `ds64` chunk holding the real sizes, so a WAV handler would walk the wrong extent. Named
@@ -783,7 +810,7 @@ mod tests {
         for (bytes, expected) in [
             (&b"PK\x03\x04"[..], UnsupportedKind::ZipContainer),
             (&b"II\x2B\x00"[..], UnsupportedKind::BigTiff),
-            (&b"OggS"[..], UnsupportedKind::Ogg),
+            (&b"OggS"[..], UnsupportedKind::OtherOggCodec),
             // MP4 shares HEIF's container, so what makes it unsupported is the brand, not `ftyp`.
             (
                 &b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2"[..],

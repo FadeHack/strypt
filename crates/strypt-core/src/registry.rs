@@ -16,6 +16,7 @@ use crate::formats::jpeg::JpegHandler;
 use crate::formats::jxl::JxlHandler;
 use crate::formats::mp3::Mp3Handler;
 use crate::formats::odf::OdfHandler;
+use crate::formats::ogg::OggHandler;
 use crate::formats::ooxml::OoxmlHandler;
 use crate::formats::pdf::PdfHandler;
 use crate::formats::png::PngHandler;
@@ -46,6 +47,10 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         // As the Office and OpenDocument handlers below: one type, one instance per format, so
         // that `handler.format()` answers with what dispatch chose.
         Format::Heif => Some(&HEIF),
+        // One handler, three mappings: the container is shared and the header packets are not.
+        Format::Ogg => Some(&OGG_VORBIS),
+        Format::Opus => Some(&OPUS),
+        Format::OggFlac => Some(&OGG_FLAC),
         Format::Avif => Some(&AVIF),
         Format::Webp => Some(&WebpHandler),
         // One handler type serving three formats, instantiated once per format rather than
@@ -60,6 +65,9 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
     }
 }
 
+static OGG_VORBIS: OggHandler = OggHandler::VORBIS;
+static OPUS: OggHandler = OggHandler::OPUS;
+static OGG_FLAC: OggHandler = OggHandler::FLAC;
 static HEIF: HeifHandler = HeifHandler::HEIF;
 static AVIF: HeifHandler = HeifHandler::AVIF;
 static DOCX: OoxmlHandler = OoxmlHandler::DOCX;
@@ -84,6 +92,9 @@ pub fn supported_formats() -> Vec<Format> {
         Format::Flac,
         Format::Wav,
         Format::Mp3,
+        Format::Ogg,
+        Format::Opus,
+        Format::OggFlac,
         Format::Heif,
         Format::Avif,
         Format::Docx,
@@ -135,6 +146,9 @@ mod tests {
             Format::Flac,
             Format::Wav,
             Format::Mp3,
+            Format::Ogg,
+            Format::Opus,
+            Format::OggFlac,
             Format::Docx,
             Format::Xlsx,
             Format::Pptx,

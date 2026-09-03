@@ -2473,3 +2473,111 @@ unsynchronisation.
 - **`scripts/check-no-network.sh` does not see a dependency's optional features.** Recorded here
   because the next person to evaluate a crate with an optional networking feature will get the same
   clean result, and it means less than it looks like.
+
+---
+
+## ADR-0041 — Ogg is rebuilt page by page, and the stream serial number is rewritten
+
+**Status:** Accepted (2026-09-03)
+
+**Context.** ADR-0037's fourth tranche, and the first format in this project that is a container for
+*somebody else's* format. An Ogg file is nothing but pages (RFC 3533 §6): a capture pattern, a
+granule position, a serial number naming the logical bitstream, a page sequence number, a CRC over
+the whole page, and a lacing table chopping packets into segments. What those packets mean is
+decided by a codec mapping, and the metadata lives in a mapping-defined header packet.
+
+Three mappings are in scope for this tranche: Vorbis I §4.2, Opus (RFC 7845), and the Ogg FLAC
+mapping. All three carry their identifying material in a Vorbis comment — the same structure FLAC
+already reads (ADR-0038) — and Ogg FLAC carries a whole FLAC metadata block list on top of it.
+
+Two things make Ogg unlike the three tranches before it. Each page carries a CRC, so no byte can be
+changed without recomputing something. And the granule position is per *page*, not per packet: it
+timestamps the last packet that finishes on that page, and there is no way to recover a per-packet
+timestamp without decoding.
+
+**Decision.**
+
+1. **Ogg is rebuilt, page by page, with every CRC recomputed.** Editing in place is not available at
+   any granularity: emptying the comment packet changes its length, which changes its page's lacing
+   table, which changes that page's size and CRC, and every page after it renumbers. Packet payloads
+   are copied verbatim; only the pages around them are new.
+
+2. **Input CRCs are verified, and a mismatch refuses the file.** The CRC is the evidence that the
+   walk is where it thinks it is — FLAC's frame-sync check by another name (ADR-0038) — and every
+   decoder drops a bad page anyway, so accepting one would mean cleaning bytes no player reads.
+
+3. **Granule positions are carried verbatim.** RFC 3533 §3 makes a granule position a codec-defined
+   sample count, not a file offset, so removal moves nothing: the group's hazard (ADR-0037) is
+   absent for the fourth time running. But because a granule belongs to a page rather than a packet,
+   **the input's page grouping cannot be discarded.** The rebuild keeps, for each input page, the
+   packets that completed on it, so every granule stays attached to the packet it timestamps. A page
+   that completes no packet is dropped, and one carrying a granule other than −1 there — which RFC
+   3533 §6 does not allow — refuses the file rather than losing a number nobody can recompute.
+
+4. **Page sequence numbers are renumbered from zero.** Removal can change how many pages there are,
+   and a decoder reads the sequence to detect a hole in the stream.
+
+5. **The serial number is rewritten to zero.** It is an identifier in its own right: 32 bits chosen
+   by the encoder, not derived from the audio, and libogg's own example seeds it from `time(NULL)`,
+   so it can carry the wall-clock time of the encode and links every copy of a file to itself. It is
+   the case ADR-0038's consequence reserved — a payload-adjacent fingerprint the holder of the file
+   *cannot* recompute — and the answer there is the opposite of the answer for FLAC's audio MD5.
+   Zero rather than a random value because nothing in this crate may be non-deterministic.
+
+6. **Exactly one logical bitstream.** A multiplexed file (a Vorbis stream beside a Theora one) or a
+   chained one is refused by name, not partly cleaned: a second stream is a second mapping, with a
+   second comment header this handler has not read. It also keeps the rebuild a single linear pass.
+   Bytes before the first page or after the last are refused for the same reason MP3 refuses a run
+   of non-zero bytes in front of its audio (ADR-0040 decision 6).
+
+7. **Vorbis, Opus and FLAC-in-Ogg land; Theora, Speex, Skeleton and anything unrecognised are
+   refused by name.** Theora is video and is Phase 2's fifth tranche at the earliest. Speex is
+   deprecated by its own authors and has no fixtures anyone can generate without adding an encoder.
+   Skeleton only ever appears alongside another stream, which decision 6 already refuses. Naming
+   them beats "unrecognised" for a file every player calls an Ogg.
+
+8. **The comment header is emptied, not deleted.** All three mappings require the packet to be
+   present — it is the second header packet, and a decoder that does not find it there stops — so
+   the FLAC treatment of dropping the block whole is not available. What is written back is an empty
+   vendor string and a zero comment count, plus Vorbis I's framing bit, which Opus does not have.
+
+9. **FLAC-in-Ogg keeps its packet count.** Each metadata block after the mapping header is its own
+   packet, and the header declares how many there are. A removed block therefore becomes a
+   zero-length `PADDING` block rather than a dropped packet, so neither the declared count nor the
+   last-metadata-block flag has to be rewritten. `STREAMINFO` is kept, and its MD5 of the unencoded
+   audio is kept and declared, exactly as ADR-0038 decision 4 has it.
+
+10. **The Vorbis comment reader is shared, as `formats/vorbis.rs`.** It is lifted out of `flac.rs`
+    unchanged, on ADR-0040 decision 2's reasoning: the structure is the same wherever it is stuck,
+    and two handlers have no business disagreeing about what is in one. **`flac` therefore re-runs
+    in the sustained fuzz run**, as it did for the tranche before. It gets no target of its own — it
+    is a reader like `formats/xmp.rs`, not a container, and both handler targets reach it with
+    arbitrary bytes.
+
+11. **Two new fuzz targets, split as ADR-0028 splits `zip` from `ooxml`.** `oggpage` drives
+    `container/ogg.rs` through `fuzzing.rs`: the page walk, the CRC, packet assembly and the page
+    writer, reached without having to look like any codec first. `ogg` drives the handler.
+
+12. **mat2 is the closest comparison in the project so far, and the differences go both ways.** Its
+    `OggParser` goes through mutagen, which rewrites the comment header and repaginates — so neither
+    tool re-encodes and both empty the same packet. Measured by `scripts/ogg-differential.sh` on
+    2026-09-03 against **mat2 0.15.0**, no gaps across the ten well-formed fixtures: mat2 **keeps the
+    vendor string** on every fixture that has one and **leaves the serial number alone**, and strypt
+    clears both. In the other direction, strypt refuses multiplexed, chained and Theora files that
+    mat2 will still process, and **for those files mat2 is the better recommendation** (ADR-0012).
+
+**Consequences.**
+
+- **A clean Ogg does not come back byte-identical**, and this is the first handler in group 4 that
+  cannot promise it. Decision 5 is the whole reason: a file whose serial is already zero and whose
+  pages already end at packet boundaries does round-trip unchanged, and no real encoder writes one.
+  What is promised instead, and tested: **the packets cross byte for byte**, and stripping twice is
+  byte-exact.
+- **Page boundaries can move.** A packet that spanned pages in the input is emitted whole on the page
+  it completed on, so a file paginated mid-packet comes back with a different page layout and the
+  same packets, granules and timings.
+- **A third module is now shared between handlers.** A change to `formats/vorbis.rs` is a change to
+  FLAC; a change to `container/ogg.rs` is a change to all three Ogg spellings.
+- **No dependency was added.** `lofty` remains un-rejected (ADR-0037 decision 2), and no Ogg,
+  Vorbis, Opus or CRC crate entered the tree — the CRC is eight lines of `wrapping_shl`.
+- **Group 4 has one tranche left**, and it is the one the hazard is actually in (ADR-0037).

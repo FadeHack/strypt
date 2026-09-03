@@ -133,8 +133,8 @@ workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/jxl corpus/flac corpus/wav corpus/detect corpus/ooxml corpus/odf corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, svg, jxl, flac, wav, bmff, riff, detect, ooxml, odf, zip
+mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/jxl corpus/flac corpus/wav corpus/mp3 corpus/ogg corpus/oggpage corpus/detect corpus/ooxml corpus/odf corpus/zip
+cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, svg, jxl, flac, wav, mp3, tags, ogg, oggpage, bmff, riff, detect, ooxml, odf, zip
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
 cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
 cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
@@ -147,6 +147,8 @@ cargo +nightly fuzz run svg corpus/svg seeds/svg seeds/svg/malformed -- -max_tot
 cargo +nightly fuzz run jxl corpus/jxl seeds/jxl seeds/jxl/malformed -- -max_total_time=300
 cargo +nightly fuzz run flac corpus/flac seeds/flac seeds/flac/malformed -- -max_total_time=300
 cargo +nightly fuzz run wav corpus/wav seeds/wav seeds/wav/malformed -- -max_total_time=300
+cargo +nightly fuzz run ogg corpus/ogg seeds/ogg seeds/ogg/malformed -- -max_total_time=300
+cargo +nightly fuzz run oggpage corpus/oggpage seeds/oggpage seeds/oggpage/malformed -- -max_total_time=300  # the page layer alone
 cargo +nightly fuzz run riff seeds/riff -- -max_total_time=300   # the walker WebP and WAV share
 cargo +nightly fuzz run bmff corpus/bmff seeds/bmff -- -max_total_time=300
 cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
@@ -197,7 +199,7 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all nineteen targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all twenty-one targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
@@ -210,6 +212,7 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 flac detect  # 12h each; group 4 tranche 1's debt, cleared 2026-09-01
 ./scripts/fuzz-sustained.sh -d 43200 wav riff webp detect  # 12h each; group 4 tranche 2's debt, cleared 2026-09-02 — webp is here because ADR-0039 moved code out of it
 ./scripts/fuzz-sustained.sh -d 43200 mp3 tags flac detect  # 12h each; group 4 tranche 3's debt, cleared 2026-09-03 — flac is here because ADR-0040 changed it
+./scripts/fuzz-sustained.sh -d 43200 ogg oggpage flac detect  # 12h each; group 4 tranche 4's debt — flac is here because ADR-0041 shares its comment reader
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:
@@ -218,11 +221,11 @@ nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 ```
 
-The default target list is **all nineteen** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
-wav mp3 tags riff ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before
+The default target list is **all twenty-one** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
+wav mp3 tags ogg oggpage riff ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before
 trusting a run to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23,
 `odf` with Phase 2 group 2, `tiff` on 2026-08-25, `gif` on 2026-08-26, `heif` and `bmff` on
-2026-08-27, `svg` on 2026-08-29, `jxl` on 2026-08-29, `flac` on 2026-09-01, `wav` and `riff` on 2026-09-02, and `mp3` and `tags` the same day. Each was rejected as an unknown name until it was added,
+2026-08-27, `svg` on 2026-08-29, `jxl` on 2026-08-29, `flac` on 2026-09-01, `wav` and `riff` on 2026-09-02, `mp3` and `tags` the same day, and `ogg` and `oggpage` on 2026-09-03. Each was rejected as an unknown name until it was added,
 so **a run predating a target's addition covered fewer targets than its command line suggests**,
 silently.
 
@@ -314,6 +317,7 @@ python3 corpus/tools/make_jxl_fixtures.py        # regenerate; the codestream is
 python3 corpus/tools/make_flac_fixtures.py       # regenerate; every fixture is real decodable audio, so mat2 and ffmpeg can open it
 python3 corpus/tools/make_wav_fixtures.py        # regenerate; every fixture is real 16-bit PCM, so mat2, ExifTool and ffmpeg can open it
 python3 corpus/tools/make_mp3_fixtures.py        # regenerate; every fixture is real MPEG-1 Layer III, so mat2, ExifTool and ffmpeg can open it
+python3 corpus/tools/make_ogg_fixtures.py        # regenerate; embeds recorded Vorbis, Opus and FLAC packets, so every fixture really decodes
 python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
 python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
 qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
@@ -596,6 +600,30 @@ identical byte for byte. Verified able to fail on both its tag walk and its mark
 unstripped pass-through stand-in. The measured difference: a Lyrics3 tag alone on a file survives
 mat2 and does not survive strypt; and strypt refuses files mat2 will still clean, for which mat2 is
 the better recommendation.
+
+### Ogg differential
+
+```sh
+cargo build --release
+./scripts/ogg-differential.sh
+```
+
+Neither tool re-encodes and both repaginate — mat2 through mutagen, strypt page by page (ADR-0041) —
+so this is the closest comparison in the project. Four things are checked: ExifTool's tags, an
+independent Python page walk (ExifTool names nothing at all for a serial number, and the serial is
+itself an identifier), a decode comparison, and a marker sweep. Requires `ffmpeg` in addition to
+mat2, ExifTool and python3.
+
+`MD5Signature` is deliberately filtered out and `Padding` is not: the first is the Ogg-FLAC audio
+checksum strypt keeps and declares (ADR-0038 decision 4), the second is a keep the differential must
+not hide.
+
+Last run 2026-09-03 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 10 fixtures,
+no serial surviving any output, and every output the same audio. Verified able to fail on both its
+page walk and its marker sweep, against an unstripped pass-through stand-in. The measured
+differences: mat2 keeps the vendor string and the serial number, and strypt clears both; and strypt
+refuses multiplexed, chained and Theora files mat2 will still clean, for which mat2 is the better
+recommendation.
 
 ### OpenDocument LibreOffice import validation
 

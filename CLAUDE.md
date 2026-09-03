@@ -45,7 +45,8 @@ ADR-0037 — under the same rule.
 | Group 4 — FLAC | ✅ 2026-09-01 |
 | Group 4 — WAV | ✅ 2026-09-02 |
 | Group 4 — MP3 | ✅ 2026-09-03 |
-| Group 4 — Ogg / MP4 | ⬜ not started |
+| Group 4 — Ogg | 🔶 handler landed 2026-09-03, sustained fuzz run outstanding |
+| Group 4 — MP4 | ⬜ not started |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.
@@ -81,6 +82,10 @@ applies *within* this phase as well as across phases.
   ID3-prefixed FLAC is now cleaned, and a FLAC's trailing tags are peeled), the `Xing`/`VBRI` frame is
   kept and declared because it is real audio, and `check-no-network.sh` cannot see a dependency's
   optional features — read decision 1 before trusting a green run on a new crate.
+
+- **ADR-0041 (Ogg)** — pages are CRC-checked, so it is **rebuilt**, and the serial number is rewritten
+  to zero: the one handler that cannot promise a byte-identical clean file. Granules are per-page, so
+  page grouping is preserved. The Vorbis comment reader is `formats/vorbis.rs`, **shared with FLAC**.
 
 - **ADR-0029** — the descent into embedded images is one level, images only. It exists exactly once,
   in `container/package.rs`.

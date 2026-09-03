@@ -38,7 +38,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FUZZ_DIR="$REPO_ROOT/crates/strypt-core/fuzz"
-ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags riff ooxml odf zip detect)
+ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags ogg oggpage riff ooxml odf zip detect)
 
 DURATION=7200
 OUT_DIR=""
@@ -50,13 +50,13 @@ Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
   -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
 
-Targets default to all nineteen: pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags riff ooxml odf zip detect
+Targets default to all twenty-one: pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags ogg oggpage riff ooxml odf zip detect
 
 Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of how many
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.
 
 Examples:
-  scripts/fuzz-sustained.sh -d 300                 # smoke test, all nineteen
+  scripts/fuzz-sustained.sh -d 300                 # smoke test, all twenty-one
   scripts/fuzz-sustained.sh -d 28800 pdf           # 8h on PDF alone
   scripts/fuzz-sustained.sh -d 14400 png webp      # 4h each, in parallel
 
@@ -121,6 +121,8 @@ corpus_args() {
     flac) echo "corpus/flac seeds/flac seeds/flac/malformed" ;;
     wav)  echo "corpus/wav seeds/wav seeds/wav/malformed" ;;
     mp3)  echo "corpus/mp3 seeds/mp3 seeds/mp3/malformed" ;;
+    ogg)  echo "corpus/ogg seeds/ogg seeds/ogg/malformed" ;;
+    oggpage) echo "corpus/oggpage seeds/oggpage seeds/oggpage/malformed" ;;
     *)    echo "corpus/$1 seeds/$1" ;;
   esac
 }
@@ -225,7 +227,7 @@ delivered_cpu_hours() {
   echo
   echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across every"
   echo "handler after a sustained run, with nothing set aside as not worth fixing. Criterion 2"
-  echo "was written when there were four targets; there are now nineteen. The ooxml and zip"
+  echo "was written when there were four targets; there are now twenty-one. The ooxml and zip"
   echo "targets cleared their sustained-run debt on 2026-08-24, odf and pdf cleared theirs on"
   echo "2026-08-25, tiff and detect cleared theirs on 2026-08-26, and gif cleared its on"
   echo "2026-08-27. The same run put pdf, jpeg, png and webp — the four the criterion actually"

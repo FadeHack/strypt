@@ -21,6 +21,43 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **Ogg support — `.ogg`, `.opus`, `.oga`.** Vorbis, Opus and FLAC-in-Ogg: the fourth tranche of
+  Phase 2's fourth format group (ADR-0037), decided in ADR-0041.
+
+  What comes out: the **Vorbis comment header**, itemised field by field — artist, performer,
+  composer, conductor, copyright holder, the person who encoded it, a contact address, recording and
+  tagging timestamps, a place and a set of coordinates, the encoder, the disc and recording
+  identifiers, and comments; **cover art**, removed whole, whether it is a `METADATA_BLOCK_PICTURE`
+  comment or an Ogg-FLAC picture block, so metadata inside the image goes with it; and the **vendor
+  string** naming the library that wrote the file. A comment key strypt has never seen goes too,
+  rather than surviving by being unrecognised. The audio packets are copied without ever being
+  decoded.
+
+- **The stream serial number is rewritten to zero.** It is an identifier in its own right — libogg's
+  own example seeds it from the clock — and no tool can recompute a file's original serial. Page
+  sequence numbers are renumbered with it. This is the one format where a file with nothing to
+  remove does **not** come back byte-for-byte identical; what does hold, and is tested, is that the
+  audio packets cross byte for byte and that stripping twice gives the same bytes.
+
+- **An Ogg carrying more than one logical bitstream is refused** — multiplexed or chained — rather
+  than partly cleaned, and so is a page whose CRC does not match its bytes, a stream with bytes
+  before its first page or after its last, and a stream that ends mid-packet.
+
+- **Theora, Speex and Skeleton streams are refused by name** rather than as "unrecognised". They are
+  Ogg files, and they are not formats strypt handles.
+
+- **Measured against mat2 0.15.0 on 2026-09-03: no gaps on the Ogg corpus, and the audio decodes
+  identically.** Neither tool re-encodes, so this is the closest comparison in the project so far.
+  Two differences are worth knowing: **mat2 keeps the vendor string and the stream serial number**,
+  and strypt clears both; and **strypt refuses files mat2 will still clean** — a multiplexed or
+  chained stream, and a Theora video in an Ogg. Refusing is the correct behaviour for a file strypt
+  cannot fully account for, and **for those files mat2 is the better recommendation**.
+
+- **The sustained fuzz run for Ogg has not been done yet.** Two new targets ship with the handler
+  (`ogg` and `oggpage`), and `flac` re-runs because the Vorbis comment reader is now shared between
+  the two handlers. Until that run is recorded, the Ogg handler carries the same fuzzing debt each
+  earlier tranche carried at this point.
+
 - **MP3 support — `.mp3`.** The third tranche of Phase 2's fourth format group (ADR-0037), decided
   in ADR-0040.
 

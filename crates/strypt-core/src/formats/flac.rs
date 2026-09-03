@@ -47,7 +47,7 @@ use crate::bytes::Reader;
 use crate::detect::Format;
 use crate::error::{MalformedDetail, ResourceLimit, Result, StryptError};
 use crate::formats::tags::{self, TagError};
-use crate::formats::{MetadataHandler, ParseLimits, StripOptions, Stripped, xmp};
+use crate::formats::{MetadataHandler, ParseLimits, StripOptions, Stripped, vorbis, xmp};
 use crate::report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, MetadataValue, Note, Retained,
     RetentionReason, StripReport,
@@ -117,12 +117,6 @@ const STREAMINFO_MD5_AT: usize = 18;
 const APPLICATION_ID_LEN: usize = 4;
 /// The media catalogue number that opens a cuesheet (§8.6).
 const CUESHEET_CATALOGUE_LEN: usize = 128;
-
-/// How much of a Vorbis comment block is itemised before the rest is reported in one line.
-///
-/// A block is removed whole whatever this is; the cap bounds only how many findings one file can
-/// produce, because a report is itself allocated and rendered.
-const MAX_ITEMISED_COMMENTS: u32 = 512;
 
 /// One metadata block, and the payload span it occupied.
 struct Block<'a> {
@@ -291,7 +285,15 @@ fn process(input: &[u8], options: &InspectOptions, limits: &ParseLimits) -> Resu
                 kept.push((block.kind, Payload::Zeros(block.payload.len())));
             }
             APPLICATION => out.findings.push(application(block.payload, size, options)),
-            VORBIS_COMMENT => comments(block.payload, size, options, &mut out.findings),
+            VORBIS_COMMENT => {
+                vorbis::comments(
+                    block.payload,
+                    "VORBIS_COMMENT",
+                    size,
+                    options,
+                    &mut out.findings,
+                );
+            }
             CUESHEET => {
                 out.findings.push(cuesheet(block.payload, size));
                 out.notes.push(Note::CapabilityRemoved {
@@ -416,113 +418,6 @@ fn picture(payload: &[u8], size: u64, options: &InspectOptions) -> Finding {
                 MetadataValue::Text(xmp::name_of(description))
             }
         })
-}
-
-/// Field names worth ranking, matched on the part before the `=` (§8.10 leaves the set open, so
-/// this is a ranking table and never a filter — every comment goes whether it is named here or
-/// not).
-const COMMENT_KINDS: &[(&str, MetadataKind)] = &[
-    ("ARTIST", MetadataKind::PersonalIdentity),
-    ("ALBUMARTIST", MetadataKind::PersonalIdentity),
-    ("PERFORMER", MetadataKind::PersonalIdentity),
-    ("COMPOSER", MetadataKind::PersonalIdentity),
-    ("CONDUCTOR", MetadataKind::PersonalIdentity),
-    ("COPYRIGHT", MetadataKind::PersonalIdentity),
-    ("ORGANIZATION", MetadataKind::PersonalIdentity),
-    ("ENCODED-BY", MetadataKind::PersonalIdentity),
-    ("CONTACT", MetadataKind::PersonalIdentity),
-    ("LOCATION", MetadataKind::Location),
-    ("GEO", MetadataKind::Location),
-    ("GPS", MetadataKind::Location),
-    ("DATE", MetadataKind::Timestamp),
-    ("YEAR", MetadataKind::Timestamp),
-    ("ENCODER", MetadataKind::SoftwareFingerprint),
-    ("ENCODING", MetadataKind::SoftwareFingerprint),
-    ("SOURCEMEDIA", MetadataKind::SoftwareFingerprint),
-    ("MUSICBRAINZ", MetadataKind::DocumentIdentifier),
-    ("CDDB", MetadataKind::DocumentIdentifier),
-    ("ISRC", MetadataKind::DocumentIdentifier),
-    ("REPLAYGAIN", MetadataKind::Other),
-    ("COMMENT", MetadataKind::Comment),
-    ("DESCRIPTION", MetadataKind::Comment),
-    // Cover art, base64-encoded into a comment rather than put in a picture block. Some taggers
-    // write it this way, and it is a whole image file however it is spelled.
-    ("METADATA_BLOCK_PICTURE", MetadataKind::Thumbnail),
-];
-
-/// A Vorbis comment block (§8.10): a vendor string, a count, then that many `NAME=value` items,
-/// every length little-endian.
-///
-/// Itemising is best-effort and removal is not: the block goes whole whatever this finds. A block
-/// whose lengths do not add up is reported in one line and deleted, because a block strypt cannot
-/// read is still one it can delete, and deleting is the safe direction.
-fn comments(payload: &[u8], size: u64, options: &InspectOptions, out: &mut Vec<Finding>) {
-    let before = out.len();
-    let mut r = Reader::new(payload);
-
-    let vendor = r
-        .u32_le()
-        .and_then(|n| usize::try_from(n).ok())
-        .and_then(|n| r.take(n));
-    if let Some(vendor) = vendor
-        && !vendor.is_empty()
-    {
-        // The encoder's own name and version — "reference libFLAC 1.5.0 20250101" and the like.
-        out.push(
-            Finding::new(
-                MetadataKind::SoftwareFingerprint,
-                "VORBIS_COMMENT",
-                as_u64(vendor.len()),
-            )
-            .with_field("vendor")
-            .with_value(options, || MetadataValue::Text(xmp::name_of(vendor))),
-        );
-    }
-
-    let count = r.u32_le().unwrap_or_default().min(MAX_ITEMISED_COMMENTS);
-    for _ in 0..count {
-        let Some(item) = r
-            .u32_le()
-            .and_then(|n| usize::try_from(n).ok())
-            .and_then(|n| r.take(n))
-        else {
-            break;
-        };
-        let (name, value) = split_comment(item);
-        out.push(
-            Finding::new(kind_of(&name), "VORBIS_COMMENT", as_u64(item.len()))
-                .with_field(name)
-                .with_value(options, || MetadataValue::Text(xmp::name_of(value))),
-        );
-    }
-
-    if out.len() == before {
-        // Nothing was legible. Something is there, it is going, and saying nothing would read as
-        // "no metadata here".
-        out.push(Finding::new(MetadataKind::Other, "VORBIS_COMMENT", size).with_field("Comments"));
-    }
-}
-
-/// Split `NAME=value` at the first `=`. A malformed item with no separator is reported whole under
-/// its own bytes rather than dropped from the report.
-fn split_comment(item: &[u8]) -> (String, &[u8]) {
-    match item.iter().position(|byte| *byte == b'=') {
-        Some(at) => (
-            xmp::name_of(item.get(0..at).unwrap_or_default()),
-            item.get(at.saturating_add(1)..).unwrap_or_default(),
-        ),
-        None => (xmp::name_of(item), &[]),
-    }
-}
-
-/// Rank a comment by its field name, case-insensitively and by prefix — real files spell
-/// `MUSICBRAINZ_TRACKID`, `REPLAYGAIN_TRACK_GAIN`, `DATE_RECORDED`.
-fn kind_of(name: &str) -> MetadataKind {
-    let upper = name.to_uppercase();
-    COMMENT_KINDS
-        .iter()
-        .find(|(candidate, _)| upper.starts_with(candidate))
-        .map_or(MetadataKind::Other, |(_, kind)| *kind)
 }
 
 /// A malformed-file error for this format.

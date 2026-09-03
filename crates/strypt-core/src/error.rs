@@ -195,8 +195,22 @@ pub enum UnsupportedKind {
     /// (`docs/PRD.md` §8.1) and would delete a track carrying its own metadata that nobody
     /// parsed (ADR-0034).
     MotionHeif,
-    /// An Ogg container.
-    Ogg,
+    /// An Ogg carrying Theora video.
+    ///
+    /// Video is Phase 2's fifth tranche at the earliest (ADR-0037), and a Theora stream carries
+    /// its own comment header this handler has not read.
+    OggTheora,
+    /// An Ogg whose codec strypt has no mapping for — Speex, Skeleton, or something unrecognised.
+    ///
+    /// The container is the same; what is in the packets is not, and the metadata lives in the
+    /// packets (ADR-0041).
+    OtherOggCodec,
+    /// An Ogg carrying more than one logical bitstream: a multiplexed or a chained file.
+    ///
+    /// Refused rather than partly cleaned. A second stream is a second mapping with a second
+    /// comment header, and cleaning one while copying the other through is the failure in
+    /// `docs/THREAT_MODEL.md` §5.4 (ADR-0041 decision 6).
+    MultiplexedOgg,
     /// MPEG audio that is not Layer III — an `.mp1` or `.mp2`.
     ///
     /// The same frame grammar as MP3 and a different format, so it is named rather than stripped
@@ -267,7 +281,13 @@ impl std::fmt::Display for UnsupportedKind {
             Self::BigTiff => "BigTIFF",
             Self::IsoBaseMedia => "an ISO base-media file (MP4 or M4A)",
             Self::MotionHeif => "a motion HEIF or AVIF (an Apple Live Photo, for instance)",
-            Self::Ogg => "Ogg",
+            Self::OggTheora => "an Ogg carrying Theora video",
+            Self::OtherOggCodec => {
+                "an Ogg carrying a codec strypt has no mapping for (Speex or Skeleton, for instance)"
+            }
+            Self::MultiplexedOgg => {
+                "an Ogg carrying more than one logical bitstream, which strypt will not partly clean"
+            }
             Self::MpegAudioNotLayerThree => {
                 "MPEG audio that is not Layer III (an .mp1 or .mp2), which is a different format"
             }

@@ -12,6 +12,7 @@
 //! it (ADR-0028).
 
 pub(crate) mod bmff;
+pub(crate) mod ogg;
 pub(crate) mod package;
 pub(crate) mod riff;
 pub(crate) mod zip;

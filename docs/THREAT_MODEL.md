@@ -1749,6 +1749,101 @@ with no crash artefact and is what this run answers.
 
 ---
 
+### 7.16 Ogg — Vorbis, Opus and FLAC-in-Ogg (Phase 2)
+
+**The first format in group 4 that is rebuilt rather than edited.** Every Ogg page carries a CRC
+over its own bytes and a sequence number counting from the start of the stream, so emptying a
+comment header invalidates the page holding it and renumbers every page after it. There is nothing
+to edit in place (ADR-0041 — required reading before touching this handler). strypt reads the
+stream into packets, replaces the header packets it owns, and **writes every page again with its CRC
+recomputed**. Three mappings, one handler: `Ogg Vorbis`, `Opus`, and `Ogg FLAC`.
+
+| What | Where it lives | What strypt does |
+|---|---|---|
+| Artist, performer, composer, conductor, copyright holder, the person who encoded it, a contact | `VORBIS_COMMENT` `ARTIST`, `ALBUMARTIST`, `PERFORMER`, `COMPOSER`, `CONDUCTOR`, `COPYRIGHT`, `ORGANIZATION`, `ENCODED-BY`, `CONTACT` | Removed with the whole comment list, itemised field by field |
+| Recording and tagging timestamps | `DATE`, `YEAR` | Removed |
+| **A place, and a set of coordinates** | `LOCATION`, `GEO`, `GPS` | Removed |
+| The encoder, the medium, and **the library that wrote the file** | `ENCODER`, `ENCODING`, `SOURCEMEDIA`, and the **vendor string** every comment header begins with | Removed — the vendor string is cleared, which mat2 keeps (see below) |
+| Recording and disc identifiers | `ISRC`, `MUSICBRAINZ*`, `CDDB` | Removed |
+| Comments and descriptions | `COMMENT`, `DESCRIPTION` | Removed |
+| **Cover art** | `METADATA_BLOCK_PICTURE`, and Ogg-FLAC's `PICTURE` block | Removed unread — an embedded image carries whatever its own container holds |
+| Anything at all — a comment key nobody has a name for is free to hold it | Any `VORBIS_COMMENT` field not named above | Removed unread |
+| Application and vendor blocks, cue sheets, and reserved block types | Ogg-FLAC `APPLICATION`, `CUESHEET`, anything not named below | Removed unread |
+| **The stream serial number** | Every page header | **Rewritten to zero** — see below |
+| Page sequence numbers | Every page header | Renumbered from zero |
+| **The audio MD5** | Ogg-FLAC `STREAMINFO` | **Kept and declared** — derived from the samples the file already carries, so its holder can recompute it (ADR-0038 decision 4) |
+| The seek table | Ogg-FLAC `SEEKTABLE` | Kept — playback structure, and RFC 9639 §8.5 measures its offsets from the first audio frame, so nothing removed can move them |
+| Padding | Ogg-FLAC `PADDING` | Kept at its length with every byte zeroed |
+| Granule positions | Every page header | Carried verbatim, on the page the packet finished on |
+| The audio | Every packet past the headers | Copied byte for byte, never decoded |
+
+**The serial number is itself an identifier, and this is the one place strypt gives up a
+byte-identical clean file.** RFC 3533 §6 wants a random serial per logical bitstream, and libogg's
+own example seeds it from `time(NULL)` — which makes it a timestamp with a random-looking spelling.
+It is rewritten to **zero** rather than to a fresh random value, because nothing this tool writes may
+be non-deterministic. A clean Ogg therefore does not come back byte-for-byte identical, unlike FLAC,
+WAV and MP3. What is promised instead, and tested: **the packets cross byte for byte**, granule
+positions stay with their packets, and stripping twice gives the same bytes.
+
+**Granule positions are per-page, not per-packet.** They timestamp the last packet finishing on that
+page, so a rebuild that repaginated freely would detach every timing from the audio it belongs to.
+Each packet is therefore tagged with whether it ended its input page, and the writer closes a page
+exactly there. Page boundaries can still move — a shorter comment header pulls what follows forward —
+but no timing does.
+
+**The comment header is emptied, not deleted.** All three codecs require it: Vorbis I §4.2 counts
+three header packets, Opus (RFC 7845) two, and the Ogg-FLAC mapping declares its header count in the
+mapping packet. Ogg-FLAC keeps that count by replacing a removed block with a zero-length `PADDING`,
+so neither the declared count nor the last-block flag is rewritten.
+
+**What is refused rather than partly cleaned:** a page whose declared CRC does not match its bytes;
+an unknown page version; bytes before the first page or after the last; **more than one logical
+bitstream** — multiplexed or chained — which strypt will not partly clean; a page finishing no packet
+whose granule position is not −1; a stream ending mid-packet; a missing or malformed comment header;
+a stream with no packets past the headers; and an Ogg-FLAC block that does not fill its packet
+exactly. Three codecs are refused **by name** rather than as "unrecognised": **Theora**, **Speex**
+and **Skeleton**.
+
+**The packets are never decoded.** Anything hidden inside an encoded audio packet, or in a Vorbis
+setup header's codebooks, is out of reach. Every Ogg report carries this note, clean files included.
+**This limit is shared with mat2.**
+
+**Testing.** 10 well-formed fixtures and 15 malformed ones in `corpus/ogg`, generated by
+`corpus/tools/make_ogg_fixtures.py`. They are **real decodable audio** — the identification, setup
+and audio packets came once from ffmpeg 9.0.1, because a Vorbis setup header is a codebook table
+nobody can hand-write; the pagination, the CRCs and every comment are the generator's own. 17
+integration tests in `crates/strypt-core/tests/ogg.rs`, checking the output with a **page walker
+written in the test file** — its own CRC included — so it cannot pass by agreeing with the code under
+test, plus a `SYNTHETIC` marker sweep and truncation and byte-flip sweeps over the whole corpus. 17
+unit tests in the handler, 14 in `container/ogg.rs`, and 4 in `formats/vorbis.rs`. Every malformed
+fixture is refused, and the three codecs that do not land here are asserted to be refused by name.
+
+**The FLAC handler shares code with this one.** The Vorbis comment reader moved out of `formats/
+flac.rs` into `formats/vorbis.rs` and is now read by both, so a change there changes FLAC too — which
+is why `flac` re-runs in this tranche's fuzzing. §7.13 covers the rest of FLAC.
+
+**Measured against other tools on 2026-09-03.** `scripts/ogg-differential.sh` compares strypt with
+**mat2 0.15.0** and **ExifTool 13.55** across all 10 well-formed fixtures: **no gaps**, no ExifTool
+tag surviving any output beyond the declared Ogg-FLAC keeps, no serial number surviving an
+independent page walk, no synthetic marker in any output, and — decoded by **ffmpeg 9.0.1** — every
+output the same audio. The script was **verified able to fail** against an unstripped pass-through
+stand-in, on both its page walk and its marker sweep.
+
+**Where the two tools differ, and it goes both ways.** mat2's `OggParser` goes through mutagen and
+repaginates too, so neither tool re-encodes. Measured the same day: **mat2 keeps the vendor string**
+— `Xiph.Org libVorbis …`, `libopus 1.5.2 …` — on every fixture that has one, and keeps the stream
+serial number; strypt clears both. In the other direction, **strypt refuses files mat2 will still
+clean** — a multiplexed or chained stream, and a Theora video in an Ogg. Refusing is correct
+fail-closed behaviour, and **for those files mat2 is the better recommendation**.
+
+**Fuzzing — outstanding.** Two new targets, `ogg` (the handler, through the pipeline) and `oggpage`
+(the page layer alone, both directions), plus `flac`, which re-runs because the comment reader is now
+shared. Short smoke runs are clean; **the sustained run required by Phase 1 exit criterion 2 has not
+been done, and this section will say so until it has.** This is the same debt each earlier tranche
+carried between its handler landing and its run completing.
+
+---
+
 ---
 
 ## 8. Review triggers

@@ -521,14 +521,15 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full, and **group 3 is closed** — five
     tranches, five handlers, no outstanding debt. Group 4 may open (ADR-0032).
 
-- 🔶 **Group 4 — audio and video containers — in progress, three tranches of five complete.**
+- 🔶 **Group 4 — audio and video containers — in progress, three tranches of five complete and a
+  fourth landed with its fuzz run outstanding.**
   **ADR-0037 splits it into five tranches** — FLAC, WAV, MP3, Ogg (Opus/Vorbis/FLAC-in-Ogg),
   MP4+M4A — landing in that order under ADR-0032's rules. What makes this group unlike the three
   before it: the payload is a timed stream and the container indexes into it, so MP4's `stco`/`co64`
   invalidate silently when a box ahead of the media is removed, and Ogg's metadata sits in
   CRC-checked pages that cannot be edited in place. Three questions are left to their tranches, and
   the dependency survey is closer than Group 3's — `lofty` is permissively licensed and the right
-  shape, so it is not pre-rejected. **Nothing beyond tranche 3 exists**: the "check before
+  shape, so it is not pre-rejected. **Nothing beyond tranche 4 exists**: the "check before
   referencing a later artefact" rule applies here.
 
   - ✅ **Tranche 1 — FLAC — complete 2026-09-01.** Landed:
@@ -650,6 +651,41 @@ this order, and a group is not started until the previous one meets the Phase 1 
 
     With that, this tranche meets the Phase 1 bar in full and **tranche 4 may open** (ADR-0037).
 
+  - 🔶 **Tranche 4 — Ogg — handler landed 2026-09-03, sustained fuzz run outstanding.** Landed:
+    ADR-0041, `container/ogg.rs`, `formats/vorbis.rs`, the handler across three mappings
+    (`.ogg`, `.opus`, `.oga`), `ogg` and `oggpage` fuzz targets with seeds, 10 fixtures plus 15
+    malformed ones with their generator, 17 integration tests, 35 unit tests, a clean
+    mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.16.
+
+    **ADR-0041 is required reading before touching it.** Ogg is the first format in this group that
+    is **rebuilt**: pages carry a CRC over their own bytes and a sequence number, so emptying a
+    comment header invalidates the page holding it and renumbers everything after it. Granule
+    positions are per-page, so the input's page grouping is preserved rather than repaginated freely.
+
+    **The stream serial number is rewritten to zero**, which is why this is the first group-4 handler
+    that cannot promise a byte-identical clean file. It is an identifier, and nobody can recompute a
+    file's original one. What is promised instead: the packets cross byte for byte, and stripping
+    twice is byte-exact.
+
+    **The Vorbis comment reader is now shared with FLAC** (`formats/vorbis.rs`), so `flac` re-runs in
+    this tranche's fuzzing alongside the two new targets.
+
+    **Deliberate limitations, recorded in §7.16:** the packets are never decoded, so anything inside
+    an encoded packet or a Vorbis setup header's codebooks is out of reach — **a limit shared with
+    mat2**, and declared on every report; the Ogg-FLAC audio MD5 is **kept and declared** (ADR-0038
+    decision 4); multiplexed and chained streams are refused rather than partly cleaned; Theora,
+    Speex and Skeleton are refused by name.
+
+    **The differential goes both ways, and is recorded that way.** `scripts/ogg-differential.sh` is
+    clean over 10 fixtures and **verified able to fail**. mat2 0.15.0 keeps the vendor string and the
+    serial number, and strypt clears both; and strypt **refuses** files mat2 will still clean — a
+    multiplexed or chained stream, a Theora video — for which **mat2 is the better recommendation**
+    (ADR-0012).
+
+    **Outstanding: the sustained fuzz run.** `ogg`, `oggpage`, `flac` and `detect` owe it. Until it
+    is delivered and clean this tranche does not meet the Phase 1 bar, and **tranche 5 does not
+    open** (ADR-0037).
+
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
    `app.xml`, custom properties, revision identifiers, comments, tracked changes,
@@ -661,7 +697,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC complete 2026-09-01, WAV 2026-09-02, MP3 2026-09-03. Ogg and MP4 not started.
+   ADR-0037; FLAC complete 2026-09-01, WAV 2026-09-02, MP3 2026-09-03. Ogg landed 2026-09-03 with
+   its sustained fuzz run outstanding; MP4 not started.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level
