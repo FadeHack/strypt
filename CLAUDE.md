@@ -44,7 +44,7 @@ ADR-0037 — under the same rule.
 | Group 3 — JPEG XL | ✅ 2026-08-30 |
 | Group 4 — FLAC | ✅ 2026-09-01 |
 | Group 4 — WAV | ✅ 2026-09-02 |
-| Group 4 — MP3 | 🔶 landed 2026-09-02; **sustained fuzz run outstanding**, so tranche 4 may not open |
+| Group 4 — MP3 | ✅ 2026-09-03 |
 | Group 4 — Ogg / MP4 | ⬜ not started |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule

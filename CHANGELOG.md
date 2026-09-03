@@ -57,6 +57,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   front of the audio. Refusing is the correct behaviour for a file strypt cannot fully account for,
   and **for those files mat2 is the better recommendation**.
 
+- **The MP3 handler has had a clean twelve-hour fuzz run** — 1.8 billion inputs, zero crashes,
+  hangs or OOMs — alongside the shared tag reader's 2.3 billion, FLAC's 590 million and the
+  format-detection target's 2.6 billion. FLAC and detection were re-run because reading ID3
+  changed both.
+
 - **WAV support — `.wav`.** The second tranche of Phase 2's fourth format group (ADR-0037),
   decided in ADR-0039.
 

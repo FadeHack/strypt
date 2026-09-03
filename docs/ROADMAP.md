@@ -521,14 +521,14 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full, and **group 3 is closed** — five
     tranches, five handlers, no outstanding debt. Group 4 may open (ADR-0032).
 
-- 🔶 **Group 4 — audio and video containers — in progress, one tranche of five complete.**
+- 🔶 **Group 4 — audio and video containers — in progress, three tranches of five complete.**
   **ADR-0037 splits it into five tranches** — FLAC, WAV, MP3, Ogg (Opus/Vorbis/FLAC-in-Ogg),
   MP4+M4A — landing in that order under ADR-0032's rules. What makes this group unlike the three
   before it: the payload is a timed stream and the container indexes into it, so MP4's `stco`/`co64`
   invalidate silently when a box ahead of the media is removed, and Ogg's metadata sits in
   CRC-checked pages that cannot be edited in place. Three questions are left to their tranches, and
   the dependency survey is closer than Group 3's — `lofty` is permissively licensed and the right
-  shape, so it is not pre-rejected. **Nothing beyond tranche 1 exists**: the "check before
+  shape, so it is not pre-rejected. **Nothing beyond tranche 3 exists**: the "check before
   referencing a later artefact" rule applies here.
 
   - ✅ **Tranche 1 — FLAC — complete 2026-09-01.** Landed:
@@ -607,7 +607,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032,
     carried over by ADR-0037).
 
-  - 🔶 **Tranche 3 — MP3 — landed 2026-09-02, sustained fuzzing outstanding.** Landed: ADR-0040,
+  - ✅ **Tranche 3 — MP3 — complete 2026-09-03.** Landed: ADR-0040,
     `formats/tags.rs`, the handler, `mp3` and `tags` fuzz targets with seeds, 23 fixtures plus 11
     malformed ones with their generator, 16 integration tests, 33 unit tests, a clean
     mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.15.
@@ -642,9 +642,13 @@ this order, and a group is not started until the previous one meets the Phase 1 
     `.mp2`, or a file with bytes in front of the audio — for which **mat2 is the better
     recommendation** (ADR-0012).
 
-    **Outstanding: the sustained fuzz run.** `mp3`, `tags`, `flac` and `detect` have had a clean
-    90-second smoke run only, which is not the Phase 1 bar. Until that run lands, this tranche does
-    not meet the bar and **tranche 4 may not open**.
+    **The sustained fuzz run has been delivered and is clean (2026-09-03).** `mp3`, `tags`, `flac`
+    and `detect` each ran the full twelve hours in parallel — 48.00 CPU-hours, **7,273,768,346
+    inputs**, **zero crashes** — so the two new targets' debt and the two re-owed by ADR-0040 are
+    cleared together. `mp3` and `flac` were still gaining coverage at the end; that bears on
+    ADR-0014's plateau, which is Phase 3, not on exit criterion 2.
+
+    With that, this tranche meets the Phase 1 bar in full and **tranche 4 may open** (ADR-0037).
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
@@ -657,8 +661,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC complete 2026-09-01 and WAV 2026-09-02. MP3 landed 2026-09-02 with its sustained
-   fuzz run outstanding. Ogg and MP4 not started.
+   ADR-0037; FLAC complete 2026-09-01, WAV 2026-09-02, MP3 2026-09-03. Ogg and MP4 not started.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level

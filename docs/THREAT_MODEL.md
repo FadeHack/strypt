@@ -1560,6 +1560,11 @@ has reached** (`jxl` peaked at 759 MB) and sits at 62% of libFuzzer's 2 GB defau
 hit it, but a future handler sharing this pipeline has less headroom than the earlier numbers
 suggest.
 
+**Re-run, clean (2026-09-03).** ADR-0040 put an ID3 reader in front of this handler, so `flac` ran
+again: **590,410,789 inputs, zero crashes**, and it was still finding new coverage at 41,737s of
+43,200s. Fewer inputs than the 2026-09-01 run because each one now walks the tag peel first — a
+re-run measures the changed handler, not the old number again.
+
 ### 7.14 WAV (Phase 2)
 
 **A RIFF file of form type `WAVE`, so the walk is the one WebP has used since Phase 1** — moved into
@@ -1735,9 +1740,12 @@ behaviour, and **for those files mat2 is the better recommendation**.
 removed, and a trailing ID3v1, APE or Lyrics3 tag on a FLAC — which used to survive silently under
 that handler's "the frames are not decoded" note — is peeled too. §7.13 covers the rest of FLAC.
 
-**Sustained fuzzing: outstanding.** `mp3` and `tags` are new targets and have not had a sustained
-run; `flac` and `detect` owe a re-run, because this tranche changed both. A 90-second smoke run of
-all four on 2026-09-02 was clean, which is not the Phase 1 bar and is not offered as it.
+**Fuzzing — sustained, clean (2026-09-03).** `mp3`, `tags`, `flac` and `detect` each ran **12.00
+hours** in parallel — 48.00 CPU-hours, **7,273,768,346 inputs**, **zero crashes, hangs or OOMs**,
+peak RSS 722 MB. `tags` is the shared reader, so the run covers the ID3 path FLAC uses as well as
+MP3's. `mp3` and `flac` were **still finding new coverage** at 40,176s and 41,737s of 43,200s: that
+is ADR-0014's Phase 3 plateau question, not Phase 1 exit criterion 2, which asks for a sustained run
+with no crash artefact and is what this run answers.
 
 ---
 
