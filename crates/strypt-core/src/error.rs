@@ -179,11 +179,36 @@ pub enum UnsupportedKind {
     /// parser reading its directories as ordinary TIFF ones produces confident nonsense
     /// (ADR-0033).
     BigTiff,
-    /// An ISO base-media file this release does not handle: MP4, M4A, or a motion HEIF.
+    /// An ISO base-media file whose brands name nothing this release handles.
     ///
-    /// Still HEIF and AVIF are handled, so what reaches this variant is a container carrying
-    /// tracks rather than a picture.
+    /// Still HEIF and AVIF, progressive MP4 and M4A all have handlers, so what reaches this variant
+    /// is a container declaring some other brand entirely — or a motion HEIF, which carries a
+    /// still-image brand alongside a sequence one.
     IsoBaseMedia,
+    /// A fragmented MP4 — a `moof`, `mfra`, `mvex`, `styp` or `sidx` box, or a DASH/CMAF brand.
+    ///
+    /// Refused rather than edited. `tfhd`'s `base_data_offset` and every `tfra` entry are absolute
+    /// file offsets again, spread across fragments this handler does not read, so the relocation
+    /// table the MP4 handler is built on cannot be constructed for them (ADR-0042). A fragmented
+    /// file edited as though it were progressive still opens and plays nothing.
+    FragmentedMp4,
+    /// An MP4 or M4A under Common Encryption or `FairPlay` — a `pssh` box, an `encv`/`enca`/`drms`
+    /// sample entry, or the `M4P ` brand.
+    ///
+    /// Refused on the reasoning behind [`Self::MacroEnabledOffice`]: the samples are ciphertext no
+    /// rule here matches, so reporting the file clean would mean reporting on a file nobody
+    /// examined (`docs/THREAT_MODEL.md` §5.4, ADR-0042).
+    ProtectedMedia,
+    /// A `QuickTime` movie — a `.mov`, declaring the `qt  ` brand.
+    ///
+    /// The same box grammar as MP4 and a different vocabulary on top of it. Phase 2's fourth group
+    /// is MP4 and M4A (ADR-0037); widening it is a superseding ADR rather than a judgement call.
+    QuickTimeMovie,
+    /// A 3GPP or 3GPP2 file — the `3gp`/`3g2` brand family.
+    ///
+    /// Named rather than left as [`Self::IsoBaseMedia`], because it is a format a user has a name
+    /// for. Out of ADR-0037's scope for the reason [`Self::QuickTimeMovie`] is.
+    ThirdGenerationPartnership,
     /// A HEIF or AVIF that carries a motion sequence as well as, or instead of, a still image.
     ///
     /// An Apple Live Photo is the common case: an ordinary-looking `.HEIC` with a video track
@@ -279,7 +304,18 @@ impl std::fmt::Display for UnsupportedKind {
                 "an OpenDocument type strypt does not handle yet (a drawing, formula, chart, or template)"
             }
             Self::BigTiff => "BigTIFF",
-            Self::IsoBaseMedia => "an ISO base-media file (MP4 or M4A)",
+            Self::IsoBaseMedia => {
+                "an ISO base-media file whose brands name no format strypt handles"
+            }
+            Self::FragmentedMp4 => {
+                "a fragmented MP4, whose sample offsets strypt will not relocate"
+            }
+            Self::ProtectedMedia => {
+                "an encrypted MP4 or M4A (Common Encryption or FairPlay), whose samples strypt \
+                 cannot examine"
+            }
+            Self::QuickTimeMovie => "a QuickTime movie (.mov), which is a different vocabulary",
+            Self::ThirdGenerationPartnership => "a 3GPP or 3GPP2 file",
             Self::MotionHeif => "a motion HEIF or AVIF (an Apple Live Photo, for instance)",
             Self::OggTheora => "an Ogg carrying Theora video",
             Self::OtherOggCodec => {

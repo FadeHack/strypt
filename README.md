@@ -2,7 +2,7 @@
 
 > ## Status: Phase 2 in progress — no audit, no release, no hardening phase yet
 >
-> **PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF/AVIF (`.heic`, `.heif`, `.avif`), SVG, JPEG XL, FLAC, WAV, MP3, Ogg (`.ogg`, `.opus`, `.oga`), Office Open XML
+> **PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF/AVIF (`.heic`, `.heif`, `.avif`), SVG, JPEG XL, FLAC, WAV, MP3, Ogg (`.ogg`, `.opus`, `.oga`), MP4/M4A (`.mp4`, `.m4v`, `.m4a`, `.m4b`), Office Open XML
 > (`.docx`, `.xlsx`, `.pptx`), and OpenDocument (`.odt`, `.ods`, `.odp`) are implemented.**
 > Everything else is recognised and reported as unsupported; it is not processed. All seven Phase 1 exit criteria are met: the handlers were
 > swept over 102 files from real producers — real camera maker notes included — the mat2
@@ -140,6 +140,18 @@
 > better recommendation.
 >
 >
+> **MP4 and M4A landed on 2026-09-04 — the fifth and last of Phase 2's audio/video tranches — and
+> their sustained fuzz run is still outstanding, so the tranche is not finished.** `stco` holds
+> absolute file offsets into the media, so removing a box in front of it moves every chunk. strypt
+> edits the box tree and copies the media untouched, remapping **every chunk offset through a table
+> of media extents**; an offset that resolves into none of them **refuses the file** rather than
+> being nudged by a delta nobody verified. A clean MP4 comes back byte-identical. Measured against
+> mat2 on 2026-09-04: **no gaps** — mat2 keeps the handler description, the handler vendor ID and an
+> empty free-space box, which strypt removes. Two differences worth knowing: **mat2 does not claim
+> `.m4a`** at all, and **strypt refuses files mat2 will still clean** — fragmented MP4 and QuickTime
+> `.mov` — for which **mat2 is the better recommendation**.
+>
+>
 > **Ogg is finished as of 2026-09-04 — the fourth of Phase 2's five audio/video tranches.** Vorbis, Opus and FLAC-in-Ogg, in one handler. Ogg pages carry a
 > CRC over their own bytes, so the file is rebuilt page by page rather than edited: **the stream
 > serial number is rewritten to zero** — it is an identifier, and libogg's own example seeds it from
@@ -168,7 +180,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02, MP3 2026-09-03 done; Ogg 2026-09-04 done; MP4 not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02, MP3 2026-09-03 done; Ogg 2026-09-04 done; MP4/M4A landed 2026-09-04 with its sustained fuzz run outstanding |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
@@ -230,6 +242,7 @@ unless you ask for `--in-place`. Full command reference and exit codes:
 | WAV | The `INFO` list — artist, engineer, technician, commissioner, copyright holder, archival location, dates; the **broadcast extension**, whose originator, originator reference, UMID and coding history name the desk, the operator and every processing step; field-recorder documents in `iXML` and `aXML`; XMP; **an embedded ID3v2 tag, dropped unread**; radio traffic metadata; cue labels; display text, playlists and instrument settings; and **any chunk strypt has never seen, removed unread**. Padding keeps its length and loses its contents. The cue-point chunk is kept and declared — it names nobody, and removing metadata cannot move its offsets. Removing the sampler chunk ends looping the file in a sampler. The audio is never decoded, so anything hidden in the sample values is out of reach, which every report says. RF64 and BW64 are refused by name. Edited by chunk surgery, so a clean file comes back byte-identical |
 | MP3 | The **ID3v2 tag**, itemised frame by frame across all three major versions — artist, composer, conductor, publisher, copyright holder, the tagging software, recording and encoding timestamps, disc and recording identifiers, comments and lyrics, and a place where the geotagging convention was used; **cover art and any embedded file, removed whole**; a vendor's private frames; the **ID3v1 tag and its `TAG+` extension**; **APE** tags, itemised by key; **Lyrics3** v1 and v2; and any frame strypt has never seen, removed unread. The `Xing`/`Info`/`VBRI` header frame is kept and declared — it is a real audio frame, removing it would break variable-bitrate seeking, and the encoder that made the file is named in it. The frames are never decoded, so anything in a frame's ancillary data is out of reach, which every report says. Anything other than zeros between the tags and the first frame refuses the file, and so does MPEG audio that is not Layer III, named as such. Edited by deletion at both ends, so a clean file comes back byte-identical |
 | Ogg | Vorbis, Opus and FLAC-in-Ogg. The **Vorbis comment header**, itemised field by field — artist, performer, composer, conductor, copyright holder, the person who encoded it, a contact address, dates, a place and a set of coordinates, the encoder, disc and recording identifiers, and comments; **cover art, removed whole, so the metadata inside that image goes with it**; the **vendor string** naming the library that wrote the file; and any comment key strypt has never seen, removed unread. Ogg-FLAC's picture, cuesheet, application and reserved blocks go too; its seek table is kept, and **the MD5 of the unencoded audio is kept and declared** — whoever holds the file can recompute it. **The stream serial number is rewritten to zero**: it is an identifier, seeded from the clock by libogg's own example. Page sequence numbers are renumbered with it, so this is the one format where a clean file does not come back byte-identical — the audio packets cross byte for byte instead. The packets are never decoded, so anything inside one is out of reach, which every report says. A stream carrying more than one logical bitstream is refused rather than partly cleaned, and Theora, Speex and Skeleton are refused by name |
+| MP4 / M4A | The **GPS coordinate** every phone writes into every video it records; the whole **iTunes atom list** — title, artist, album, composer, comment, description, lyrics, dates, encoder — itemised atom by atom, along with a vendor's own key/value triples; **camera make and model**; **cover art, removed whole, so the metadata inside that image goes with it**; an **XMP packet**, scanned first so the report names what went; Microsoft's `Xtra`; free space; and **any box strypt has never seen, removed unread**. The encoding software goes wherever it hides, including the encoder name inside a video sample entry. Creation and modification times are zeroed in place and the media language becomes "undetermined", because the boxes holding them are mandatory. The codec configuration is kept and declared — the samples cannot be decoded without it. The samples are never decoded, so an encoder string in H.264 SEI user data is out of reach, which every report says. **A chunk offset that cannot be relocated refuses the file**, never a guess. Fragmented MP4, encrypted media, QuickTime `.mov` and 3GPP are refused by name. Edited by deletion, so a clean file comes back byte-identical |
 | `.docx` `.xlsx` `.pptx` | The core, extended, and custom properties (author, company, manager, cumulative editing time, revision count), the page thumbnail, revision-save and paragraph identifiers, the author names and dates on comments and tracked changes, per-part timestamps and host fields, and external relationships pointing at a local path. **Photographs inside the document are stripped by the image handlers above.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
 
 | `.odt` `.ods` `.odp` | `meta.xml` entire — author, last-saved-by, creation/modification/print dates, the editing-cycle count and the total editing duration, the generator (which names the operating system), page and word statistics, user-defined properties, and a template path — plus `settings.xml` entire, which holds the **printer name and setup blob**; the page thumbnail; the saved user-interface configuration and layout cache; the author names and dates on comments and tracked changes; the cached author-name fields printed in the document; and per-part timestamps and host fields. **Photographs inside the document are stripped by the image handlers above, and an embedded chart's own metadata goes too.** The *text* of comments and tracked changes is kept and reported — see the limitations below |

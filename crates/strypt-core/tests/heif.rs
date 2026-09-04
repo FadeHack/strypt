@@ -180,11 +180,17 @@ fn both_formats_route_to_this_handler() {
 #[test]
 fn an_mp4_is_not_claimed_by_the_still_handler() {
     // The mis-dispatch guard: MP4 shares this container, and routing it here would mean a video
-    // reported as a stripped photograph.
+    // reported as a stripped photograph. It has its own handler since ADR-0042, so what this
+    // asserts is that the brands send it there and not here.
     let mut mp4 = vec![0, 0, 0, 0x18];
     mp4.extend_from_slice(b"ftypisom\x00\x00\x02\x00isomiso2");
+    assert_eq!(detect(&mp4).unwrap(), Format::Mp4);
+
+    // A container whose brands name nothing at all is still refused rather than guessed at.
+    let mut unknown = vec![0, 0, 0, 0x18];
+    unknown.extend_from_slice(b"ftypzzzz\x00\x00\x02\x00zzzzyyyy");
     assert!(matches!(
-        detect(&mp4),
+        detect(&unknown),
         Err(StryptError::UnsupportedFormat {
             format: UnsupportedKind::IsoBaseMedia
         })

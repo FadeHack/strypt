@@ -15,6 +15,7 @@ use crate::formats::heif::HeifHandler;
 use crate::formats::jpeg::JpegHandler;
 use crate::formats::jxl::JxlHandler;
 use crate::formats::mp3::Mp3Handler;
+use crate::formats::mp4::Mp4Handler;
 use crate::formats::odf::OdfHandler;
 use crate::formats::ogg::OggHandler;
 use crate::formats::ooxml::OoxmlHandler;
@@ -47,6 +48,10 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
         // As the Office and OpenDocument handlers below: one type, one instance per format, so
         // that `handler.format()` answers with what dispatch chose.
         Format::Heif => Some(&HEIF),
+        // One handler, two formats: the container is the same and only the name a user has for it
+        // differs (ADR-0042).
+        Format::Mp4 => Some(&MP4),
+        Format::M4a => Some(&M4A),
         // One handler, three mappings: the container is shared and the header packets are not.
         Format::Ogg => Some(&OGG_VORBIS),
         Format::Opus => Some(&OPUS),
@@ -68,6 +73,8 @@ pub fn handler_for(format: Format) -> Option<&'static dyn MetadataHandler> {
 static OGG_VORBIS: OggHandler = OggHandler::VORBIS;
 static OPUS: OggHandler = OggHandler::OPUS;
 static OGG_FLAC: OggHandler = OggHandler::FLAC;
+static MP4: Mp4Handler = Mp4Handler::MP4;
+static M4A: Mp4Handler = Mp4Handler::M4A;
 static HEIF: HeifHandler = HeifHandler::HEIF;
 static AVIF: HeifHandler = HeifHandler::AVIF;
 static DOCX: OoxmlHandler = OoxmlHandler::DOCX;
@@ -95,6 +102,8 @@ pub fn supported_formats() -> Vec<Format> {
         Format::Ogg,
         Format::Opus,
         Format::OggFlac,
+        Format::Mp4,
+        Format::M4a,
         Format::Heif,
         Format::Avif,
         Format::Docx,
@@ -149,6 +158,8 @@ mod tests {
             Format::Ogg,
             Format::Opus,
             Format::OggFlac,
+            Format::Mp4,
+            Format::M4a,
             Format::Docx,
             Format::Xlsx,
             Format::Pptx,

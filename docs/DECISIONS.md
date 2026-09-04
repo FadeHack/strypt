@@ -2581,3 +2581,146 @@ timestamp without decoding.
 - **No dependency was added.** `lofty` remains un-rejected (ADR-0037 decision 2), and no Ogg,
   Vorbis, Opus or CRC crate entered the tree — the CRC is eight lines of `wrapping_shl`.
 - **Group 4 has one tranche left**, and it is the one the hazard is actually in (ADR-0037).
+
+---
+
+## ADR-0042 — MP4 is edited by deletion, and every chunk offset is remapped through a verified table
+
+**Status:** Accepted (2026-09-04)
+
+**Context.** ADR-0037's fifth and last tranche, and the one the group was ordered around: MP4 is
+where the offset hazard actually lives. `stco` (ISO/IEC 14496-12 §8.7.5) holds a table of **absolute
+file offsets** to the chunks of media inside `mdat`, and `co64` is the same table with 64-bit
+entries. Remove a box in front of the `mdat` and every one of those numbers is wrong. Nothing warns:
+the file still opens, and the decoder reads whatever now sits where the chunk used to be.
+
+ADR-0034 met the same sentence in HEIF and concluded that the file had to be rebuilt. This tranche
+has to answer whether that conclusion carries.
+
+It does not, and the reason is structural rather than stylistic. In HEIF the metadata is *inside*
+`mdat`: Exif and XMP are items whose bytes are interleaved with the coded picture and addressed by
+`iloc`. Removing one punches a hole in the payload region, and every surviving item after it moves
+by a different amount, so there is no single delta to apply. In MP4 the metadata is entirely
+*outside* `mdat` — `moov/udta`, `moov/meta`, a top-level `uuid`, `free` — and the media data is one
+opaque run of bytes nobody edits. Each `mdat` therefore **translates rigidly**: every chunk inside it
+moves by the same number of bytes, which is the number of bytes removed ahead of it.
+
+**Decision.**
+
+1. **MP4 is edited by deletion, not rebuilt. ADR-0034's conclusion reverses.** The tree is filtered
+   against allow-lists and re-emitted; `ftyp` and every `mdat` cross verbatim, header bytes included,
+   so a 64-bit `mdat` header stays a 64-bit header. What is written fresh is `moov` and the boxes
+   under it, because that is where the removals are.
+
+2. **When a box ahead of an `mdat` is removed, every chunk offset is rewritten through a relocation
+   table, and an offset that does not resolve refuses the file.** The table holds one entry per input
+   `mdat`: its old payload extent and its new start. Each `stco`/`co64` entry must fall **inside a
+   known input `mdat` extent**; its replacement is that entry's position within the extent, measured
+   from the new start. An offset landing in no `mdat` — in a `free` box that was deleted, in `moov`,
+   past the end of the file — is `BrokenIndex` and nothing is written. It is deliberately **not**
+   adjusted by a blind delta: a blind delta on an offset nobody located produces a file that plays
+   the wrong bytes, which is the failure ADR-0039 refused a wave list to avoid.
+
+   The file only ever shrinks, so a 32-bit `stco` cannot overflow into needing `co64`; the conversion
+   is checked anyway and refuses rather than truncating.
+
+3. **The rewrite is two-pass, and a size disagreement between the passes is a refusal.** `moov`'s
+   size decides where the `mdat`s land, and the offsets written into `moov` depend on where they
+   land. The loop is cut by the fact that the *widths* never change — a `stco` stays a `stco` with
+   the same entry count — so the first pass writes the tree with placeholder offsets purely to
+   measure it, the layout is computed, and the second pass writes it for real. The second pass's
+   `moov` must be exactly as long as the first's; if it is not, the assumption is broken and the file
+   is refused as `NotRoundTrippable` rather than written with offsets pointing at nothing.
+
+4. **`container/bmff.rs` is shared, and extended by two things.** A `Box` now records its header
+   length, and `bmff::raw` hands back a box's original bytes. Both exist for decision 1: verbatim
+   re-emission is only verbatim if the header form is preserved, and `write_box` deliberately only
+   ever writes 32-bit sizes. Nothing MP4-specific enters the module. **`heif` and `bmff` therefore
+   re-run in the sustained fuzz run**, as `webp` did for ADR-0039 and `flac` for ADR-0040 and
+   ADR-0041.
+
+5. **Brands that land:** `isom`, `iso2`, `iso4`, `iso5`, `iso6`, `mp41`, `mp42`, `mmp4`, `avc1` and
+   `M4V ` route to `Format::Mp4`; `M4A ` and `M4B ` route to `Format::M4a`. Two formats, one
+   `Mp4Handler`, as HEIF and AVIF share one (ADR-0034). They are separate formats because they are
+   separate things to a user and get separate output extensions, not because the code differs.
+
+6. **Fragmented MP4 is refused by name.** A `moof`, `mfra`, `mvex`, `styp` or `sidx` box, or a
+   `dash`, `msdh`, `msix`, `cmfc` or `cmfl` brand, refuses the file. `tfhd`'s `base_data_offset` and
+   every `tfra` entry are absolute file offsets again, in structures spread across fragments that
+   this handler does not read — decision 2's table cannot be built for them, and a fragmented file
+   edited as though it were progressive plays silence.
+
+7. **DRM is refused by name.** A `pssh` box anywhere, or a sample entry of type `encv`, `enca`,
+   `encs`, `enct`, `drms` or `drmi`, or the `M4P ` brand. Common Encryption puts the real sample
+   entry inside `sinf/frma` and leaves ciphertext behind; strypt has no rule that matches ciphertext,
+   so a protected file reported clean would have been examined by nobody — the ODF and HEIF
+   `ipro` refusals by another name (§7.7, ADR-0034). The signal is the sample entry type, the
+   `pssh`, and the brand; strypt does not attempt to find a `sinf` inside a sample entry it does not
+   parse, and says so in `docs/THREAT_MODEL.md` §7.17.
+
+   QuickTime (`qt  `) and the 3GPP brands are refused as out of scope: ADR-0037's tranche is MP4 and
+   M4A, and `.mov` carries QuickTime-only atoms with their own rules.
+
+8. **Removals.** `udta` at every level, which is where `©nam`, `©ART`, `©day`, `©too`, iTunes `----`
+   free-form tags, `covr` cover art and — the one that matters most — `©xyz`, the ISO-6709 GPS string
+   every iPhone and most Android phones write into every video they record. Also `meta`/`ilst`/`keys`
+   wherever they appear, `uuid` including the Adobe XMP one, `free`/`skip`/`wide`, `pnot`/`PICT`,
+   `iods`, `ctab`, and Microsoft's `Xtra`.
+
+9. **Five fields are edited in place rather than removed**, because the boxes holding them are
+   mandatory: `creation_time` and `modification_time` are zeroed in `mvhd`, `tkhd` and `mdhd`;
+   `hdlr`'s trailing name string is emptied (encoders write their own product name there); `mdhd`'s
+   language is set to `und`; `mvhd`'s 24-byte `pre_defined` block — poster time, preview and
+   selection windows, current time — is zeroed, which §8.2.2 says it should have been; and
+   **`compressorname` in a video sample entry is zeroed**. The last is the one exception to decision
+   10's rule that this handler does not read inside a sample entry, and it is narrow on purpose:
+   §12.1.3 fixes the field's offset in a `VisualSampleEntry`, the track's `hdlr` type says the entry
+   is one, nothing decodes it, and ffmpeg writes `Lavc libx264` into it — a software fingerprint of
+   exactly the class `©too` is. Audio entries have no such field and are left alone rather than
+   read at a guessed offset. The language is the field with a cost: in a file carrying several
+   language tracks, a player can no longer auto-select one. It is removed rather than kept because
+   it is a per-file editorial fact about who the file was made for, and mat2 normalises it the same
+   way.
+
+10. **Unknown boxes are dropped and reported rather than refused, and decision 2 is why that is
+    safe.** ADR-0036 refuses an unknown top-level JPEG XL box because in that format a box is where
+    metadata lives and nothing else can be inferred. Here the safety argument is stronger and does not
+    need the refusal: media data is only reachable through a chunk offset, and every chunk offset
+    must resolve inside an `mdat` that was kept. A dropped box that something pointed into refuses
+    the file automatically, at the offset check, without a list having to anticipate its name.
+
+11. **One new fuzz target, `mp4`.** No container-level target is added: `bmff` already exists and
+    already drives the walker and the writer through `fuzzing.rs`, and it is in this tranche's
+    sustained run for decision 4's reason. The target asserts the size invariant — deletion cannot
+    grow a file — **guarded by a `detect` check**, per the 2026-08-26 lesson.
+
+12. **mat2 handles MP4 very differently, and the end state is close.** Its `MP4Parser` subclasses
+    `AbstractFFmpegParser` and **remuxes the file through ffmpeg** with `-map 0 -codec copy
+    -map_metadata -1 -map_chapters -1 -disposition 0` and the `bitexact` flags, then checks what
+    survived against an allow-list that expects the `mvhd`/`tkhd`/`mdhd` dates to be present and
+    **zeroed** rather than absent — the same end state decision 9 reaches by patching six fields in
+    place. Measured by `scripts/mp4-differential.sh` on 2026-09-04 against **mat2 0.15.0, ExifTool
+    13.55 and ffmpeg 9.0.1**. Two differences worth stating: mat2 rewrites the whole container, so
+    its output is a different file that plays the same media, where strypt's `mdat` is the input's
+    `mdat` byte for byte; and **mat2 0.15.0 does not claim `.m4a` at all** — its MP4 parser registers
+    `video/mp4` only — so for an audio-only file in this container there is no mat2 comparison to
+    make. In the other direction mat2 will process a fragmented or QuickTime file that strypt
+    refuses, and **for those files mat2 is the better recommendation** (ADR-0012). Measured result:
+    **no gaps** — mat2 keeps `HandlerDescription`, `HandlerVendorID` and an empty `free` box on every
+    fixture, all three of which strypt removes.
+
+**Consequences.**
+
+- **A clean MP4 comes back byte-identical.** Group 4's other rebuilt format could not promise that
+  (ADR-0041), and this one can: nothing is renumbered, nothing is repaginated, and a file whose
+  timestamps are already zero and whose tree is already on the allow-list re-emits to the same bytes.
+  Stripping twice is byte-exact regardless.
+- **`container/bmff.rs` now has two callers, and a change to it is a change to HEIF and AVIF.** That
+  is the third shared module in group 4, after `formats/tags.rs` and `formats/vorbis.rs`.
+- **The offset table is the whole safety argument**, in the way the tag boundary was for MP3
+  (ADR-0040). Every future change to what MP4 drops has to keep asking whether anything pointed into
+  it, and the answer is enforced by decision 2 rather than by remembering.
+- **No dependency was added.** `lofty` ends the group as it started it: not rejected, not adopted
+  (ADR-0037 decision 2).
+- **Group 4 is closed, and with it the four format groups ADR-0027 scoped for Phase 2.** Anything
+  further — Matroska, WebM, AAC in ADTS, AIFF, fragmented MP4, QuickTime — needs a superseding ADR.

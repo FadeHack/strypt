@@ -35,6 +35,10 @@ pub(crate) struct Box<'a> {
     pub(crate) offset: u64,
     /// The box's total size including its header.
     pub(crate) size: u64,
+    /// How many bytes the header took: 8, or 16 for the 64-bit escape. Recorded so a caller can
+    /// re-emit a box in the form it arrived in — [`write_box`] only ever writes the short one
+    /// (ADR-0042).
+    pub(crate) header: u64,
 }
 
 impl<'a> Box<'a> {
@@ -129,6 +133,7 @@ pub(crate) fn children<'a>(
             payload,
             offset: base.saturating_add(as_u64(start)),
             size,
+            header,
         });
     }
 
@@ -200,6 +205,17 @@ pub(crate) fn children_at<'a>(
     }
     let consumed = parent.size.saturating_sub(as_u64(payload.len()));
     children(payload, parent.offset.saturating_add(consumed), budget)
+}
+
+/// The box's own bytes, header included, as they appear in `file`.
+///
+/// Offsets are file-absolute throughout a walk that started at [`top_level`], so this resolves for
+/// a nested box as well as a top-level one. [`None`] when they do not — a caller that walked a
+/// detached slice gets nothing rather than somebody else's bytes.
+pub(crate) fn raw<'a>(file: &'a [u8], b: &Box<'_>) -> Option<&'a [u8]> {
+    let start = usize::try_from(b.offset).ok()?;
+    let end = start.checked_add(usize::try_from(b.size).ok()?)?;
+    file.get(start..end)
 }
 
 /// Find the first child of `kind`.
@@ -441,6 +457,32 @@ mod tests {
         let (boxes, trailing) = top_level(&good, &mut budget).unwrap();
         assert_eq!(boxes.len(), 1, "only the box that tiled is returned");
         assert_eq!(trailing.len(), overrunning.len());
+    }
+
+    #[test]
+    fn a_box_hands_back_its_own_bytes_in_the_header_form_it_arrived_in() {
+        // What ADR-0042 needs to copy an `mdat` through untouched: a large one carries a 64-bit
+        // header, and `write_box` would silently re-emit it as a short one.
+        let mut data = vec![0, 0, 0, 1];
+        data.extend_from_slice(b"mdat");
+        data.extend_from_slice(&24_u64.to_be_bytes());
+        data.extend_from_slice(b"payload!");
+        let mut budget = 64;
+        let boxes = children(&data, 0, &mut budget).unwrap();
+        let b = boxes.first().unwrap();
+        assert_eq!(b.header, LONG_HEADER);
+        assert_eq!(raw(&data, b).unwrap(), &data[..]);
+    }
+
+    #[test]
+    fn a_nested_box_resolves_against_the_file_it_came_from() {
+        let inner = boxed(*b"hdlr", b"vide");
+        let outer = boxed(*b"mdia", &inner);
+        let mut budget = 64;
+        let top = children(&outer, 0, &mut budget).unwrap();
+        let parent = *top.first().unwrap();
+        let kids = children_at(&parent, parent.payload, 8, &mut budget).unwrap();
+        assert_eq!(raw(&outer, kids.first().unwrap()).unwrap(), &inner[..]);
     }
 
     #[test]

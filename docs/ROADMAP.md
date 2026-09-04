@@ -689,6 +689,46 @@ this order, and a group is not started until the previous one meets the Phase 1 
 
     With that, this tranche meets the Phase 1 bar in full and **tranche 5 may open** (ADR-0037).
 
+  - 🔶 **Tranche 5 — MP4 / M4A — landed 2026-09-04, fuzzing debt outstanding.** Landed:
+    ADR-0042, `formats/mp4.rs` and `formats/mp4/boxes.rs`, the handler across both brand families
+    (`.mp4`/`.m4v` and `.m4a`/`.m4b`), an `mp4` fuzz target with seeds, 10 fixtures plus 15 malformed
+    ones with their generator, 18 integration tests, unit tests in the handler and the box tables, a
+    clean mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.17.
+
+    **ADR-0042 is required reading before touching it, and it reverses ADR-0034.** `stco` and `co64`
+    hold absolute file offsets, so removing a box in front of the media moves every chunk — the same
+    sentence HEIF met. HEIF answered it by rebuilding, because its metadata is *inside* `mdat`. MP4's
+    metadata is entirely outside it, so each `mdat` moves as one rigid block and the file is **edited
+    by deletion**, with **every chunk offset remapped through a table of `mdat` extents**. An offset
+    that resolves inside none of them **refuses the file** rather than being nudged by a delta nobody
+    verified — that check, not the allow-lists, is the safety argument.
+
+    **`container/bmff.rs` is shared with HEIF and was extended**, so `heif` and `bmff` re-run in this
+    tranche's fuzzing alongside the new target.
+
+    **A clean MP4 comes back byte-identical**, which the group's other rebuilt format could not
+    promise.
+
+    **Deliberate limitations, recorded in §7.17:** the samples are never decoded, so x264's SEI user
+    data is out of reach — **a limit shared with mat2**, and declared on every report; strypt does
+    not descend into a sample entry to look for a `sinf`, so encryption is detected from the entry
+    type and from `pssh`/`senc` elsewhere; timestamps are zeroed rather than removed, as mat2 zeroes
+    them; and track structure survives, as it must for the file to play. Four families are refused by
+    name: **fragmented MP4**, **encrypted media** (CENC and FairPlay), **QuickTime `.mov`**, and
+    **3GPP/3GPP2**.
+
+    **The differential goes both ways, and is recorded that way.** `scripts/mp4-differential.sh` is
+    clean over 10 fixtures and **verified able to fail**. mat2 0.15.0 keeps `HandlerDescription`,
+    `HandlerVendorID` and an empty `free` box, all of which strypt removes; **mat2 does not claim
+    `.m4a` at all**, so the audio fixtures have no mat2 side; and strypt **refuses** files mat2 will
+    still clean — fragmented MP4, QuickTime — for which **mat2 is the better recommendation**
+    (ADR-0012).
+
+    **What is outstanding: the sustained fuzz run.** `mp4`, `bmff`, `heif` and `detect` have to run
+    together, `bmff` and `heif` because the shared container module changed. Until that run is
+    delivered and clean, this tranche does **not** meet the Phase 1 bar and group 4 is **not**
+    closed.
+
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
    `app.xml`, custom properties, revision identifiers, comments, tracked changes,
@@ -700,8 +740,8 @@ this order, and a group is not started until the previous one meets the Phase 1 
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
 4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC complete 2026-09-01, WAV 2026-09-02, MP3 2026-09-03, Ogg 2026-09-04. MP4 not
-   started.
+   ADR-0037; FLAC complete 2026-09-01, WAV 2026-09-02, MP3 2026-09-03, Ogg 2026-09-04. MP4 landed
+   2026-09-04 with its sustained fuzz run outstanding.
 
 **Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
 explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level

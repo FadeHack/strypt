@@ -21,6 +21,41 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- **MP4 and M4A support — `.mp4`, `.m4v`, `.m4a`, `.m4b`.** The fifth and last tranche of Phase 2's
+  fourth format group (ADR-0037), decided in ADR-0042.
+
+  What comes out: the **GPS coordinate** every phone writes into every video it records; the whole
+  **iTunes atom list** — title, artist, album, composer, comment, description, lyrics, dates,
+  encoder, and vendor key/value triples — itemised atom by atom; **camera make and model**; **cover
+  art**, removed whole, so metadata inside the image goes with it; an **XMP packet** in a top-level
+  `uuid` box, scanned first so the report names what went; Microsoft's `Xtra`; free space; and the
+  **encoding software** wherever it hides, including `compressorname` inside a video sample entry,
+  where ffmpeg writes `Lavc libx264`. A box strypt has never seen goes too, rather than surviving by
+  being unrecognised. The samples are copied without ever being decoded.
+
+  What is edited rather than removed, because the boxes are mandatory: creation and modification
+  times in `mvhd`, `tkhd` and `mdhd` are zeroed, the handler name is emptied, the media language
+  becomes `und`, and `mvhd`'s poster/preview/selection block is zeroed.
+
+- **A clean MP4 comes back byte-identical.** `ftyp` and every `mdat` are copied byte for byte and
+  only the movie box is rewritten, so nothing is re-encoded and the media is the media that went in.
+
+- **A chunk offset that cannot be relocated refuses the file.** `stco` and `co64` hold absolute file
+  offsets, so removing a box in front of the media moves every chunk. Each offset is remapped through
+  a table of `mdat` extents; one resolving inside none of them is a refusal, never a guess. The
+  alternative — shifting everything by the number of bytes removed — produces a playable-looking file
+  whose chunks are wrong.
+
+- **Four families are refused by name** rather than as "unrecognised": **fragmented MP4**,
+  **encrypted media** (Common Encryption and FairPlay), **QuickTime `.mov`**, and **3GPP/3GPP2**. So
+  is a track whose samples live in another file.
+
+- **Measured against mat2 0.15.0 on 2026-09-04: no gaps on the MP4 corpus, and the media decodes
+  identically.** mat2 remuxes through ffmpeg where strypt edits the box tree; it keeps
+  `HandlerDescription`, `HandlerVendorID` and an empty `free` box, which strypt removes. In the other
+  direction mat2 does not claim `.m4a` at all, and it will still process a fragmented or QuickTime
+  file that strypt refuses — **for those files mat2 is the better recommendation**.
+
 - **Ogg support — `.ogg`, `.opus`, `.oga`.** Vorbis, Opus and FLAC-in-Ogg: the fourth tranche of
   Phase 2's fourth format group (ADR-0037), decided in ADR-0041.
 

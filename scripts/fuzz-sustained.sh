@@ -38,7 +38,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FUZZ_DIR="$REPO_ROOT/crates/strypt-core/fuzz"
-ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags ogg oggpage riff ooxml odf zip detect)
+ALL_TARGETS=(pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags ogg oggpage mp4 riff ooxml odf zip detect)
 
 DURATION=7200
 OUT_DIR=""
@@ -50,7 +50,7 @@ Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
   -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
 
-Targets default to all twenty-one: pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags ogg oggpage riff ooxml odf zip detect
+Targets default to all twenty-two: pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags ogg oggpage mp4 riff ooxml odf zip detect
 
 Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of how many
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.

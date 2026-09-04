@@ -23,7 +23,8 @@ git history is forever — so it is ignored, and only what a human chose lives h
   Deliberately the same files, for the reason `zip/` gives below: a container fuzzer seeded only
   with hand-written stubs never reaches the structures a real producer writes. Three JPEG XL
   containers sit here too: they spell the same box grammar with shapes no HEIF has — a signature
-  box, and a final box declaring size 0.
+  box, and a final box declaring size 0. Three MP4s sit here too: `container/bmff.rs` gained
+  a second caller in ADR-0042, and a movie's box tree is deeper than any still image's.
 - `svg/` — copies of `corpus/svg/`, valid and malformed alike. Refresh after regenerating them.
   The malformed set matters more here than elsewhere: five of the nine are documents strypt
   refuses on a *rule* rather than on damage — a script, an event handler, a `foreignObject`, a
@@ -41,6 +42,10 @@ git history is forever — so it is ignored, and only what a human chose lives h
   reaches the structures a real producer writes. The ODF packages add a shape no OOXML package
   has — a stored first entry followed by deflated ones.
 - `mp3/` — copies of `corpus/mp3/`, valid and malformed alike. Refresh after regenerating them.
+- `mp4/` — copies of `corpus/mp4/`, valid and malformed alike. Refresh after regenerating them.
+  Both brand families are in there, and so are the files strypt refuses on a *rule* rather than on
+  damage — fragmented, encrypted, `QuickTime`, 3GPP — which is where a mutation is most likely to
+  find a way past a refusal.
 - `tags/` — the fixtures that actually carry a tag, seeding the shared tag reader rather than
   either handler. Both audio formats are in there, because the same reader serves both and a FLAC
   is the one shape where a tag sits in front of something that is not MPEG audio.

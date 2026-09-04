@@ -131,7 +131,9 @@ fn handler(format: Format) -> Result<&'static dyn crate::formats::MetadataHandle
             | Format::Mp3
             | Format::Ogg
             | Format::Opus
-            | Format::OggFlac => crate::error::UnsupportedKind::NotYetImplemented(format),
+            | Format::OggFlac
+            | Format::Mp4
+            | Format::M4a => crate::error::UnsupportedKind::NotYetImplemented(format),
         },
     })
 }

@@ -1845,6 +1845,112 @@ asks for a sustained run with no crash artefact and is what this run answers.
 
 ---
 
+### 7.17 MP4 and M4A (Phase 2)
+
+**ADR-0034's conclusion reverses here.** HEIF met the same sentence — offsets index the file, so
+removal moves things — and answered it by rebuilding, because HEIF's metadata sits *inside* `mdat`
+interleaved with the picture. MP4's metadata is entirely *outside* `mdat`, so each media block moves
+as one rigid block: strypt filters the box tree, copies `ftyp` and every `mdat` byte for byte, and
+writes only `moov` fresh (ADR-0042 — required reading before touching this handler). **Every chunk
+offset is then remapped through a table of `mdat` extents, and an offset resolving inside none of
+them refuses the file** rather than being nudged by a delta nobody verified. One handler, two
+formats: MP4 (`.mp4`, `.m4v`) and M4A (`.m4a`, `.m4b`).
+
+| What | Where it lives | What strypt does |
+|---|---|---|
+| **GPS coordinates** | `moov/udta/©xyz` — the ISO-6709 string every phone writes into every video | Removed with the whole `udta` |
+| Title, artist, album, composer, comment, description, lyrics | `moov/udta/meta/ilst` — the iTunes atom list | Removed, itemised atom by atom |
+| **Camera make and model** | `moov/udta/©mak`, `©mod` | Removed |
+| Recording and tagging dates | `moov/udta/©day` and every `ilst` date atom | Removed |
+| The encoding software | `moov/udta/©too`, `ilst`'s `©too`, and **`compressorname` in a video sample entry** — where ffmpeg writes `Lavc libx264` | Removed; `compressorname` is zeroed in place at §12.1.3's fixed offset |
+| The handler name | `moov/trak/mdia/hdlr` — ffmpeg writes `VideoHandler`, Apple writes a vendor string | Emptied |
+| **Cover art** | `ilst` `covr` | Removed unread |
+| Vendor key/value pairs | `ilst`'s `----` mean/name/data triples, Microsoft's `Xtra` | Removed unread |
+| **XMP** — creator, creator tool, and whatever else the packet holds | A top-level `uuid` box with XMP's fixed 16-byte extended type | Removed; the packet is scanned first so the report names what went |
+| Anything at all — a box nobody has a name for is free to hold it | Any box not on the per-level allow-list | Removed unread and reported |
+| Creation and modification times | `mvhd`, `tkhd`, `mdhd` | **Zeroed in place** — the boxes are mandatory, so they stay |
+| The media language | `mdhd` | Set to `und`, ISO 639-2/T's undetermined |
+| The poster, preview, selection and current-time block | `mvhd`'s 24 `pre_defined` bytes, which §8.2.2 says should already be zero | Zeroed |
+| Free space | `free`, `skip`, `wide`, and `pnot`/`PICT` previews | Removed |
+| The codec configuration | `moov/trak/mdia/minf/stbl/stsd` | **Kept and declared** — the samples cannot be decoded without it |
+| The sample tables | `stts`, `ctts`, `stss`, `stsc`, `stsz`, `sgpd`, `sbgp`, and the rest of `stbl` | Kept — playback structure, naming no person, device, place or time |
+| Chunk offsets | `stco`, `co64` | Rewritten through the extent table, at the width they arrived in |
+| The media | Every `mdat` | Copied byte for byte, header form included, never decoded |
+
+**A clean MP4 comes back byte-identical.** Nothing is re-encoded and nothing is repaginated, so
+unlike Ogg (§7.16) the file's own bytes are what returns. This is what edit-by-deletion is chosen
+for, and it is tested: `clean.mp4` and `clean.m4a` are fixed points.
+
+**What is refused rather than partly cleaned.** Four families, each refused **by name** so the
+message says what the file is rather than what it lacks:
+
+- **Fragmented MP4** — a `moof`, `mfra`, `mvex`, `styp`, `sidx` or `ssix` box, or a `dash`, `msdh`,
+  `msix`, `cmfc` or `cmfl` brand. Sample offsets live in track fragment runs this handler does not
+  rewrite.
+- **Encrypted media** — a `pssh`, `senc`, `sinf` or `schm` box, an `encv`/`enca`/`encs`/`enct`/
+  `drms`/`drmi` sample entry, or the `M4P ` brand. The samples are ciphertext no rule here matches.
+- **QuickTime `.mov`** — the `qt  ` brand. A different vocabulary sharing the same box grammar.
+- **3GPP and 3GPP2** — the `3gp`/`3g2` brand prefixes.
+
+Also refused: a file with no `moov`, or with more than one; a track with no `mvhd` or no surviving
+`trak`; **a `dref` entry whose self-contained flag is clear** (§8.7.2 — the samples are in another
+file, so the `mdat` this handler relocates into is not where they are); a sample description that
+does not tile exactly; a chunk offset table whose length disagrees with its count; and a `moov`
+whose two write passes disagree on length.
+
+**Deliberate limits, each of them real:**
+
+- **The samples are never decoded.** x264 writes its version and its full option string into H.264
+  SEI user data, which lives inside `mdat`; so do some in-band codec headers. That is out of reach,
+  and **every MP4 report carries this note, clean files included**. **This limit is shared with
+  mat2**, whose `-codec copy` remux does not re-encode either.
+- **strypt does not descend into a sample entry to look for a `sinf`.** The fixed fields in front of
+  an entry's child boxes differ per media type, and this handler does not parse them. Encryption is
+  detected from the entry *type* and from `pssh`/`senc` elsewhere in the tree, which is how every
+  CENC file in practice spells it — but a file that carried a `sinf` inside an otherwise plain entry
+  would not be caught by that rule. `compressorname` is the one field read inside an entry, and only
+  for a video track, because §12.1.3 fixes its offset.
+- **Timestamps are zeroed, not removed.** `mvhd`, `tkhd` and `mdhd` are mandatory, so a reader still
+  sees the fields — reading `0000:00:00 00:00:00`. mat2 does the same.
+- **Track structure survives.** Track count, durations, timescales, resolution and codec are all
+  still there, and together they are a weak fingerprint of the recording device and software. No
+  metadata-removal tool removes them, because removing them removes the file.
+
+**Testing.** 10 well-formed fixtures and 15 malformed ones in `corpus/mp4`, generated by
+`corpus/tools/make_mp4_fixtures.py`. They are **real decodable media** — a 0.4 s H.264 video and a
+0.2 s AAC recording came once from ffmpeg 9.0.1, because a codec configuration is not something to
+hand-write; every box, offset and marker around them is the generator's own, and its `clean.*`
+baselines are derived by the script rather than from strypt's output. 18 integration tests in
+`crates/strypt-core/tests/mp4.rs`, checking the output with a **box walker written in the test
+file** so it cannot pass by agreeing with the code under test, plus a `SYNTHETIC` marker sweep. The
+load-bearing one resolves every chunk offset to "which `mdat`, how far in" on both sides and asserts
+the pairs are equal — with a second test proving at least one fixture really does move its media, so
+the first cannot pass vacuously.
+
+**`container/bmff.rs` is shared with HEIF.** It gained a header-length field and a `raw()` accessor
+for this handler, so **a change there changes HEIF too** — which is why `heif` and `bmff` re-run in
+this tranche's fuzzing. §7.9 covers HEIF.
+
+**Measured against other tools on 2026-09-04.** `scripts/mp4-differential.sh` compares strypt with
+**mat2 0.15.0** and **ExifTool 13.55** across all 10 well-formed fixtures: **no gaps**, no ExifTool
+tag surviving any output beyond the structural set, every chunk offset still resolving to the same
+media byte under an independent box walk, no synthetic marker in any output, and — decoded by
+**ffmpeg 9.0.1** — every output the same recording. The script was **verified able to fail**: its
+tag filter is checked against unstripped fixtures, its value-matched date rule is checked against a
+fixture carrying real dates, and its marker sweep and offset walk are checked against a
+pass-through stand-in.
+
+**Where the two tools differ.** mat2 handles MP4 by **remuxing through ffmpeg** —
+`-map 0 -codec copy -map_metadata -1 -map_chapters -1 -disposition 0` with bitexact flags — so it
+rewrites the container while strypt edits it. Measured the same day: **mat2 keeps
+`HandlerDescription`, `HandlerVendorID` and an empty `free` box** on every fixture; strypt removes
+all three. In the other direction, **mat2's `MP4Parser` registers `video/mp4` and does not claim
+`.m4a`**, so an M4A has no mat2 side at all here; and **strypt refuses files mat2 will still clean**
+— fragmented MP4, and a QuickTime `.mov`. Refusing is correct fail-closed behaviour, and **for those
+files mat2 is the better recommendation**.
+
+---
+
 ---
 
 ## 8. Review triggers

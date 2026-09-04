@@ -46,7 +46,7 @@ ADR-0037 — under the same rule.
 | Group 4 — WAV | ✅ 2026-09-02 |
 | Group 4 — MP3 | ✅ 2026-09-03 |
 | Group 4 — Ogg | ✅ 2026-09-04 |
-| Group 4 — MP4 | ⬜ not started |
+| Group 4 — MP4 | 🔶 landed 2026-09-04, sustained fuzz run outstanding |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.
@@ -86,6 +86,12 @@ applies *within* this phase as well as across phases.
 - **ADR-0041 (Ogg)** — pages are CRC-checked, so it is **rebuilt**, and the serial number is rewritten
   to zero: the one handler that cannot promise a byte-identical clean file. Granules are per-page, so
   page grouping is preserved. The Vorbis comment reader is `formats/vorbis.rs`, **shared with FLAC**.
+
+- **ADR-0042 (MP4)** — `stco` indexes the file, and **ADR-0034's conclusion reverses**: MP4's metadata
+  is outside `mdat`, so it is edited by deletion with every chunk offset remapped through a table of
+  `mdat` extents. An offset resolving inside none of them **refuses the file** — that check, not the
+  allow-lists, is the safety argument. `container/bmff.rs` is **shared with HEIF**, so a change there
+  changes HEIF too.
 
 - **ADR-0029** — the descent into embedded images is one level, images only. It exists exactly once,
   in `container/package.rs`.

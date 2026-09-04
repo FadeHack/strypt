@@ -34,6 +34,7 @@ pub mod heif;
 pub mod jpeg;
 pub mod jxl;
 pub mod mp3;
+pub mod mp4;
 pub mod odf;
 pub mod ogg;
 pub mod ooxml;

@@ -3,11 +3,11 @@
 //! # Status
 //!
 //! **Phase 1 complete (2026-08-22); Phase 2 in progress.** JPEG, PNG, WebP, PDF, TIFF, GIF, HEIF,
-//! AVIF, SVG, JPEG XL, FLAC, WAV, MP3, Ogg, Office Open XML, and `OpenDocument` are handled, each
-//! with its own fuzz target and seed corpus. Phase 2 opened on 2026-08-23 (ADR-0027). Ogg is the
-//! most recent to land, on 2026-09-04, and as of that date every shipped handler has had a clean
-//! sustained fuzz run. A format with no handler is reported as unsupported and is never passed
-//! through untouched.
+//! AVIF, SVG, JPEG XL, FLAC, WAV, MP3, Ogg, MP4, M4A, Office Open XML, and `OpenDocument` are
+//! handled, each with its own fuzz target and seed corpus. Phase 2 opened on 2026-08-23 (ADR-0027).
+//! MP4 and M4A are the most recent to land, on 2026-09-04; every handler shipped before them has had
+//! a clean sustained fuzz run, and **theirs is outstanding**. A format with no handler is reported as
+//! unsupported and is never passed through untouched.
 //!
 //! What is *not* claimed: no tool guarantees total metadata removal, and the recorded
 //! per-format limitations in `docs/THREAT_MODEL.md` are real. Read them before relying on this.

@@ -154,6 +154,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "mp4"
+path = "fuzz_targets/mp4.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "detect"
 path = "fuzz_targets/detect.rs"
 test = false

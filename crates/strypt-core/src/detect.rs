@@ -86,6 +86,10 @@ pub enum Format {
     Opus,
     /// FLAC carried in Ogg pages rather than in its native container.
     OggFlac,
+    /// MP4: the ISO base media file format carrying tracks. `.mp4` and `.m4v`.
+    Mp4,
+    /// M4A: the same container carrying audio only. `.m4a` and `.m4b`.
+    M4a,
 }
 
 impl Format {
@@ -117,6 +121,8 @@ impl Format {
             Self::Ogg => "ogg",
             Self::Opus => "opus",
             Self::OggFlac => "ogg-flac",
+            Self::Mp4 => "mp4",
+            Self::M4a => "m4a",
         }
     }
 
@@ -150,6 +156,8 @@ impl Format {
             Self::Opus => "opus",
             // `.oga` rather than `.ogg`: the Xiph naming note reserves `.ogg` for Vorbis.
             Self::OggFlac => "oga",
+            Self::Mp4 => "mp4",
+            Self::M4a => "m4a",
         }
     }
 }
@@ -179,6 +187,8 @@ impl std::fmt::Display for Format {
             Self::Ogg => "Ogg Vorbis",
             Self::Opus => "Opus",
             Self::OggFlac => "Ogg FLAC",
+            Self::Mp4 => "MP4",
+            Self::M4a => "M4A",
         })
     }
 }
@@ -272,6 +282,11 @@ fn detect_supported(data: &[u8]) -> Option<Format> {
     if let Some(format) = iso_base_media_still(data) {
         return Some(format);
     }
+    // Tracks rather than a picture, and the brand list is again the whole of the answer: the same
+    // `ftyp` introduces a photograph, a film, a fragmented stream and an encrypted one (ADR-0042).
+    if let Some(IsoClass::Movie(format)) = iso_base_media_movie(data) {
+        return Some(format);
+    }
     if find_pdf_header(data).is_some() {
         return Some(Format::Pdf);
     }
@@ -314,11 +329,14 @@ fn detect_unsupported(data: &[u8]) -> Option<UnsupportedKind> {
     {
         return Some(UnsupportedKind::BigTiff);
     }
-    // Any remaining ISO base-media file: MP4, M4A, and the motion HEIF spellings. The still-image
-    // brands were matched as supported formats above, so what reaches here is genuinely a
-    // container this release does not handle.
+    // Any remaining ISO base-media file. Still images, progressive MP4 and M4A were matched above,
+    // so what is left is a shape strypt refuses by name — fragmented, encrypted, QuickTime, 3GPP —
+    // or a motion HEIF, which reaches the generic refusal.
     if data.get(4..8) == Some(b"ftyp") {
-        return Some(UnsupportedKind::IsoBaseMedia);
+        return Some(match iso_base_media_movie(data) {
+            Some(IsoClass::Refused(kind)) => kind,
+            _ => UnsupportedKind::IsoBaseMedia,
+        });
     }
     // Theora, Speex, Skeleton, anything unrecognised, and any file carrying more than one logical
     // bitstream. Named rather than left unrecognised, for a file every player calls an Ogg.
@@ -581,6 +599,67 @@ fn iso_base_media_still(data: &[u8]) -> Option<Format> {
     None
 }
 
+/// What an ISO base-media file's brands turned out to declare.
+enum IsoClass {
+    /// A container of tracks this release handles.
+    Movie(Format),
+    /// A shape refused by name.
+    Refused(UnsupportedKind),
+}
+
+/// Classify an ISO base-media file by the brands its `ftyp` declares.
+///
+/// Refusals are matched before acceptances, because a protected or fragmented file declares the
+/// ordinary brands as well: an encrypted `.m4p` carries `M4A ` and `mp42` beside `M4P `, and
+/// claiming it on the first match would route it to a handler that must then refuse it anyway.
+fn iso_base_media_movie(data: &[u8]) -> Option<IsoClass> {
+    use crate::formats::mp4::boxes as mp4;
+
+    if data.get(4..8) != Some(b"ftyp") {
+        return None;
+    }
+    // As `iso_base_media_still`: the declared box size is not trusted, and the brand list is read
+    // from a bounded window of what is actually present.
+    let window = data.get(..BRAND_WINDOW).unwrap_or(data);
+    let brands: Vec<&[u8]> = window
+        .get(8..12)
+        .into_iter()
+        .chain(window.get(16..).unwrap_or_default().chunks_exact(4))
+        .collect();
+    let has = |list: &[[u8; 4]]| {
+        brands
+            .iter()
+            .any(|b| list.iter().any(|candidate| *b == &candidate[..]))
+    };
+
+    if has(&mp4::FRAGMENT_BRANDS) {
+        return Some(IsoClass::Refused(UnsupportedKind::FragmentedMp4));
+    }
+    if has(&[mp4::PROTECTED_BRAND]) {
+        return Some(IsoClass::Refused(UnsupportedKind::ProtectedMedia));
+    }
+    if has(&[mp4::QUICKTIME_BRAND]) {
+        return Some(IsoClass::Refused(UnsupportedKind::QuickTimeMovie));
+    }
+    if brands
+        .iter()
+        .any(|b| b.get(..3) == Some(b"3gp") || b.get(..3) == Some(b"3g2"))
+    {
+        return Some(IsoClass::Refused(
+            UnsupportedKind::ThirdGenerationPartnership,
+        ));
+    }
+    // Audio first: an `.m4a` declares `mp42` and `isom` alongside `M4A `, so the more specific
+    // brand has to win or every M4A would be reported as an MP4.
+    if has(&mp4::M4A_BRANDS) {
+        return Some(IsoClass::Movie(Format::M4a));
+    }
+    if has(&mp4::MP4_BRANDS) || has(&mp4::MP4_BRANDS_VIDEO) {
+        return Some(IsoClass::Movie(Format::Mp4));
+    }
+    None
+}
+
 /// True when `data` begins with `prefix`.
 fn starts_with(data: &[u8], prefix: &[u8]) -> bool {
     data.get(0..prefix.len()) == Some(prefix)
@@ -811,9 +890,26 @@ mod tests {
             (&b"PK\x03\x04"[..], UnsupportedKind::ZipContainer),
             (&b"II\x2B\x00"[..], UnsupportedKind::BigTiff),
             (&b"OggS"[..], UnsupportedKind::OtherOggCodec),
-            // MP4 shares HEIF's container, so what makes it unsupported is the brand, not `ftyp`.
+            // MP4 shares HEIF's container, so the brand is what routes it — and what refuses it.
             (
-                &b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2"[..],
+                &b"\x00\x00\x00\x18ftypdash\x00\x00\x02\x00iso6dash"[..],
+                UnsupportedKind::FragmentedMp4,
+            ),
+            (
+                &b"\x00\x00\x00\x18ftypM4P \x00\x00\x02\x00M4A mp42"[..],
+                UnsupportedKind::ProtectedMedia,
+            ),
+            (
+                &b"\x00\x00\x00\x18ftypqt  \x00\x00\x02\x00qt  qt  "[..],
+                UnsupportedKind::QuickTimeMovie,
+            ),
+            (
+                &b"\x00\x00\x00\x18ftyp3gp4\x00\x00\x02\x003gp4isom"[..],
+                UnsupportedKind::ThirdGenerationPartnership,
+            ),
+            // An ISO base-media file whose brands name nothing at all.
+            (
+                &b"\x00\x00\x00\x18ftypzzzz\x00\x00\x02\x00zzzzyyyy"[..],
                 UnsupportedKind::IsoBaseMedia,
             ),
             // XML that is not SVG. The SVG spelling of this is now *supported*, so what is left
@@ -846,6 +942,26 @@ mod tests {
             data.extend_from_slice(&[0, 0, 0, 0]);
             data.extend_from_slice(brand);
             assert_eq!(detect(&data).unwrap(), expected, "brand {brand:?}");
+        }
+    }
+
+    #[test]
+    fn movie_brands_route_to_the_mp4_handler_and_audio_wins_over_the_generic_one() {
+        // An `.m4a` declares `M4A `, `mp42` and `isom` together, so the order of the two lists is
+        // what keeps it from being reported as a video (ADR-0042).
+        for (major, compatible, expected) in [
+            (&b"isom"[..], &b"isomiso2mp41"[..], Format::Mp4),
+            (&b"mp42"[..], &b"mp42isom"[..], Format::Mp4),
+            (&b"M4V "[..], &b"M4V mp42"[..], Format::Mp4),
+            (&b"M4A "[..], &b"M4A mp42isom"[..], Format::M4a),
+            (&b"M4B "[..], &b"M4B mp42"[..], Format::M4a),
+        ] {
+            let mut data = vec![0, 0, 0, 0x18];
+            data.extend_from_slice(b"ftyp");
+            data.extend_from_slice(major);
+            data.extend_from_slice(&[0, 0, 2, 0]);
+            data.extend_from_slice(compatible);
+            assert_eq!(detect(&data).unwrap(), expected, "brand {major:?}");
         }
     }
 
