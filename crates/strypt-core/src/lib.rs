@@ -5,7 +5,7 @@
 //! **Phase 1 complete (2026-08-22); Phase 2 in progress.** JPEG, PNG, WebP, PDF, TIFF, GIF, HEIF,
 //! AVIF, SVG, JPEG XL, FLAC, WAV, MP3, Ogg, Office Open XML, and `OpenDocument` are handled, each
 //! with its own fuzz target and seed corpus. Phase 2 opened on 2026-08-23 (ADR-0027). Ogg is the
-//! most recent to land, on 2026-09-03, and is the one handler that has **not** yet had its
+//! most recent to land, on 2026-09-04, and as of that date every shipped handler has had a clean
 //! sustained fuzz run. A format with no handler is reported as unsupported and is never passed
 //! through untouched.
 //!

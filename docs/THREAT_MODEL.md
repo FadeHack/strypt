@@ -1836,11 +1836,12 @@ serial number; strypt clears both. In the other direction, **strypt refuses file
 clean** — a multiplexed or chained stream, and a Theora video in an Ogg. Refusing is correct
 fail-closed behaviour, and **for those files mat2 is the better recommendation**.
 
-**Fuzzing — outstanding.** Two new targets, `ogg` (the handler, through the pipeline) and `oggpage`
-(the page layer alone, both directions), plus `flac`, which re-runs because the comment reader is now
-shared. Short smoke runs are clean; **the sustained run required by Phase 1 exit criterion 2 has not
-been done, and this section will say so until it has.** This is the same debt each earlier tranche
-carried between its handler landing and its run completing.
+**Fuzzing — sustained, clean (2026-09-04).** `ogg`, `oggpage`, `flac` and `detect` each ran **12.00
+hours** in parallel — 48.00 CPU-hours, **4,377,342,181 inputs**, **zero crashes, hangs or OOMs**, peak
+RSS 1,161 MB on `ogg`. `flac` is in the run because `formats/vorbis.rs` is shared, so it covers the
+comment path both handlers use. `ogg` and `flac` were **still finding new coverage** at 39,178s and
+40,105s of 43,200s: that is ADR-0014's Phase 3 plateau question, not Phase 1 exit criterion 2, which
+asks for a sustained run with no crash artefact and is what this run answers.
 
 ---
 

@@ -53,10 +53,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   chained stream, and a Theora video in an Ogg. Refusing is the correct behaviour for a file strypt
   cannot fully account for, and **for those files mat2 is the better recommendation**.
 
-- **The sustained fuzz run for Ogg has not been done yet.** Two new targets ship with the handler
-  (`ogg` and `oggpage`), and `flac` re-runs because the Vorbis comment reader is now shared between
-  the two handlers. Until that run is recorded, the Ogg handler carries the same fuzzing debt each
-  earlier tranche carried at this point.
+- **The Ogg handler has had a clean twelve-hour fuzz run** — `ogg`, `oggpage`, `flac` and `detect`
+  in parallel, 48 CPU-hours, 4.4 billion inputs, zero crashes, hangs or OOMs. `flac` is in that list
+  because the Vorbis comment reader is now shared between the two handlers.
 
 - **MP3 support — `.mp3`.** The third tranche of Phase 2's fourth format group (ADR-0037), decided
   in ADR-0040.

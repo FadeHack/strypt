@@ -212,7 +212,7 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 flac detect  # 12h each; group 4 tranche 1's debt, cleared 2026-09-01
 ./scripts/fuzz-sustained.sh -d 43200 wav riff webp detect  # 12h each; group 4 tranche 2's debt, cleared 2026-09-02 — webp is here because ADR-0039 moved code out of it
 ./scripts/fuzz-sustained.sh -d 43200 mp3 tags flac detect  # 12h each; group 4 tranche 3's debt, cleared 2026-09-03 — flac is here because ADR-0040 changed it
-./scripts/fuzz-sustained.sh -d 43200 ogg oggpage flac detect  # 12h each; group 4 tranche 4's debt — flac is here because ADR-0041 shares its comment reader
+./scripts/fuzz-sustained.sh -d 43200 ogg oggpage flac detect  # 12h each; group 4 tranche 4's debt, cleared 2026-09-04 — flac is here because ADR-0041 shares its comment reader
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:

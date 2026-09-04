@@ -237,7 +237,9 @@ delivered_cpu_hours() {
   echo "on 2026-08-30, flac on 2026-09-01, and wav and riff on 2026-09-02 — that run took webp"
   echo "with them, because ADR-0039 moved its chunk walk into shared code. mp3 and tags cleared"
   echo "theirs on 2026-09-03 — that run took flac and detect with them, because ADR-0040 put an"
-  echo "ID3 reader in front of both. Every target now stands on a clean sustained run. A new"
+  echo "ID3 reader in front of both. ogg and oggpage cleared theirs on 2026-09-04 — that run"
+  echo "took flac again, because ADR-0041 shares its Vorbis comment reader."
+  echo "Every target now stands on a clean sustained run. A new"
   echo "handler adds its own debt, so update this paragraph when one lands rather than leaving"
   echo "it to read as blanket coverage."
   echo

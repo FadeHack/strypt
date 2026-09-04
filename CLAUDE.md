@@ -45,7 +45,7 @@ ADR-0037 — under the same rule.
 | Group 4 — FLAC | ✅ 2026-09-01 |
 | Group 4 — WAV | ✅ 2026-09-02 |
 | Group 4 — MP3 | ✅ 2026-09-03 |
-| Group 4 — Ogg | 🔶 handler landed 2026-09-03, sustained fuzz run outstanding |
+| Group 4 — Ogg | ✅ 2026-09-04 |
 | Group 4 — MP4 | ⬜ not started |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule

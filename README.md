@@ -140,8 +140,7 @@
 > better recommendation.
 >
 >
-> **Ogg landed 2026-09-03 — the fourth of Phase 2's five audio/video tranches, and its sustained
-> fuzz run is still outstanding.** Vorbis, Opus and FLAC-in-Ogg, in one handler. Ogg pages carry a
+> **Ogg is finished as of 2026-09-04 — the fourth of Phase 2's five audio/video tranches.** Vorbis, Opus and FLAC-in-Ogg, in one handler. Ogg pages carry a
 > CRC over their own bytes, so the file is rebuilt page by page rather than edited: **the stream
 > serial number is rewritten to zero** — it is an identifier, and libogg's own example seeds it from
 > the clock — and page numbers are renumbered with it. That makes Ogg the one format where a clean
@@ -152,9 +151,9 @@
 > refuses files mat2 will still clean**, a multiplexed or chained stream and a Theora video in an
 > Ogg, for which **mat2 is the better recommendation**.
 >
-> The `ogg`, `oggpage`, `flac` and `detect` fuzz targets owe a sustained run. `flac` is in that list
-> because the Vorbis comment reader is now shared between the two handlers. **Until that run is
-> delivered and clean, this tranche does not meet the Phase 1 bar**, and MP4 does not start.
+> The `ogg`, `oggpage`, `flac` and `detect` fuzz targets have each run 12 hours — 48 CPU-hours, 4.4
+> billion inputs, zero crashes, hangs or OOMs. `flac` is in that list because the Vorbis comment
+> reader is now shared between the two handlers.
 >
 > MP4 is **not started**.
 >
@@ -169,7 +168,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02, MP3 2026-09-03 done; Ogg landed 2026-09-03, fuzz run outstanding; MP4 not started |
+> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02, MP3 2026-09-03 done; Ogg 2026-09-04 done; MP4 not started |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
