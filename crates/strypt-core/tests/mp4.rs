@@ -440,6 +440,13 @@ fn every_malformed_fixture_is_refused() {
         let data = malformed(name);
         let refused = match detect(&data) {
             Ok(_) => strip_bytes(&data, &StripOptions::default()).is_err(),
+            // A refusal *by name* is the outcome this asserts. `UnrecognisedFormat` is not: it means
+            // the fixture stopped being an MP4 and never reached the handler at all, which is a
+            // silent hole rather than a pass — three fixtures went undetected that way on
+            // 2026-09-04 with the whole suite still green.
+            Err(StryptError::UnrecognisedFormat) => {
+                panic!("{name} is no longer recognised as an MP4 — the fixture is broken")
+            }
             Err(_) => true,
         };
         assert!(refused, "{name} was accepted");
