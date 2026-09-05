@@ -220,9 +220,13 @@ pub fn ogg_round_trip(data: &[u8]) {
     let reread = ogg::pages(&written, &mut read_budget)
         .ok()
         .and_then(|pages| ogg::packets(&pages).ok());
-    let Some(reread) = reread else {
-        panic!("the Ogg writer produced a stream the page walker refuses");
-    };
+    // `assert!` rather than `panic!`: ADR-0006's denial covers this module too, and the fuzzer
+    // reads both the same way.
+    assert!(
+        reread.is_some(),
+        "the Ogg writer produced a stream the page walker refuses"
+    );
+    let reread = reread.unwrap_or_default();
     assert!(
         reread.len() == packets.len(),
         "the Ogg round trip changed the packet count"

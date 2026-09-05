@@ -235,7 +235,7 @@ this class of tool loses the trust it exists to hold.
 
 Exact commands live in [`INSTRUCTIONS.md`](INSTRUCTIONS.md) — **it is the source of truth,
 and it must be updated in the same commit whenever a command changes.** The loop is roughly
-`cargo build` / `cargo test` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt`, plus
+`cargo build` / `cargo test` / `cargo clippy --all-targets --all-features -- -D warnings` / `cargo fmt`, plus
 `./scripts/check-no-network.sh`, and a fuzz run for the target whose handler you touched. All
 of them work today — so run them, and **never invent output for a command you have not run.**
 
@@ -268,7 +268,9 @@ of them work today — so run them, and **never invent output for a command you 
 ## 9. Definition of done — any task in this repo
 
 1. Tests pass on all supported platforms.
-2. `cargo clippy -- -D warnings` and `cargo fmt --check` are clean.
+2. `cargo clippy --all-targets --all-features -- -D warnings` and `cargo fmt --check` are clean.
+   **`--all-features` is not optional** — it is what compiles the feature-gated `fuzzing` module,
+   and CI runs that form. Dropping it hides a whole module from the lint.
 3. If a parser changed: fuzz target still builds, seed corpus updated, a short fuzz run is
    clean.
 4. If a bug was fixed: a regression test exists and the triggering input is in the corpus.
