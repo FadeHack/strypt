@@ -1,6 +1,6 @@
 # strypt
 
-> ## Status: Phase 2 in progress — no audit, no release, no hardening phase yet
+> ## Status: Phase 2 complete — no audit, no release, no hardening phase yet
 >
 > **PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF/AVIF (`.heic`, `.heif`, `.avif`), SVG, JPEG XL, FLAC, WAV, MP3, Ogg (`.ogg`, `.opus`, `.oga`), MP4/M4A (`.mp4`, `.m4v`, `.m4a`, `.m4b`), Office Open XML
 > (`.docx`, `.xlsx`, `.pptx`), and OpenDocument (`.odt`, `.ods`, `.odp`) are implemented.**
@@ -140,8 +140,8 @@
 > better recommendation.
 >
 >
-> **MP4 and M4A landed on 2026-09-04 — the fifth and last of Phase 2's audio/video tranches — and
-> their sustained fuzz run is still outstanding, so the tranche is not finished.** `stco` holds
+> **MP4 and M4A are finished as of 2026-09-05 — the fifth and last of Phase 2's audio/video
+> tranches, and with it the phase.** `stco` holds
 > absolute file offsets into the media, so removing a box in front of it moves every chunk. strypt
 > edits the box tree and copies the media untouched, remapping **every chunk offset through a table
 > of media extents**; an offset that resolves into none of them **refuses the file** rather than
@@ -150,6 +150,10 @@
 > empty free-space box, which strypt removes. Two differences worth knowing: **mat2 does not claim
 > `.m4a`** at all, and **strypt refuses files mat2 will still clean** — fragmented MP4 and QuickTime
 > `.mov` — for which **mat2 is the better recommendation**.
+>
+> The `mp4`, `bmff`, `heif` and `detect` fuzz targets have each run 12 hours — 48 CPU-hours, 5.5
+> billion inputs, zero crashes, hangs or OOMs. `bmff` and `heif` are in that list because MP4
+> extended the ISO-BMFF box walk the HEIF handler already used.
 >
 >
 > **Ogg is finished as of 2026-09-04 — the fourth of Phase 2's five audio/video tranches.** Vorbis, Opus and FLAC-in-Ogg, in one handler. Ogg pages carry a
@@ -167,8 +171,6 @@
 > billion inputs, zero crashes, hangs or OOMs. `flac` is in that list because the Vorbis comment
 > reader is now shared between the two handlers.
 >
-> MP4 is **not started**.
->
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
 > tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
 > and has not started, so the 100-CPU-hour-per-handler fuzzing budget is *not* met — PDF was
@@ -180,7 +182,7 @@
 > |---|---|
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
-> | 2 — Expanded formats | 🔶 In progress — OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02, MP3 2026-09-03 done; Ogg 2026-09-04 done; MP4/M4A landed 2026-09-04 with its sustained fuzz run outstanding |
+> | 2 — Expanded formats | ✅ Done 2026-09-05 — all four exit criteria met. OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02, MP3 2026-09-03, Ogg 2026-09-04, MP4/M4A 2026-09-05 |
 > | 3 — Hardening · 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
@@ -247,7 +249,7 @@ unless you ask for `--in-place`. Full command reference and exit codes:
 
 | `.odt` `.ods` `.odp` | `meta.xml` entire — author, last-saved-by, creation/modification/print dates, the editing-cycle count and the total editing duration, the generator (which names the operating system), page and word statistics, user-defined properties, and a template path — plus `settings.xml` entire, which holds the **printer name and setup blob**; the page thumbnail; the saved user-interface configuration and layout cache; the author names and dates on comments and tracked changes; the cached author-name fields printed in the document; and per-part timestamps and host fields. **Photographs inside the document are stripped by the image handlers above, and an embedded chart's own metadata goes too.** The *text* of comments and tracked changes is kept and reported — see the limitations below |
 
-Still to come in Phase 2: audio and video. See
+Phase 2's format list is finished; Phase 3 is hardening, not more formats. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 **Where mat2 is the better tool, this says so.** For a document whose comments must not be

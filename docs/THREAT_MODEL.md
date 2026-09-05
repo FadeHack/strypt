@@ -1949,7 +1949,13 @@ all three. In the other direction, **mat2's `MP4Parser` registers `video/mp4` an
 — fragmented MP4, and a QuickTime `.mov`. Refusing is correct fail-closed behaviour, and **for those
 files mat2 is the better recommendation**.
 
----
+**Fuzzing — sustained, clean (2026-09-05).** `mp4`, `bmff`, `heif` and `detect` each ran **12.00
+hours** in parallel — 48.02 CPU-hours delivered, **5,457,344,752 inputs**, **zero crashes, hangs or
+OOMs**, peak RSS 1,050 MB on `mp4`. `bmff` and `heif` are in the run because the shared box walk
+changed, so their earlier clean runs no longer covered the code they exercise. `mp4` and `heif` were
+**still finding new coverage** at 42,908s and 40,136s of 43,200s: that is ADR-0014's Phase 3 plateau
+question, not Phase 1 exit criterion 2, which asks for a sustained run with no crash artefact and is
+what this run answers.
 
 ---
 

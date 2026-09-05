@@ -18,20 +18,18 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 in progress**
+## 2. Current phase: **Phase 2 complete; Phase 3 not opened**
 
-Phases 0 and 1 are complete. **Phase 2 opened 2026-08-23 (ADR-0027)**, which supersedes ADR-0005's
-scope lock and replaces it with a narrower one.
+Phases 0, 1 and 2 are complete. **Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05**, all
+four groups landed and all four exit criteria met.
 
-`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, FLAC, WAV, MP3, `.docx`,
-`.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other format is reported as unsupported and
-never passed through untouched.
+`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL,
+FLAC, WAV, MP3, Ogg, MP4, M4A, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other
+format is reported as unsupported and never passed through untouched.
 
-**The scope is still locked.** Phase 2 covers exactly the four format groups in `docs/ROADMAP.md`,
-they land one at a time in that order, and a group does not start until the previous one meets the
-Phase 1 bar in full. "Phase 2 is open" is not "scope is open" — a format outside those groups needs
-a superseding ADR. Groups 3 and 4 are each further split into five tranches — ADR-0032 and
-ADR-0037 — under the same rule.
+**The scope is still locked.** ADR-0027's list is finished, not widened — a format outside it needs
+a superseding ADR, and closing a phase is not an invitation to add one. Phase 3 is hardening
+(`docs/ROADMAP.md`), not more formats, and it has not started: nothing in it exists.
 
 **Where things stand — read `docs/ROADMAP.md` for the detail, which is not repeated here:**
 
@@ -46,7 +44,7 @@ ADR-0037 — under the same rule.
 | Group 4 — WAV | ✅ 2026-09-02 |
 | Group 4 — MP3 | ✅ 2026-09-03 |
 | Group 4 — Ogg | ✅ 2026-09-04 |
-| Group 4 — MP4 | 🔶 landed 2026-09-04, sustained fuzz run outstanding |
+| Group 4 — MP4 | ✅ 2026-09-05 |
 
 **Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
 applies *within* this phase as well as across phases.

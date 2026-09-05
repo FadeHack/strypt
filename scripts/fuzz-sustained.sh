@@ -56,7 +56,7 @@ Targets run in PARALLEL, one process each, so wall time is SECONDS regardless of
 targets are selected — but CPU-hours are SECONDS x TARGETS. Budget accordingly.
 
 Examples:
-  scripts/fuzz-sustained.sh -d 300                 # smoke test, all twenty-one
+  scripts/fuzz-sustained.sh -d 300                 # smoke test, all twenty-two
   scripts/fuzz-sustained.sh -d 28800 pdf           # 8h on PDF alone
   scripts/fuzz-sustained.sh -d 14400 png webp      # 4h each, in parallel
 
@@ -227,7 +227,7 @@ delivered_cpu_hours() {
   echo
   echo "The 'crashes' column answers ROADMAP Phase 1 exit criterion 2: zero across every"
   echo "handler after a sustained run, with nothing set aside as not worth fixing. Criterion 2"
-  echo "was written when there were four targets; there are now twenty-one. The ooxml and zip"
+  echo "was written when there were four targets; there are now twenty-two. The ooxml and zip"
   echo "targets cleared their sustained-run debt on 2026-08-24, odf and pdf cleared theirs on"
   echo "2026-08-25, tiff and detect cleared theirs on 2026-08-26, and gif cleared its on"
   echo "2026-08-27. The same run put pdf, jpeg, png and webp — the four the criterion actually"
@@ -238,7 +238,9 @@ delivered_cpu_hours() {
   echo "with them, because ADR-0039 moved its chunk walk into shared code. mp3 and tags cleared"
   echo "theirs on 2026-09-03 — that run took flac and detect with them, because ADR-0040 put an"
   echo "ID3 reader in front of both. ogg and oggpage cleared theirs on 2026-09-04 — that run"
-  echo "took flac again, because ADR-0041 shares its Vorbis comment reader."
+  echo "took flac again, because ADR-0041 shares its Vorbis comment reader. mp4 cleared its on"
+  echo "2026-09-05 — that run took bmff and heif with it, because ADR-0042 extended the"
+  echo "shared ISO-BMFF walk."
   echo "Every target now stands on a clean sustained run. A new"
   echo "handler adds its own debt, so update this paragraph when one lands rather than leaving"
   echo "it to read as blanket coverage."

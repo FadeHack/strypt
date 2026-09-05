@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 in progress · **Last updated:** 2026-09-02
+**Status:** Phase 1 complete (2026-08-22); Phase 2 complete (2026-09-05) · **Last updated:** 2026-09-05
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -286,7 +286,7 @@ fuzz-run composition and real-producer coverage are real rather than decorative.
 
 ---
 
-## Phase 2 — Expanded format coverage *(in progress; opened 2026-08-23)*
+## Phase 2 — Expanded format coverage *(complete; opened 2026-08-23, closed 2026-09-05)*
 
 **Goal.** Move meaningfully toward mat2's format list without lowering the Phase 1 bar for
 any individual format.
@@ -521,7 +521,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
     With that, this tranche meets the Phase 1 bar in full, and **group 3 is closed** — five
     tranches, five handlers, no outstanding debt. Group 4 may open (ADR-0032).
 
-- 🔶 **Group 4 — audio and video containers — in progress, four tranches of five complete.**
+- ✅ **Group 4 — audio and video containers — complete 2026-09-05, five tranches of five.**
   **ADR-0037 splits it into five tranches** — FLAC, WAV, MP3, Ogg (Opus/Vorbis/FLAC-in-Ogg),
   MP4+M4A — landing in that order under ADR-0032's rules. What makes this group unlike the three
   before it: the payload is a timed stream and the container indexes into it, so MP4's `stco`/`co64`
@@ -689,7 +689,7 @@ this order, and a group is not started until the previous one meets the Phase 1 
 
     With that, this tranche meets the Phase 1 bar in full and **tranche 5 may open** (ADR-0037).
 
-  - 🔶 **Tranche 5 — MP4 / M4A — landed 2026-09-04, fuzzing debt outstanding.** Landed:
+  - ✅ **Tranche 5 — MP4 / M4A — complete 2026-09-05.** Landed:
     ADR-0042, `formats/mp4.rs` and `formats/mp4/boxes.rs`, the handler across both brand families
     (`.mp4`/`.m4v` and `.m4a`/`.m4b`), an `mp4` fuzz target with seeds, 10 fixtures plus 15 malformed
     ones with their generator, 18 integration tests, unit tests in the handler and the box tables, a
@@ -724,10 +724,16 @@ this order, and a group is not started until the previous one meets the Phase 1 
     still clean — fragmented MP4, QuickTime — for which **mat2 is the better recommendation**
     (ADR-0012).
 
-    **What is outstanding: the sustained fuzz run.** `mp4`, `bmff`, `heif` and `detect` have to run
-    together, `bmff` and `heif` because the shared container module changed. Until that run is
-    delivered and clean, this tranche does **not** meet the Phase 1 bar and group 4 is **not**
-    closed.
+    **The sustained fuzz run has been delivered and is clean (2026-09-05).** `mp4`, `bmff`, `heif`
+    and `detect` each ran the full twelve hours in parallel — 48.02 CPU-hours, **5,457,344,752
+    inputs**, **zero crashes, hangs or OOMs**, peak RSS 1050MB, 623MB, 609MB and 601MB. `bmff` and
+    `heif` are in the run because ADR-0042 extended the shared container walk, so their debt is
+    re-owed and cleared with the new target's. `mp4` was still gaining coverage at **42,908s of
+    43,215s** and `heif` at 40,136s — no plateau, so neither has an ADR-0014 number yet; that is
+    Phase 3, not exit criterion 2.
+
+    With that, this tranche meets the Phase 1 bar in full, and **group 4 is closed** — five
+    tranches, five handlers, no outstanding debt. **Phase 2's scope under ADR-0027 is complete.**
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
@@ -736,20 +742,31 @@ this order, and a group is not started until the previous one meets the Phase 1 
 2. ✅ OpenDocument — `.odt`, `.ods`, `.odp` (`meta.xml`, editing-cycle and duration statistics,
    `settings.xml`, thumbnails, and the authorship that ODF keeps in element text rather than in
    attributes).
-3. 🔶 Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
+3. ✅ Additional images — TIFF, GIF, AVIF, HEIF, JPEG XL, SVG. Split into five tranches by
    ADR-0032; TIFF (2026-08-26), GIF (2026-08-27), HEIF+AVIF (2026-08-27) and SVG (2026-08-29) are
    complete, and JPEG XL on 2026-08-30. **Group 3 is closed**; group 4 may open.
-4. 🔶 Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
-   ADR-0037; FLAC complete 2026-09-01, WAV 2026-09-02, MP3 2026-09-03, Ogg 2026-09-04. MP4 landed
-   2026-09-04 with its sustained fuzz run outstanding.
+4. ✅ Audio and video containers — FLAC, MP3/M4A, Opus/Ogg, MP4, WAV. Split into five tranches by
+   ADR-0037; FLAC complete 2026-09-01, WAV 2026-09-02, MP3 2026-09-03, Ogg 2026-09-04, MP4/M4A
+   2026-09-05. **Group 4 is closed.**
 
-**Exit-criterion progress.** Criterion 4 — the recursion decision recorded as an ADR, with an
-explicit depth and expansion limit — is **met by ADR-0029**: the descent is fixed at one level
-and at image formats only, enforced in the type system rather than by a counter, with an
-archive-wide decompression budget, a per-entry expansion-ratio ceiling, and an entry-count
-ceiling. Criteria 1–3 are met for the OOXML and OpenDocument groups and remain open for the two groups
-that have not started. Criterion 4's ADR covers both, since the descent is shared code —
-`container/package.rs` — rather than a rule each handler implements for itself.
+**Exit-criterion progress — all four met 2026-09-05.**
+
+1. **Met.** Every format shipped in this phase carries a handler, a fuzz target with seeds,
+   fixtures and their generator, integration tests with an independent parser, a differential
+   against mat2/ExifTool verified able to fail, and a `docs/THREAT_MODEL.md` subsection. No
+   handler shipped provisionally.
+2. **Met.** All twenty-two fuzz targets stand on a clean sustained run, the last four
+   (`mp4`, `bmff`, `heif`, `detect`) on 2026-09-05. No finding is open, and none was set aside as
+   not worth fixing; the five historic `pdf` reproducers from 2026-08-24 were replayed on
+   2026-09-05 and none reproduces.
+3. **Met.** `docs/THREAT_MODEL.md` §7 has one subsection per shipped format, §7.1 through §7.17.
+4. **Met by ADR-0029.** The descent is fixed at one level and at image formats only, enforced in
+   the type system rather than by a counter, with an archive-wide decompression budget, a
+   per-entry expansion-ratio ceiling, and an entry-count ceiling. It covers both package formats,
+   since the descent is shared code — `container/package.rs` — rather than a rule each handler
+   implements for itself.
+
+**Phase 3 may open.** Nothing in it exists yet.
 
 Each format ships with: handler, fuzz target and seed corpus, integration tests, differential
 comparison against mat2/ExifTool, a `docs/THREAT_MODEL.md` update, and a `CHANGELOG.md` entry.

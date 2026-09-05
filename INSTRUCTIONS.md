@@ -15,10 +15,9 @@ commit as any change to the build, test, or lint workflow.**
 > other format is detected and reported as unsupported — never processed, and never passed through
 > untouched.
 >
-> Phase 2 opened 2026-08-23 (ADR-0027). OOXML and OpenDocument are its first two format groups;
-> the third is five image tranches (ADR-0032), all five complete with a clean sustained fuzz run;
-> the fourth is five audio/video tranches (ADR-0037), of which FLAC and WAV are complete, both
-> with a clean sustained run. See
+> Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05. All four format groups are complete
+> — OOXML, OpenDocument, five image tranches (ADR-0032) and five audio/video tranches (ADR-0037) —
+> each with a clean sustained fuzz run. Phase 3 has not opened. See
 > [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
@@ -200,7 +199,7 @@ plateau — no new edge coverage in the final 25% of the run. Use the runner, fr
 repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all twenty-one targets, 2h each, in parallel
+./scripts/fuzz-sustained.sh                       # all twenty-two targets, 2h each, in parallel
 ./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
 ./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
 ./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
@@ -214,7 +213,7 @@ repository root:
 ./scripts/fuzz-sustained.sh -d 43200 wav riff webp detect  # 12h each; group 4 tranche 2's debt, cleared 2026-09-02 — webp is here because ADR-0039 moved code out of it
 ./scripts/fuzz-sustained.sh -d 43200 mp3 tags flac detect  # 12h each; group 4 tranche 3's debt, cleared 2026-09-03 — flac is here because ADR-0040 changed it
 ./scripts/fuzz-sustained.sh -d 43200 ogg oggpage flac detect  # 12h each; group 4 tranche 4's debt, cleared 2026-09-04 — flac is here because ADR-0041 shares its comment reader
-./scripts/fuzz-sustained.sh -d 43200 mp4 bmff heif detect  # 12h each; group 4 tranche 5's debt — bmff and heif are here because ADR-0042 extended the shared container walker
+./scripts/fuzz-sustained.sh -d 43200 mp4 bmff heif detect  # 12h each; group 4 tranche 5's debt, cleared 2026-09-05 — bmff and heif are here because ADR-0042 extended the shared container walker
 ./scripts/fuzz-sustained.sh -h                    # options
 
 # Detached, so it survives closing the terminal, with the machine held awake:

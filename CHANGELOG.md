@@ -56,6 +56,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   direction mat2 does not claim `.m4a` at all, and it will still process a fragmented or QuickTime
   file that strypt refuses — **for those files mat2 is the better recommendation**.
 
+- **The MP4 handler has had a clean twelve-hour fuzz run** — `mp4`, `bmff`, `heif` and `detect` in
+  parallel, 48 CPU-hours, 5.5 billion inputs, zero crashes, hangs or OOMs. `bmff` and `heif` are in
+  that list because MP4 extended the ISO-BMFF box walk the HEIF handler already used. With it,
+  **Phase 2's format list is complete** and every one of the twenty-two fuzz targets stands on a
+  clean sustained run.
+
 - **Ogg support — `.ogg`, `.opus`, `.oga`.** Vorbis, Opus and FLAC-in-Ogg: the fourth tranche of
   Phase 2's fourth format group (ADR-0037), decided in ADR-0041.
 
