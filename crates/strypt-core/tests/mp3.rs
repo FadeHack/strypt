@@ -94,6 +94,11 @@ const MALFORMED: &[&str] = &[
     "forbidden-bitrate.mp3",
 ];
 
+/// Refused before dispatch rather than by the handler: both corrupt a frame header field, so no
+/// header validates and nothing identifies the file as an MP3. Still fail-closed — nothing is
+/// written — but the refusal carries no format name.
+const REFUSED_AT_DETECTION: &[&str] = &["reserved-version.mp3", "forbidden-bitrate.mp3"];
+
 /// Every MPEG frame in `data`, as raw byte spans. Written here rather than borrowed from the
 /// handler: a check that used the code under test to read its own output would prove nothing.
 ///
@@ -255,9 +260,36 @@ fn every_malformed_fixture_is_refused() {
         let data = malformed(name);
         let refused = match detect(&data) {
             Ok(_) => strip_bytes(&data, &StripOptions::default()).is_err(),
+            // Refused at detection is still refused — but only for the fixtures named above. For
+            // any other, `UnrecognisedFormat` means it stopped being an MP3 and never reached the
+            // handler, which is a silent hole rather than a pass.
+            Err(StryptError::UnrecognisedFormat) => {
+                assert!(
+                    REFUSED_AT_DETECTION.contains(name),
+                    "{name} is no longer recognised as an MP3 — the fixture is broken"
+                );
+                true
+            }
             Err(_) => true,
         };
         assert!(refused, "{name} was accepted");
+    }
+}
+
+#[test]
+fn the_fixtures_refused_at_detection_are_exactly_the_ones_named() {
+    // Pins the exception both ways: one drifting into detection's reach, or a new one drifting out
+    // of it, is a change to what strypt claims to recognise and should not pass quietly.
+    for name in MALFORMED {
+        let nameless = matches!(
+            detect(&malformed(name)),
+            Err(StryptError::UnrecognisedFormat)
+        );
+        assert_eq!(
+            nameless,
+            REFUSED_AT_DETECTION.contains(name),
+            "{name} changed which stage refuses it"
+        );
     }
 }
 
