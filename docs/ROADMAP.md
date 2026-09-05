@@ -296,444 +296,277 @@ one: the phase's format list is exactly the four groups below, they land one gro
 this order, and a group is not started until the previous one meets the Phase 1 bar in full.
 "Phase 2 is open" is not "scope is open".
 
-**Progress.**
+**Progress.** Each entry records what landed, the ADR that governs it, and its fuzzing. The
+per-format limitations, the differential results and what each handler removes are **not repeated
+here** — they live in `docs/THREAT_MODEL.md` §7, one subsection per format, which is the document
+to read before making a claim about what strypt removes.
 
-- ✅ **Group 1 — Office Open XML, done 2026-08-23.** `.docx`, `.xlsx`, and `.pptx` are handled.
-  Landed: the ZIP container layer written rather than imported (ADR-0028), the one-level descent
-  into embedded images (ADR-0029), the handler and its XML scanner (ADR-0030), two fuzz targets
-  (`ooxml` and `zip`, the latter through a feature-gated entry point so the container is fuzzed
-  independently of any handler), 13 generated fixtures plus 7 malformed ones, 26 integration
-  tests, `scripts/ooxml-differential.sh`, and `docs/THREAT_MODEL.md` §7.6.
+- ✅ **Group 1 — Office Open XML, done 2026-08-23.** `.docx`, `.xlsx`, `.pptx`. Landed: the ZIP
+  container layer written rather than imported (ADR-0028), the one-level descent into embedded
+  images (ADR-0029), the handler and its XML scanner (ADR-0030), `ooxml` and `zip` fuzz targets —
+  the latter through a feature-gated entry point, so the container is fuzzed independently of any
+  handler — 13 fixtures plus 7 malformed, 26 integration tests, `scripts/ooxml-differential.sh`,
+  and §7.6.
 
-  **Its sustained-run debt is cleared.** `ooxml` and `zip` each ran a clean twelve hours on
-  2026-08-24 with zero artefacts. Three limitations are recorded in §7.6 rather than fixed: the
-  text of comments and tracked changes stays (attribution removed), a document containing a
-  nested archive or OLE object is refused rather than partly cleaned, and a damaged package is
-  reported as a generic ZIP refusal.
+  Fuzzing cleared 2026-08-24: `ooxml` and `zip`, twelve hours each, zero artefacts.
 
-- ✅ **Group 2 — OpenDocument, done 2026-08-24.** `.odt`, `.ods`, and `.odp` are handled. Landed:
-  the handler and its rules (ADR-0031), an `odf` fuzz target, 14 fixtures plus 8 malformed ones,
-  33 integration tests, `scripts/odf-differential.sh` with a clean result against mat2 0.15.0 and
-  ExifTool 13.55, and `docs/THREAT_MODEL.md` §7.7. Two internal boundaries moved so that the two
-  package formats share rather than duplicate: the XML scanner is now `formats/xml.rs` with
-  per-format rules beside each handler, and the ZIP-package machinery — decompression budget,
-  nested-container refusal, embedded-image descent, entry-header findings — is now
-  `container/package.rs`, which is what keeps ADR-0029's one-level descent existing exactly once.
+- ✅ **Group 2 — OpenDocument, done 2026-08-24.** `.odt`, `.ods`, `.odp`. Landed: the handler and
+  its rules (ADR-0031), an `odf` fuzz target, 14 fixtures plus 8 malformed, 33 integration tests,
+  `scripts/odf-differential.sh`, and §7.7. Two internal boundaries moved so the two package formats
+  share rather than duplicate: the XML scanner became `formats/xml.rs` with per-format rules beside
+  each handler, and the ZIP-package machinery became `container/package.rs` — which is what keeps
+  ADR-0029's one-level descent existing exactly once.
 
-  **Sustained fuzzing debt cleared 2026-08-25.** `odf`, `zip`, `ooxml` and `pdf` ran twelve hours
-  each in parallel — **48.00 CPU-hours budgeted, 48.00 delivered, zero crashes, hangs or OOMs
-  across all four**. `odf` executed 382,180,435 inputs at 8846 exec/s to 2487 edges; `pdf` was
-  included because its two most recent fixes had had only a smoke run. Budget matching delivery is
-  the headline, as it was for the 08-22 PDF run: a target that crashes stops early, so a run that
-  spends every hour it budgeted is one in which nothing died.
+  **A stripped package really opens in LibreOffice**, which was an open hole until 2026-08-24.
+  `scripts/odf-libreoffice-validation.sh` strips, imports and body-compares every fixture against
+  **LibreOffice 26.2.5.2** — 14 fixtures plus 2 real LibreOffice-authored documents, no failures.
+  The GUI repair-prompt check was done separately by hand the same day, seven files, no prompts;
+  the two are recorded as separate claims because headless import cannot raise a dialog.
 
-  **Phase 3 evidence from the same run, not a Phase 1 gate.** Only `zip` plateaued (last gain
-  6519s of 43205s). `odf` (39934s), `ooxml` (36544s) and `pdf` (36961s) were all **still climbing
-  at twelve hours**. PDF has now failed to flatten in two separate 12-hour runs, climbing 4366 →
-  4601 edges between them. This continues to argue that ADR-0014's flat 100 CPU-hours should
-  become per-handler numbers, and still does not license superseding the ADR — PDF *still* owes a
-  run long enough to actually flatten.
+  Fuzzing cleared 2026-08-25: `odf`, `zip`, `ooxml` and `pdf` in parallel, 48.00 CPU-hours
+  budgeted and delivered, zero crashes across all four. `pdf` was included because its two most
+  recent fixes had had only a smoke run. Budget matching delivery is the headline: a target that
+  crashes stops early, so a run that spends every hour it budgeted is one in which nothing died.
 
-  ~~**No stripped package has been opened in LibreOffice.**~~
-  ✅ **Closed 2026-08-24:** `scripts/odf-libreoffice-validation.sh` strips, imports and
-  body-compares every fixture against **LibreOffice 26.2.5.2** — 14 fixtures and 2 real
-  LibreOffice-authored documents, no failures (§7.7). The GUI repair-prompt check was done
-  separately and by hand the same day — seven stripped files opened in the LibreOffice
-  interface, none prompting for repair. The two are recorded as separate claims rather than one
-  standing in for the other, since headless import cannot raise a dialog.
-  The comments-and-tracked-changes limitation is sharper here than for
-  Office: mat2 removes ODF annotations outright, so for a document whose comments must not be
-  published it is the better recommendation.
+- ✅ **Group 3 — additional images — complete 2026-08-30, five tranches of five.** **ADR-0032
+  splits it into five tranches** — TIFF, GIF, HEIF+AVIF, SVG, JPEG XL — landing in that order, each
+  meeting the Phase 1 bar in full before the next opens. Six formats with no shared container,
+  unlike Groups 1 and 2; holding a finished handler hostage to the hardest member of the list is
+  what the split avoids. The default remains a hand-written walker, and ADR-0032's 2026-08-25
+  survey found no dependency that earns its own ADR.
 
-- 🔶 **Group 3 — additional images, in progress.** **ADR-0032 splits this group into five
-  tranches** — TIFF, GIF, HEIF+AVIF, SVG, JPEG XL — landing in that order, each meeting the
-  Phase 1 bar in full before the next opens. The group is six formats with no shared container,
-  unlike Groups 1 and 2, and holding a finished handler hostage to the hardest member of the list
-  is what the split avoids. The default remains a hand-written walker; a dependency needs its own
-  ADR, and the 2026-08-25 survey in ADR-0032 found none that earns it.
+  - ✅ **Tranche 1 — TIFF — complete 2026-08-26.** `.tif`/`.tiff`, multi-page scans included.
+    Landed: ADR-0033, the handler and its allow-list of structural tags, a `tiff` fuzz target, 10
+    fixtures plus 6 malformed with their generator, 17 integration tests, 14 unit tests, a clean
+    differential verified able to fail, and §7.8.
 
-  - ✅ **Tranche 1 — TIFF, done 2026-08-26.** `.tif` and `.tiff`,
-    including multi-page scans. **ADR-0033 records why this format is rebuilt rather than
-    edited**: its metadata is its file structure, so there is no block to drop and no way to edit
-    in place without rewriting every offset. Landed: the handler and its allow-list of structural
-    tags, a `tiff` fuzz target, 10 fixtures plus 6 malformed ones with their generator, 17
-    integration tests, 14 unit tests, and `docs/THREAT_MODEL.md` §7.8.
+    **ADR-0033 records why TIFF is rebuilt rather than edited:** its metadata *is* its file
+    structure, so there is no block to drop and no way to edit in place without rewriting every
+    offset. Tags reach the output from an allow-list, so an unknown vendor tag cannot survive by
+    going unrecognised. A clean file is therefore **never byte-identical**; idempotence is, and is
+    tested.
 
-    The differential landed with it: `scripts/tiff-differential.sh` against mat2 0.15.0 and
-    ExifTool 13.55 over all 10 fixtures is clean — zero tags surviving on either side — and was
-    verified able to fail by running its filter against the unstripped fixtures (§7.8).
+    Fuzzing cleared 2026-08-26: `tiff` and `detect`, 24.00 CPU-hours, 4,408,918,279 inputs, zero
+    crashes. `detect` was included because its parser changed in the same work.
 
-    **Sustained fuzzing debt cleared 2026-08-26.** `tiff` and `detect` ran twelve hours each in
-    parallel — **24.00 CPU-hours budgeted and 24.00 delivered, zero crashes, hangs or OOMs on
-    both**. `tiff` executed 1,417,537,939 inputs at 32,812 exec/s to 1217 edges; `detect` was
-    included because its parser changed in the same work, and executed 2,991,380,340 inputs.
-    With that, this tranche meets the Phase 1 bar in full and **tranche 2 may open** (ADR-0032).
+  - ✅ **Tranche 2 — GIF — complete 2026-08-27.** `.gif`, animated included. Landed: the handler, a
+    `gif` fuzz target, 14 fixtures plus 6 malformed with their generator, 22 integration tests, 20
+    unit tests, a clean differential, and §7.9.
 
-    **Phase 3 evidence from the same run, at the opposite end from PDF.** Both targets plateaued,
-    and decisively: `tiff`'s last coverage gain was at **17,217s of 43,203s** — 17 new edges
-    across 1.4 billion inputs, nothing in the final 60% — and `detect`'s was at **one second**,
-    never moving off 194 edges through three billion. Every previous plateau note in these
-    documents recorded a target that had *not* flattened; these are the first that did. Against
-    PDF, still climbing after two consecutive twelve-hour runs, this is the strongest argument yet
-    that ADR-0014's flat 100 CPU-hours should become per-handler numbers — and it still does not
-    license superseding the ADR, which requires the budget **and** the plateau. `tiff` has the
-    plateau and 12 of the 100 hours; PDF still owes a run long enough to flatten.
+    GIF is the shape ADR-0032 predicted — a short block list, removal by deletion, no rebuild — and
+    it was the first format in the tree to return a **byte-identical** copy of a clean file. One
+    judgement call is recorded rather than assumed: `NETSCAPE2.0` and `ANIMEXTS1.0` are **kept**
+    because they carry an animation's loop count and nothing else, declared in the report, with the
+    differential asserting the loop count survives rather than filtering it out of the comparison.
 
-    Recorded limitations, which are deliberate rather than pending (§7.8): output is **never**
-    byte-identical to input even for a clean file, because a rebuild reorders it — idempotence is
-    byte-identical and is tested; metadata concealed inside the compressed image data is out of
-    reach, where **mat2's re-rendering default is the better recommendation**; ICC profiles are
-    removed, trading colour fidelity; and BigTIFF, an inconsistent strip geometry, or a directory
-    without dimensions is refused rather than approximated.
+    Fuzzing cleared 2026-08-27: `gif` alongside `pdf`, `jpeg`, `png`, `webp` and `detect`, 72.01
+    CPU-hours delivered, all six clean. That run also closed exit criterion 2's standing caveat —
+    the four formats the criterion names were clean in a single run for the first time.
 
-  - ✅ **Tranche 2 — GIF — complete (2026-08-27).** `.gif`,
-    animated ones included. Landed: the handler, a `gif` fuzz target, 14 fixtures plus 6 malformed
-    ones with their generator, 22 integration tests, 20 unit tests,
-    `scripts/gif-differential.sh` with a clean result against mat2 0.15.0 and ExifTool 13.55 over
-    all 14 fixtures, and `docs/THREAT_MODEL.md` §7.9.
-
-    GIF is the shape ADR-0032 predicted — a short block list, removal by deletion, no rebuild —
-    and it is the only format in the tree that returns a **byte-identical** copy of a clean file.
-    The one judgement call is recorded rather than assumed: the `NETSCAPE2.0` and `ANIMEXTS1.0`
-    application extensions are **kept**, because they carry an animation's loop count and nothing
-    else, while every other application extension is removed on an allow-list. They are declared
-    in the report's `retained` list, and the differential asserts the loop count survives rather
-    than merely filtering it out of the comparison. One measurement worth recording: on
-    `plain-text.gif` **strypt removes more than mat2 does**.
-
-    **The sustained fuzz run has been delivered and is clean (2026-08-27).** `gif` ran the full
-    twelve hours — **1,073,948,408 inputs at 24,859 exec/s, 1322 edges, zero crashes, hangs or
-    OOMs** — alongside `pdf`, `jpeg`, `png`, `webp` and `detect`, for **72.00 CPU-hours budgeted
-    and 72.01 delivered, all six clean**. `detect` was in it because its parser changed in the
-    same work to route GIF to a handler instead of naming it unsupported. The same run closed
-    exit criterion 2's standing caveat above.
-
-    **The first attempt was aborted and the reason is recorded, not glossed.** `gif` died at
-    144,505,581 inputs on 2026-08-26 against a TIFF-shaped input, on the fuzz target's own
+    **The first attempt was aborted, and the reason is recorded rather than glossed.** `gif` died
+    at 144,505,581 inputs on 2026-08-26 against a TIFF-shaped input, on the fuzz target's own
     assertion that stripping never grows a file — true of every handler until TIFF landed that
     morning, and these targets drive the whole pipeline rather than one handler. The fault was in
-    the harness, not the handler, and `png` and `webp` carried the same unguarded assertion; all
-    three now check `detect` first and the triggering input is kept as a seed
-    (`target/fuzz-runs/20260826-135442-aborted/ABORTED.md`).
+    the harness, not the handler; `png` and `webp` carried the same unguarded assertion. All three
+    now check `detect` first, and the triggering input is kept as a seed
+    (`target/fuzz-runs/20260826-135442-aborted/ABORTED.md`). **Carry that guard into every future
+    handler's target.**
 
-    With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032).
+  - ✅ **Tranche 3 — HEIF+AVIF — complete 2026-08-27.** `.heic`, `.heif`, `.avif`, taken as one
+    tranche because they share one ISO-BMFF box walker. Landed: the walker under
+    `container/bmff.rs` — generic, no HEIF semantics, on the precedent `container/zip.rs` set —
+    the handler and its three allow-lists, `heif` and `bmff` fuzz targets, 17 fixtures plus 8
+    malformed with their generator, 24 integration tests, 27 unit tests, a differential that
+    verifies itself able to fail on every run, and §7.10.
 
-  - ✅ **Tranche 3 — HEIF+AVIF — complete (2026-08-27).** `.heic`,
-    `.heif` and `.avif`, taken as one tranche because they share one ISO-BMFF box walker. Landed:
-    the walker under `container/bmff.rs` — generic, no HEIF semantics, on the precedent
-    `container/zip.rs` set for OOXML — the handler and its three allow-lists, `heif` and `bmff`
-    fuzz targets, 17 fixtures plus 8 malformed ones with their generator, 24 integration tests, 27
-    unit tests, and `docs/THREAT_MODEL.md` §7.10.
+    **ADR-0034 is required reading, and it corrects ADR-0033**, which predicted an ISO-BMFF box
+    tree could be edited by deletion. The tree can; the metadata is not in the tree. Exif and XMP
+    are *items* addressed by absolute file offsets in `iloc`, so removing one shifts every
+    surviving item — HEIF is structurally nearer to TIFF than to GIF, and is rebuilt for the same
+    reason. **Motion HEIF is refused, which refuses Apple Live Photos** — a common real iPhone
+    file, and a cost taken deliberately because video is Group 4.
 
-    **ADR-0034 is required reading before touching it, and it corrects ADR-0033.** That ADR
-    predicted the ISO-BMFF box tree could be edited by deletion. The box tree can; the metadata is
-    not in the box tree. Exif and XMP are *items* addressed by absolute file offsets in `iloc`, so
-    removing one shifts every surviving item — HEIF is structurally nearer to TIFF than to GIF, and
-    is rebuilt for the same reason TIFF is.
+    Fuzzing cleared 2026-08-27: `heif`, `bmff` and `detect`, 36.01 CPU-hours, 5,615,172,697
+    inputs, all three clean, each running the full 43,201s and exiting through libFuzzer's own
+    `Done` line.
 
-    The differential landed with the handler and is clean: `scripts/heif-differential.sh` against
-    mat2 0.15.0 and ExifTool 13.55 over all 17 fixtures, zero tags surviving, every output still
-    decoding through libheif, and **0 differing pixels on all 17**. It verifies itself able to fail
-    on every run, against the unstripped fixtures.
+  - ✅ **Tranche 4 — SVG — complete 2026-08-29.** Landed: ADR-0035, the handler and its rules, a
+    `data:` URI codec, an `svg` fuzz target, 14 fixtures plus 9 malformed with their generator, 21
+    integration tests, 33 unit tests, a clean differential verified able to fail, and §7.11.
 
-    **Deliberate limitations, recorded in §7.10:** output is never byte-identical to input even for
-    a clean file (idempotence is, and is tested); metadata inside the compressed image data is out
-    of reach, where **mat2's re-rendering default is the better recommendation**; ICC profiles are
-    removed, trading colour fidelity; and **motion HEIF is refused, which refuses Apple Live
-    Photos** — a common real iPhone file, and a cost taken deliberately because video is Group 4.
-
-    **Sustained fuzzing debt cleared 2026-08-27.** `heif`, `bmff` and `detect` ran twelve hours
-    each in parallel — **36.00 CPU-hours budgeted, 36.01 delivered, all three clean**, zero
-    crashes, hangs or OOMs, and **5,615,172,697 inputs** between them. `heif` executed 182,076,323
-    at 4,214 exec/s to 3140 edges; `bmff` 2,393,879,564; `detect` 3,039,216,810, included because
-    its parser changed to route these formats by `ftyp` brand. All three ran the full 43,201
-    seconds and exited through libFuzzer's own `Done` line rather than dying early.
-
-    With that, this tranche meets the Phase 1 bar in full and **tranche 4 may open** (ADR-0032).
-
-    **Phase 3 evidence, not a Phase 1 gate — and this run stretches ADR-0014's range at both
-    ends.** `heif` was still climbing, its last gain at **40,374s of 43,211s**, reaching more edges
-    than any handler except PDF. `bmff` flattened after **39 seconds** and then took 2.39 billion
-    further inputs without one new edge — the fastest plateau this project has measured, and what a
-    small module with a tiny input grammar looks like when genuinely saturated. A flat
-    100-CPU-hour budget for every target is the wrong shape when one saturates in 39 seconds and
-    PDF has not flattened in three consecutive twelve-hour runs. That argues for revising ADR-0014;
-    it does not license superseding it, which needs the budget **and** the plateau.
-
-  - ✅ **Tranche 4 — SVG — complete 2026-08-29.** Landed: ADR-0035,
-    the handler and its rules, a `data:` URI codec, an `svg` fuzz target, 14 fixtures plus 9
-    malformed ones with their generator, 21 integration tests, 33 unit tests, a clean
-    mat2/ExifTool differential, and `docs/THREAT_MODEL.md` §7.11.
-
-    **ADR-0035 is required reading before touching it.** SVG is not a container of encoded pixels:
-    the picture is text, and the metadata, the accessibility text, and — if the author wanted — an
-    executable program all sit in the same element tree. It is edited by deletion, so a clean
-    drawing comes back byte-identical, and names reach the output only through a prefix allow-list,
-    so an editor nobody here has tested cannot survive by going unrecognised.
+    **ADR-0035 is required reading.** SVG is not a container of encoded pixels: the picture is
+    text, and the metadata, the accessibility text and — if the author wanted — an executable
+    program all sit in the same element tree. Edited by deletion, so a clean drawing comes back
+    byte-identical; names reach the output only through a prefix allow-list, so an editor nobody
+    here has tested cannot survive by going unrecognised.
 
     **SVG inverts the mat2 comparison every other format here makes.** mat2 re-renders through
-    Rsvg, so it removes strictly more — the accessibility text and the script strypt refuses to
-    touch — while destroying ids, grouping, animation and the author's editable structure.
-    `scripts/svg-differential.sh` checks both directions and is clean over 14 fixtures; verified
-    able to fail (19 gaps against a pass-through binary).
+    Rsvg, so it removes strictly *more* — the accessibility text and the script strypt refuses to
+    touch — while destroying ids, grouping, animation and the author's editable structure. This is
+    the one format where strypt removes less and says so, and where **mat2 is the better
+    recommendation** for a scripted file (§7.11).
 
-    **Deliberate limitations, recorded in §7.11:** `<title>`, `<desc>` and an external reference's
-    path are **kept and declared** — each can identify an author, and removing any of them changes
-    what the file does; a scripted SVG is **refused rather than partly cleaned**, where **mat2 is
-    the better recommendation**; and `.svgz`, non-UTF-8 documents, and a doctype internal subset
-    are refused too.
+    Fuzzing cleared 2026-08-29: `svg` and `detect`, 4.14 billion inputs, zero crashes.
 
-    **Sustained fuzzing debt cleared 2026-08-29.** Twelve hours per target, `svg` and `detect`
-    re-run together: **1.17 billion and 2.97 billion inputs, zero crashes, hangs or OOMs**, peak
-    RSS 688MB and 605MB. `svg` was still climbing at **41,365s of 43,202s** — no plateau, so it has
-    no ADR-0014 number yet; `detect` flattened at 88s, as it did on 2026-08-26.
+  - ✅ **Tranche 5 — JPEG XL — complete 2026-08-30.** Landed: ADR-0036, the handler, a `jxl` fuzz
+    target with seeds, 13 fixtures plus 9 malformed with their generator, 17 integration tests, 15
+    unit tests, a clean differential verified able to fail, and §7.12.
 
-  - ✅ **Tranche 5 — JPEG XL — complete 2026-08-30.** Landed: ADR-0036, the
-    handler, a `jxl` fuzz target with seeds, 13 fixtures plus 9 malformed ones with their generator,
-    17 integration tests, 15 unit tests, a clean mat2/ExifTool differential, and
-    `docs/THREAT_MODEL.md` §7.12.
+    **ADR-0036 is required reading, and it is the ADR-0034 exception.** JPEG XL spells HEIF's box
+    grammar but addresses nothing by file offset, so it is edited by deletion and a clean file
+    comes back byte-identical. Both spellings are handled: the container, and the bare `FF 0A`
+    codestream, which has no box layer and is returned unchanged with its scope declared. `brob` is
+    deleted without being decompressed, so **no Brotli decompressor enters the tree**.
 
-    **ADR-0036 is required reading before touching it, and it is the ADR-0034 exception.** JPEG XL
-    spells HEIF's box grammar but addresses nothing by file offset, so it is edited by deletion and
-    a clean file comes back byte-identical. Both spellings are handled: the container, and the bare
-    `FF 0A` codestream, which has no box layer and is returned unchanged with its scope declared.
-    Boxes reach the output through an allow-list, so an unknown top-level box refuses the file.
+    **strypt removes more here, measured rather than assumed:** a **C2PA manifest naming the
+    capture device and the signing identity survives mat2 and does not survive strypt** (§7.12).
 
-    **This is the tranche where strypt removes more, measured rather than assumed.**
-    `scripts/jxl-differential.sh` is clean over 13 fixtures and verified able to fail (28 gaps
-    against a pass-through binary). In the reverse direction ExifTool removes `Exif`, `xml ` and
-    `brob` and leaves `jumb`, `jbrd`, `jxli`, `free` and `skip` — so a **C2PA manifest naming the
-    capture device and the signing identity survives mat2 and does not survive strypt**.
+    Fuzzing cleared 2026-08-30: `jxl` and `detect`, 3.42 billion inputs, zero crashes, both exiting
+    through libFuzzer's own `Done` line.
 
-    **Deliberate limitations, recorded in §7.12:** the codestream is never entered, so an **ICC
-    profile and a preview frame are out of reach** in both spellings — for ExifTool and mat2 as
-    much as for strypt — and every report says so; `jbrd` is removed, which **ends bit-exact JPEG
-    reconstruction**, declared on every file that had one; `brob` is deleted without being
-    decompressed, so no Brotli decompressor enters the tree; and trailing bytes, a missing
-    codestream, and an unknown box are refused rather than partly cleaned.
-
-    **Sustained fuzzing debt cleared 2026-08-30.** Twelve hours per target, `jxl` and `detect` run
-    together: **461,869,797 and 2,955,406,167 inputs, zero crashes, hangs or OOMs**, peak RSS 759MB
-    and 592MB, both exiting through libFuzzer's own `Done` line. `jxl` was still climbing at
-    **41,175s of 43,211s** — no plateau, so it has no ADR-0014 number yet; `detect` flattened at
-    3,488s, as it has in every run since 2026-08-26.
-
-    With that, this tranche meets the Phase 1 bar in full, and **group 3 is closed** — five
-    tranches, five handlers, no outstanding debt. Group 4 may open (ADR-0032).
+    With that, **group 3 closed** — five tranches, five handlers, no outstanding debt.
 
 - ✅ **Group 4 — audio and video containers — complete 2026-09-05, five tranches of five.**
-  **ADR-0037 splits it into five tranches** — FLAC, WAV, MP3, Ogg (Opus/Vorbis/FLAC-in-Ogg),
-  MP4+M4A — landing in that order under ADR-0032's rules. What makes this group unlike the three
-  before it: the payload is a timed stream and the container indexes into it, so MP4's `stco`/`co64`
-  invalidate silently when a box ahead of the media is removed, and Ogg's metadata sits in
-  CRC-checked pages that cannot be edited in place. Three questions are left to their tranches, and
-  the dependency survey is closer than Group 3's — `lofty` is permissively licensed and the right
-  shape, so it is not pre-rejected. **Nothing beyond tranche 4 exists**: the "check before
-  referencing a later artefact" rule applies here.
+  **ADR-0037 splits it into five tranches** — FLAC, WAV, MP3, Ogg, MP4+M4A — landing in that order
+  under ADR-0032's rules. What makes this group unlike the three before it: the payload is a timed
+  stream and the container indexes into it, so MP4's `stco`/`co64` invalidate silently when a box
+  ahead of the media is removed, and Ogg's metadata sits in CRC-checked pages that cannot be edited
+  in place. **The group's distinguishing hazard turned out to be absent in three of the five** —
+  the reason is recorded per tranche, because it is different each time.
 
-  - ✅ **Tranche 1 — FLAC — complete 2026-09-01.** Landed:
-    ADR-0038, the handler, a `flac` fuzz target with seeds, 10 fixtures plus 8 malformed ones with
-    their generator, 19 integration tests, 26 unit tests, a clean mat2/ExifTool/ffmpeg differential,
-    and `docs/THREAT_MODEL.md` §7.13.
+  - ✅ **Tranche 1 — FLAC — complete 2026-09-01.** Landed: ADR-0038, the handler, a `flac` fuzz
+    target with seeds, 10 fixtures plus 8 malformed with their generator, 19 integration tests, 26
+    unit tests, a clean differential verified able to fail, and §7.13.
 
-    **ADR-0038 is required reading before touching it.** The group's distinguishing hazard is
-    absent here: RFC 9639 §8.5 measures a seek point from the first frame header rather than from
-    the start of the file, so removing metadata moves no offset. FLAC is therefore edited by block
-    surgery and a clean file comes back byte-identical. Blocks reach the output through an
-    allow-list — `STREAMINFO`, `SEEKTABLE`, `PADDING` — so a reserved type is removed unread.
+    **ADR-0038 is required reading.** The group's hazard is absent: RFC 9639 §8.5 measures a seek
+    point from the first frame header rather than from the start of the file, so removing metadata
+    moves no offset. Edited by block surgery, and a clean file comes back byte-identical. Two
+    decisions to know: padding is zeroed at its original length rather than dropped, and the
+    **`STREAMINFO` audio MD5 is kept and declared**, because the file's holder can recompute it and
+    removing it would break verifiers while hiding nothing.
 
-    **strypt removes more here, measured rather than assumed.** `scripts/flac-differential.sh` is
-    clean over 10 fixtures and verified able to fail (18 gaps against a pass-through binary). mat2
-    reaches FLAC through mutagen, which knows the Vorbis comment and the picture block, so an
-    **`APPLICATION` block, a `CUESHEET` carrying a catalogue number and ISRCs, and a reserved block
-    type all survive mat2 and do not survive strypt**.
+    **strypt removes more here, measured rather than assumed:** an `APPLICATION` block, a
+    `CUESHEET` carrying a catalogue number and ISRCs, and a reserved block type all survive mat2
+    and do not survive strypt (§7.13).
 
-    **Deliberate limitations, recorded in §7.13:** the audio is never decoded, so anything in a
-    frame's reserved bits or appended past the last frame is out of reach, and every report says
-    so; the **MD5 of the unencoded audio is kept and declared**, because the holder of the file can
-    recompute it and removing it would break verifiers while hiding nothing; `CUESHEET` is removed,
-    which **ends splitting the file back into tracks**, declared on every file that had one;
-    padding is zeroed at its original length rather than dropped; and a FLAC with a prepended ID3v2
-    tag is refused by name rather than cleaned around.
+    Fuzzing cleared 2026-09-01: `flac` and `detect`, 3.47 billion inputs, zero crashes. `flac`'s
+    peak RSS of 1,267MB was the highest of any target to that point, at 62% of libFuzzer's 2GB
+    default.
 
-    **Sustained fuzzing debt cleared 2026-09-01.** Twelve hours per target, `flac` and `detect`
-    run together: **364,442,899 and 3,106,317,026 inputs, zero crashes, hangs or OOMs**, peak RSS
-    1,267MB and 626MB, both exiting through libFuzzer's own `Done` line. `flac` was still climbing
-    at **39,896s of 43,202s** — no plateau, so it has no ADR-0014 number yet; `detect` flattened at
-    3s, as it has in every run since 2026-08-26. `flac`'s peak RSS is the highest of any target so
-    far, at 62% of libFuzzer's 2GB default — worth watching as this group's later handlers land.
+  - ✅ **Tranche 2 — WAV — complete 2026-09-02.** Landed: ADR-0039, `container/riff.rs`, the
+    handler, `wav` and `riff` fuzz targets with seeds, 14 fixtures plus 10 malformed with their
+    generator, 16 integration tests, 33 unit tests, a clean differential verified able to fail, and
+    §7.14.
 
-    With that, this tranche meets the Phase 1 bar in full and **tranche 2 may open** (ADR-0032,
-    carried over by ADR-0037).
+    **ADR-0039 is required reading**, and it answers ADR-0037's second open question: **the RIFF
+    walk moved out of `formats/webp.rs` into `container/riff.rs`**, because two real consumers now
+    exist and the shared part is attacker-driven length arithmetic, where a duplicated copy is a
+    fail-closed hazard. **A change there changes WebP too.** The hazard is absent for a second
+    tranche: `cue `'s offsets are measured into the data section of a `wavl` list rather than into
+    the file (verified 2026-09-01), so WAV is edited by chunk surgery and a clean file comes back
+    byte-identical.
 
-  - ✅ **Tranche 2 — WAV — complete 2026-09-02.** Landed: ADR-0039,
-    `container/riff.rs`, the handler, `wav` and `riff` fuzz targets with seeds, 14 fixtures plus 10
-    malformed ones with their generator, 16 integration tests, 33 unit tests, a clean
-    mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.14.
+    **A prediction that did not hold, recorded as measured rather than argued.** mat2's `WAVParser`
+    rebuilds through ffmpeg, which looked like it should reach data hidden in the samples where
+    chunk surgery cannot. It does not: for 16-bit PCM the rebuild reproduces the `data` payload
+    byte for byte on every fixture.
 
-    **ADR-0039 is required reading before touching it**, and it answers ADR-0037's second open
-    question: **the RIFF walk moves out of `formats/webp.rs` into `container/riff.rs`**, because
-    two real consumers now exist and the shared part is attacker-driven length arithmetic, where a
-    duplicated copy is a fail-closed hazard. WebP's behaviour is preserved but its handler was
-    touched, so `webp` re-runs in the sustained run.
+    Fuzzing cleared 2026-09-02: `wav`, `riff`, `webp` and `detect`, 8.10 billion inputs, zero
+    crashes, all four exiting through libFuzzer's own `Done` line. `webp` was there because
+    ADR-0039 moved code out of it — the re-run explored paths the first had not, found nothing, and
+    is why it was required rather than optional. **A later change to `container/riff.rs` owes the
+    same.**
 
-    **The group's hazard is absent for a second tranche running.** `cue `'s offsets are measured
-    into the data section of a `wavl` list rather than into the file (verified 2026-09-01), so WAV
-    is edited by chunk surgery and a clean file comes back byte-identical. Output is an allow-list
-    — `fmt `, `data`, `fact`, `cue ` — so an unknown chunk is removed unread.
+  - ✅ **Tranche 3 — MP3 — complete 2026-09-03.** Landed: ADR-0040, `formats/tags.rs`, the handler,
+    `mp3` and `tags` fuzz targets with seeds, 23 fixtures plus 11 malformed with their generator,
+    16 integration tests, 33 unit tests, a clean differential verified able to fail, and §7.15.
 
-    **A prediction that did not hold, and is recorded as measured rather than argued.** mat2's
-    `WAVParser` rebuilds the file through ffmpeg, which looked like it should reach data hidden in
-    the samples where chunk surgery cannot. It does not: for 16-bit PCM the rebuild reproduces the
-    `data` payload byte for byte on every fixture. `scripts/wav-differential.sh` is clean over 14
-    fixtures and **verified able to fail** (43 gaps against a pass-through stand-in).
+    **ADR-0040 is required reading**, and it answers ADR-0037's third open question: **the ID3
+    reader is hand-written** rather than taken from the `id3` crate — on shape (that crate models a
+    tag as something to read, convert and write back, where strypt needs a byte range to delete and
+    a reason to refuse) and on its optional `tokio`. That second point produced a finding worth
+    more than the tranche: **`scripts/check-no-network.sh` passes and proves less than it looks
+    like** — `--all-features` reaches workspace members, not dependencies. Read ADR-0040 decision 1
+    before trusting a green run on a new crate.
 
-    **Deliberate limitations, recorded in §7.14:** the audio is never decoded, so anything hidden
-    in the sample values is out of reach — **a limit shared with mat2**, and declared on every
-    report; `cue ` is kept although ExifTool calls it metadata; `JUNK`, `PAD ` and `FLLR` are
-    zeroed at their length rather than dropped; `id3 ` is dropped unread, because no ID3 reader
-    enters the tree before tranche 3; `smpl` removal **ends sampler looping**, declared on every
-    file that had one; and RF64/BW64 and `wavl` wave lists are refused by name.
+    **MP3 is not a container at all**, so the hazard is absent a third time and for a stronger
+    reason: nothing in the file points at anything else. Edited by deletion at both ends, and a
+    file with no tags comes back byte-identical. There is no allow-list because there is nothing to
+    allow-list — the frames are the payload — which makes the **boundary the whole safety
+    argument**, so a tag length is refused rather than clamped.
 
-    **Sustained fuzzing debt cleared 2026-09-02.** Twelve hours per target, `wav`, `riff`, `webp`
-    and `detect` run together: **1,409,562,055, 3,156,792,583, 824,711,801 and 2,707,768,453
-    inputs, zero crashes, hangs or OOMs**, peak RSS 985MB, 447MB, 750MB and 481MB, all four exiting
-    through libFuzzer's own `Done` line. `wav` was still climbing at **42,672s of 43,204s** — no
-    plateau, so it has no ADR-0014 number yet. **So was `webp`, at 41,349s**, on a handler whose
-    earlier run flattened: ADR-0039 moved its chunk walk into shared code and the re-run explored
-    paths the first had not. It found nothing, and it is why the re-run was required rather than
-    optional — a later change to `container/riff.rs` owes the same.
+    **ADR-0038 decision 7 is lifted.** An ID3-prefixed FLAC is now read and cleaned rather than
+    refused, and a trailing tag on a FLAC — which used to survive a strip in silence — is peeled
+    too. `formats/tags.rs` is **shared with FLAC**, so a change there changes FLAC too.
 
-    With that, this tranche meets the Phase 1 bar in full and **tranche 3 may open** (ADR-0032,
-    carried over by ADR-0037).
+    Fuzzing cleared 2026-09-03: `mp3`, `tags`, `flac` and `detect`, 48.00 CPU-hours,
+    7,273,768,346 inputs, zero crashes — the two new targets' debt and the two re-owed by ADR-0040
+    cleared together.
 
-  - ✅ **Tranche 3 — MP3 — complete 2026-09-03.** Landed: ADR-0040,
-    `formats/tags.rs`, the handler, `mp3` and `tags` fuzz targets with seeds, 23 fixtures plus 11
-    malformed ones with their generator, 16 integration tests, 33 unit tests, a clean
-    mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.15.
+  - ✅ **Tranche 4 — Ogg — complete 2026-09-04.** Vorbis, Opus and FLAC-in-Ogg in one handler.
+    Landed: ADR-0041, `container/ogg.rs`, `formats/vorbis.rs`, `ogg` and `oggpage` fuzz targets
+    with seeds, 10 fixtures plus 15 malformed with their generator, 17 integration tests, 35 unit
+    tests, a clean differential verified able to fail, and §7.16.
 
-    **ADR-0040 is required reading before touching it**, and it answers ADR-0037's third open
-    question: **the ID3 reader is hand-written** rather than taken from the `id3` crate — on shape
-    (that crate models a tag as something to read, convert and write back, where strypt needs a byte
-    range to delete and a reason to refuse) and on its optional `tokio`, where the honest finding is
-    that `scripts/check-no-network.sh` **passes and proves less than it looks like**: `--all-features`
-    reaches workspace members, not dependencies.
+    **ADR-0041 is required reading.** Ogg is the first format in this group that is **rebuilt**:
+    pages carry a CRC over their own bytes and a sequence number, so emptying a comment header
+    invalidates the page holding it and renumbers everything after it. Granule positions are
+    per-page, so the input's page grouping is preserved rather than repaginated freely.
 
-    **MP3 is not a container at all**, so the group's hazard is absent a third time and for a
-    stronger reason: nothing in the file points at anything else. It is edited by deletion at both
-    ends, and a file with no tags comes back byte-identical. There is no allow-list because there is
-    nothing to allow-list — the frames are the payload — which makes the boundary the whole safety
-    argument, so a tag length is refused rather than clamped and a real frame header is demanded
-    where the tags stop.
+    **The stream serial number is rewritten to zero**, which makes this the one handler that cannot
+    promise a byte-identical clean file — it is an identifier, and nobody can recompute a file's
+    original one. What is promised instead, and tested: the packets cross byte for byte, and
+    stripping twice is byte-exact. `formats/vorbis.rs` is **shared with FLAC**.
 
-    **ADR-0038 decision 7 is lifted.** An ID3-prefixed FLAC is read and removed rather than refused,
-    and a trailing tag on a FLAC — which used to survive a strip in silence — is peeled too. `flac`
-    and `detect` therefore owe a re-run alongside the two new targets.
+    Fuzzing cleared 2026-09-04: `ogg`, `oggpage`, `flac` and `detect`, 48.00 CPU-hours,
+    4,377,342,181 inputs, zero crashes.
 
-    **Deliberate limitations, recorded in §7.15:** the frames are never decoded, so anything in a
-    frame's ancillary data or reserved bits is out of reach — **a limit shared with mat2**, and
-    declared on every report; the `Xing`/`Info`/`VBRI` header frame is **kept and declared**,
-    because it is a real audio frame and removing it would break VBR seeking, and the LAME extension
-    in it names the encoder; Layers I and II are refused by name.
+  - ✅ **Tranche 5 — MP4 / M4A — complete 2026-09-05.** Landed: ADR-0042, `formats/mp4.rs` and
+    `formats/mp4/boxes.rs`, the handler across both brand families (`.mp4`/`.m4v` and
+    `.m4a`/`.m4b`), an `mp4` fuzz target with seeds, 10 fixtures plus 15 malformed with their
+    generator, 18 integration tests, unit tests in the handler and the box tables, a clean
+    differential verified able to fail, and §7.17.
 
-    **The differential goes both ways, and is recorded that way.** `scripts/mp3-differential.sh` is
-    clean over 23 fixtures and **verified able to fail**. A Lyrics3 tag alone on a file survives
-    mat2 0.15.0 and does not survive strypt; and strypt **refuses** files mat2 will still clean — an
-    `.mp2`, or a file with bytes in front of the audio — for which **mat2 is the better
-    recommendation** (ADR-0012).
+    **ADR-0042 is required reading, and it reverses ADR-0034.** `stco` and `co64` hold absolute
+    file offsets, so removing a box in front of the media moves every chunk — the same sentence
+    HEIF met. HEIF answered it by rebuilding, because its metadata is *inside* `mdat`. MP4's
+    metadata is entirely outside it, so each `mdat` moves as one rigid block and the file is
+    **edited by deletion**, with **every chunk offset remapped through a table of `mdat` extents**.
+    An offset resolving inside none of them **refuses the file** rather than being nudged by a delta
+    nobody verified — **that check, not the allow-lists, is the safety argument.** A clean MP4 comes
+    back byte-identical, which the group's other rebuilt format could not promise.
 
-    **The sustained fuzz run has been delivered and is clean (2026-09-03).** `mp3`, `tags`, `flac`
-    and `detect` each ran the full twelve hours in parallel — 48.00 CPU-hours, **7,273,768,346
-    inputs**, **zero crashes** — so the two new targets' debt and the two re-owed by ADR-0040 are
-    cleared together. `mp3` and `flac` were still gaining coverage at the end; that bears on
-    ADR-0014's plateau, which is Phase 3, not on exit criterion 2.
+    **`container/bmff.rs` is shared with HEIF and was extended**, so a change there changes HEIF
+    too. Four families are refused by name: fragmented MP4, encrypted media (CENC and FairPlay),
+    QuickTime `.mov`, and 3GPP/3GPP2.
 
-    With that, this tranche meets the Phase 1 bar in full and **tranche 4 may open** (ADR-0037).
+    Fuzzing cleared 2026-09-05: `mp4`, `bmff`, `heif` and `detect`, 48.02 CPU-hours delivered,
+    5,457,344,752 inputs, zero crashes, peak RSS 1,050MB on `mp4`. `bmff` and `heif` were re-owed
+    because the shared box walk changed.
 
-  - ✅ **Tranche 4 — Ogg — complete 2026-09-04.** Landed:
-    ADR-0041, `container/ogg.rs`, `formats/vorbis.rs`, the handler across three mappings
-    (`.ogg`, `.opus`, `.oga`), `ogg` and `oggpage` fuzz targets with seeds, 10 fixtures plus 15
-    malformed ones with their generator, 17 integration tests, 35 unit tests, a clean
-    mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.16.
+    With that, **group 4 closed**, and with it Phase 2's format list.
 
-    **ADR-0041 is required reading before touching it.** Ogg is the first format in this group that
-    is **rebuilt**: pages carry a CRC over their own bytes and a sequence number, so emptying a
-    comment header invalidates the page holding it and renumbers everything after it. Granule
-    positions are per-page, so the input's page grouping is preserved rather than repaginated freely.
+**ADR-0014 plateau evidence — Phase 3 input, not a Phase 1 gate.** Exit criterion 2 asks for a
+sustained run with no crash artefact, which every run above answers. ADR-0014's *separate* bar —
+100 CPU-hours **and** a plateau — is a Phase 3 deliverable, and this is the accumulated evidence
+for revising it. Last coverage gain, against a 43,200s run:
 
-    **The stream serial number is rewritten to zero**, which is why this is the first group-4 handler
-    that cannot promise a byte-identical clean file. It is an identifier, and nobody can recompute a
-    file's original one. What is promised instead: the packets cross byte for byte, and stripping
-    twice is byte-exact.
+| Target | Last gain | Read as |
+|---|---|---|
+| `bmff` | 39s, later 15s | Saturated. The fastest plateau measured here — a small module with a tiny input grammar. |
+| `detect` | 1–3s most runs, 3,488s once | Saturated in every run since 2026-08-26. |
+| `zip` | 6,519s | Plateaued. |
+| `tiff` | 17,217s | Plateaued — 17 new edges across 1.4 billion inputs, nothing in the final 60%. |
+| `ooxml` · `pdf` | 36,544s · 36,961s | Still climbing. |
+| `odf` · `flac` · `ogg` | 39,934s · 39,896s · 39,178s | Still climbing. |
+| `heif` | 40,374s, later 40,136s | Still climbing, on more edges than any handler except PDF. |
+| `jxl` · `webp` · `svg` | 41,175s · 41,349s · 41,365s | Still climbing. |
+| `wav` · `mp4` | 42,672s · 42,908s | Still climbing — the latest gains measured. |
 
-    **The Vorbis comment reader is now shared with FLAC** (`formats/vorbis.rs`), so `flac` re-runs in
-    this tranche's fuzzing alongside the two new targets.
-
-    **Deliberate limitations, recorded in §7.16:** the packets are never decoded, so anything inside
-    an encoded packet or a Vorbis setup header's codebooks is out of reach — **a limit shared with
-    mat2**, and declared on every report; the Ogg-FLAC audio MD5 is **kept and declared** (ADR-0038
-    decision 4); multiplexed and chained streams are refused rather than partly cleaned; Theora,
-    Speex and Skeleton are refused by name.
-
-    **The differential goes both ways, and is recorded that way.** `scripts/ogg-differential.sh` is
-    clean over 10 fixtures and **verified able to fail**. mat2 0.15.0 keeps the vendor string and the
-    serial number, and strypt clears both; and strypt **refuses** files mat2 will still clean — a
-    multiplexed or chained stream, a Theora video — for which **mat2 is the better recommendation**
-    (ADR-0012).
-
-    **The sustained fuzz run has been delivered and is clean (2026-09-04).** `ogg`, `oggpage`, `flac`
-    and `detect` each ran the full twelve hours in parallel — 48.00 CPU-hours, **4,377,342,181
-    inputs**, **zero crashes** — so the two new targets' debt and the one re-owed by the shared
-    comment reader are cleared together. `ogg` and `flac` were still gaining coverage at the end;
-    that bears on ADR-0014's plateau, which is Phase 3, not on exit criterion 2.
-
-    With that, this tranche meets the Phase 1 bar in full and **tranche 5 may open** (ADR-0037).
-
-  - ✅ **Tranche 5 — MP4 / M4A — complete 2026-09-05.** Landed:
-    ADR-0042, `formats/mp4.rs` and `formats/mp4/boxes.rs`, the handler across both brand families
-    (`.mp4`/`.m4v` and `.m4a`/`.m4b`), an `mp4` fuzz target with seeds, 10 fixtures plus 15 malformed
-    ones with their generator, 18 integration tests, unit tests in the handler and the box tables, a
-    clean mat2/ExifTool/ffmpeg differential, and `docs/THREAT_MODEL.md` §7.17.
-
-    **ADR-0042 is required reading before touching it, and it reverses ADR-0034.** `stco` and `co64`
-    hold absolute file offsets, so removing a box in front of the media moves every chunk — the same
-    sentence HEIF met. HEIF answered it by rebuilding, because its metadata is *inside* `mdat`. MP4's
-    metadata is entirely outside it, so each `mdat` moves as one rigid block and the file is **edited
-    by deletion**, with **every chunk offset remapped through a table of `mdat` extents**. An offset
-    that resolves inside none of them **refuses the file** rather than being nudged by a delta nobody
-    verified — that check, not the allow-lists, is the safety argument.
-
-    **`container/bmff.rs` is shared with HEIF and was extended**, so `heif` and `bmff` re-run in this
-    tranche's fuzzing alongside the new target.
-
-    **A clean MP4 comes back byte-identical**, which the group's other rebuilt format could not
-    promise.
-
-    **Deliberate limitations, recorded in §7.17:** the samples are never decoded, so x264's SEI user
-    data is out of reach — **a limit shared with mat2**, and declared on every report; strypt does
-    not descend into a sample entry to look for a `sinf`, so encryption is detected from the entry
-    type and from `pssh`/`senc` elsewhere; timestamps are zeroed rather than removed, as mat2 zeroes
-    them; and track structure survives, as it must for the file to play. Four families are refused by
-    name: **fragmented MP4**, **encrypted media** (CENC and FairPlay), **QuickTime `.mov`**, and
-    **3GPP/3GPP2**.
-
-    **The differential goes both ways, and is recorded that way.** `scripts/mp4-differential.sh` is
-    clean over 10 fixtures and **verified able to fail**. mat2 0.15.0 keeps `HandlerDescription`,
-    `HandlerVendorID` and an empty `free` box, all of which strypt removes; **mat2 does not claim
-    `.m4a` at all**, so the audio fixtures have no mat2 side; and strypt **refuses** files mat2 will
-    still clean — fragmented MP4, QuickTime — for which **mat2 is the better recommendation**
-    (ADR-0012).
-
-    **The sustained fuzz run has been delivered and is clean (2026-09-05).** `mp4`, `bmff`, `heif`
-    and `detect` each ran the full twelve hours in parallel — 48.02 CPU-hours, **5,457,344,752
-    inputs**, **zero crashes, hangs or OOMs**, peak RSS 1050MB, 623MB, 609MB and 601MB. `bmff` and
-    `heif` are in the run because ADR-0042 extended the shared container walk, so their debt is
-    re-owed and cleared with the new target's. `mp4` was still gaining coverage at **42,908s of
-    43,215s** and `heif` at 40,136s — no plateau, so neither has an ADR-0014 number yet; that is
-    Phase 3, not exit criterion 2.
-
-    With that, this tranche meets the Phase 1 bar in full, and **group 4 is closed** — five
-    tranches, five handlers, no outstanding debt. **Phase 2's scope under ADR-0027 is complete.**
+Two conclusions. **A flat 100 CPU-hours for every target is the wrong shape** when one saturates in
+39 seconds and PDF has not flattened in three consecutive twelve-hour runs. And **that argues for
+revising ADR-0014, not for superseding it** — superseding needs the budget *and* the plateau, and
+most targets here have neither. PDF still owes a run long enough to actually flatten.
 
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,

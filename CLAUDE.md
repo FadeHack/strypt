@@ -202,7 +202,7 @@ you skip them, you will work without knowing the phase scope or the threat model
 | Trigger | Read |
 |---|---|
 | Starting a new phase, or any task not already scoped in this session | [`docs/ROADMAP.md`](docs/ROADMAP.md) **in full** — confirm which phase the work belongs to and its exit criteria |
-| Adding or modifying a format handler | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §3 and §5, and [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) in full |
+| Adding or modifying a format handler | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §3 and §5; [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §1–6, plus §7's subsection for your format — **and the subsection of every format it shares code with**, which the ADR bullets above name |
 | Adding, removing, or upgrading any dependency | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §4 and §6, then add an ADR to [`docs/DECISIONS.md`](docs/DECISIONS.md) |
 | Being asked to add a format, flag, or feature | [`docs/PRD.md`](docs/PRD.md) §6–8 and [`docs/DECISIONS.md`](docs/DECISIONS.md) ADR-0027 and ADR-0032 — the phase scope is locked |
 | Writing any test, fuzz target, or corpus file | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) |

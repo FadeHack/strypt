@@ -22,45 +22,32 @@ data is the most valuable bug report this project can receive.
 
 ## Development process: AI-assisted, under constraints
 
-**strypt is developed with substantial use of Claude Code, an AI coding agent.** This is
-deliberate and disclosed, because a tool asking at-risk people to trust its output should not
-be quiet about how it is built.
+**strypt is developed with substantial use of Claude Code, an AI coding agent.** Disclosed
+because a tool asking at-risk people to trust its output should not be quiet about how it is
+built — and because the failure mode is specific here: an agent asserts a library's behaviour
+from stale training data, the parser misses a field, and the tool reports success to someone
+who then publishes.
 
-That warrants scrutiny here specifically. AI agents produce plausible-looking code
-confidently and will assert a library's behaviour from stale training data — and in a
-metadata scrubber, a plausible parser that misses a field is the failure mode that gets
-someone hurt: the tool reports success, the user publishes, the leak is already out.
-
-The response is to constrain the process rather than trust the output. All of this is
+The response is to constrain the process rather than trust the output, and all of it is
 verifiable in the repository:
 
-- **Hard invariants in [`CLAUDE.md`](CLAUDE.md)** applying to every session: no network
-  access, no `unsafe`, no panics in parsing, fail-closed behaviour, no overclaiming.
-- **A standing requirement to verify claims against primary sources** rather than recall
-  them. This has already caught real errors — the project's founding premise about mat2
-  ([`docs/PRD.md`](docs/PRD.md) §0) and a stale Rust version that would have set the MSRV
-  wrong.
-- **Enforcement that does not depend on an agent behaving well.** The no-network rule is a CI
-  gate over the resolved dependency graph, proven by deliberate violation. `unsafe` is
-  rejected by the compiler, a pre-commit hook, and the ADR requirement.
+- **Hard invariants in [`CLAUDE.md`](CLAUDE.md) §3** applying to every session, and a standing
+  requirement to verify claims against primary sources rather than recall them — which has
+  already caught the project's founding premise about mat2 ([`docs/PRD.md`](docs/PRD.md) §0).
+- **Enforcement that does not depend on an agent behaving well:** CI gates over the resolved
+  dependency graph and the `unsafe` ban, each proven to fail when deliberately violated.
   [`.claude/HOOKS.md`](.claude/HOOKS.md) states what the editor hooks *cannot* catch.
-- **[`docs/DECISIONS.md`](docs/DECISIONS.md)** records why choices were made, not just what
-  was chosen. ADR-0015 and ADR-0016 exist because two CI gates were caught passing while
-  testing nothing.
-- **Fuzzing and dependency-audit gates** specified in [`docs/ROADMAP.md`](docs/ROADMAP.md)
-  Phase 3.
+- **[`docs/DECISIONS.md`](docs/DECISIONS.md)** records why, not just what. ADR-0015 and
+  ADR-0016 exist because two CI gates were caught passing while testing nothing.
 
 **None of this makes AI-written code trustworthy, and it is not offered as an argument that
-it does.** These are process safeguards: they constrain what can be committed and make
-reasoning auditable, but they do not verify that a parser correctly handles a malformed JPEG
-APP1 segment. Constraints catch categories of error, not individual bugs. The project still
-needs human review of every line of parsing logic, the Phase 3 fuzzing actually performed
-rather than specified, and an external audit — none of which exist yet. If that is
-disqualifying for your use, it is a reasonable conclusion to reach.
+it does.** Constraints catch categories of error, not individual bugs; they do not verify that
+a parser handles a malformed JPEG APP1 segment. Human review of every line of parsing logic
+and an external audit do not yet exist. If that is disqualifying for your use, it is a
+reasonable conclusion to reach.
 
-Contributions from humans and AI-assisted humans are equally welcome and held to the same
-standard: parsing changes get extra scrutiny, and "an agent wrote it and the tests pass" is
-not a review.
+Contributions from humans and AI-assisted humans are held to the same standard: parsing
+changes get extra scrutiny, and "an agent wrote it and the tests pass" is not a review.
 
 ## Before you start
 
