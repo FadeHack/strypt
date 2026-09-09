@@ -445,6 +445,33 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Changed
 
+- **Phase 3 — hardening — is open (ADR-0043), and none of it is delivered yet.** No change to what
+  strypt removes: this phase adds no formats. What changed for users is what the project promises
+  to verify. **The planned "boot Tails and Qubes-Whonix" validation is replaced by a
+  filesystem-constraints matrix in CI** — a read-only destination, a full volume, `vfat`/`exfat`
+  media, a destination on a different mount — because those distributions' constraints are
+  filesystem shapes, and reproducing them in CI catches a regression where a one-off boot cannot.
+  **Neither distribution will itself be tested**: Tails is x86-64 only and Qubes needs bare-metal
+  IOMMU hardware this project does not have, so Tails becomes an optional confirmatory boot and
+  Qubes-Whonix is deferred. **If you run strypt on Tails or Qubes, nothing here validates that** —
+  `docs/PRD.md` and `docs/ARCHITECTURE.md` previously implied such validation was coming and have
+  been corrected.
+
+- **How much fuzzing counts as enough is now measured rather than guessed (ADR-0044).** No change
+  to what strypt removes. The project's own bar for testing a format handler was set before any
+  parser existed — 100 CPU-hours plus "no new coverage in the last quarter of the run" — and 480
+  CPU-hours of measurement across 80 coverage curves showed it failing in both directions: it
+  called the most thoroughly-saturated handler "still climbing" over a single late edge, and it
+  would have passed Ogg 24 hours before Ogg found another 184. The bar is now 24 CPU-hours plus a
+  curve-shape test (`scripts/fuzz-plateau.py`), which twelve of the twenty-two fuzz targets meet.
+
+  **What this says honestly: Ogg is the weakest-tested handler in the tree**, and PNG and JPEG XL
+  are behind the rest. Ogg's fuzzing keeps finding new code paths after 84 CPU-hours because the
+  fuzzer struggles to construct the per-page checksums the format requires, so it explores less
+  of the handler per hour than the numbers suggest. That is recorded rather than smoothed over,
+  and the fix — feeding the fuzzer valid page structures — is outstanding work, not done work.
+  All 480 CPU-hours found zero crashes.
+
 - **WebP and WAV now share one chunk walker (ADR-0039).** WebP's behaviour is unchanged, with one
   exception that only makes it stricter: the per-frame sub-chunks of an animation are now subject
   to the same item limit as the rest of the file. WebP's fuzz target was re-run against the change,

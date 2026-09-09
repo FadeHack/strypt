@@ -18,10 +18,18 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 2 complete; Phase 3 not opened**
+## 2. Current phase: **Phase 3 — hardening, opened 2026-09-05**
 
 Phases 0, 1 and 2 are complete. **Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05**, all
-four groups landed and all four exit criteria met.
+four groups landed and all four exit criteria met. **Phase 3 opened the same day (ADR-0043) and
+nothing in it is delivered yet** — check before referencing any of its artefacts.
+
+**ADR-0043 rescoped Phase 3 as it opened, and two changes matter before you read `docs/ROADMAP.md`:**
+live-OS validation — "boot Tails and Qubes-Whonix" — is **replaced** by a filesystem-constraints
+matrix running in CI, because Tails is x86-64 only and Qubes needs bare-metal IOMMU that this
+project does not have, *and* because the failure modes it was written to catch are already designed
+out in `io.rs`. Tails is an optional confirmatory boot; Qubes-Whonix is deferred. A green matrix is
+**not** "validated on Tails" and must never be written up as such.
 
 `strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL,
 FLAC, WAV, MP3, Ogg, MP4, M4A, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other
@@ -29,7 +37,7 @@ format is reported as unsupported and never passed through untouched.
 
 **The scope is still locked.** ADR-0027's list is finished, not widened — a format outside it needs
 a superseding ADR, and closing a phase is not an invitation to add one. Phase 3 is hardening
-(`docs/ROADMAP.md`), not more formats, and it has not started: nothing in it exists.
+(`docs/ROADMAP.md`), not more formats — **"Phase 3 is open" is not "scope is open"** (ADR-0043).
 
 **Where things stand — read `docs/ROADMAP.md` for the detail, which is not repeated here:**
 
@@ -98,8 +106,10 @@ applies *within* this phase as well as across phases.
 
 - **Know which fuzzing bar you are measuring against.** Phase 1 exit criterion 2 is *"zero panics,
   crashes, hangs, or OOMs across all four fuzz targets after a sustained run"* — no CPU-hour figure,
-  no plateau. ADR-0014's 100 CPU-hours plus plateau is a **Phase 3** deliverable.
-  `scripts/fuzz-sustained.sh` serves both. Do not cite ADR-0014 as a Phase 1 gate.
+  no plateau. The budget-plus-plateau bar is a **Phase 3** deliverable, settled by **ADR-0044**:
+  24 CPU-hours per handler and a windowed curve shape, tested by `scripts/fuzz-plateau.py`.
+  ADR-0014 is superseded — do not cite it, and do not trust the `plateau` column in a
+  `summary.md` predating 2026-09-10, which is the old rule. Do not cite either as a Phase 1 gate.
 - **A per-format invariant in a pipeline-wide fuzz target must be guarded by a format check.** These
   targets drive the whole pipeline, so a mutation reaching another format's magic is dispatched to
   that format's handler. An unguarded "stripping never grows a file" assertion killed a twelve-hour

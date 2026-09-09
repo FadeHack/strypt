@@ -3,15 +3,16 @@
 Thanks for considering it. Please read this first — strypt has a few expectations that differ
 from a typical Rust CLI project, because of who relies on it.
 
-**Current status: Phase 1 complete (2026-08-22), Phase 2 not started.** JPEG, PNG, WebP and
-PDF handlers work, `strypt` is installable from crates.io at `0.0.1`, and every other format
-is reported as unsupported rather than passed through. There has been no external audit,
-hardening is Phase 3 and has not started, and `0.0.1` is not a release — see the
-[README status block](README.md) for what that does and does not mean.
+**Current status: Phases 1 and 2 complete (2026-08-22, 2026-09-05); Phase 3 — hardening —
+opened 2026-09-05.** Twenty-two formats are handled and every other format is reported as
+unsupported rather than passed through; `strypt` is installable from crates.io at `0.0.1`.
+There has been no external audit, **none of Phase 3 is delivered yet**, and `0.0.1` is not a
+release — see the [README status block](README.md) for what that does and does not mean.
 
-**Phase 2 has not opened, and its scope is locked** by [ADR-0005](docs/DECISIONS.md) until a
-superseding ADR opens it deliberately. A pull request adding a new format is therefore likely
-to be declined on scope regardless of its quality — please open an issue first.
+**Phase 3 adds no formats, and the scope stays locked** by
+[ADR-0043](docs/DECISIONS.md) and [ADR-0042](docs/DECISIONS.md) until a superseding ADR opens
+it deliberately. A pull request adding a new format is therefore likely to be declined on
+scope regardless of its quality — please open an issue first.
 
 The most valuable contributions right now are adversarial: review of
 [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md), attempts to find metadata that survives a

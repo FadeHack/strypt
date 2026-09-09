@@ -2,7 +2,8 @@
 //!
 //! # Status
 //!
-//! **Phase 1 complete (2026-08-22); Phase 2 complete (2026-09-05).** JPEG, PNG, WebP, PDF, TIFF,
+//! **Phase 1 complete (2026-08-22); Phase 2 complete (2026-09-05); Phase 3 — hardening — open
+//! since 2026-09-05 with nothing delivered yet.** JPEG, PNG, WebP, PDF, TIFF,
 //! GIF, HEIF, AVIF, SVG, JPEG XL, FLAC, WAV, MP3, Ogg, MP4, M4A, Office Open XML, and
 //! `OpenDocument` are handled, each with its own fuzz target and seed corpus, and each standing on
 //! a clean sustained fuzz run. A format with no handler is reported as unsupported and is never

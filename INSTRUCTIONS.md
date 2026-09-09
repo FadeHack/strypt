@@ -17,7 +17,8 @@ commit as any change to the build, test, or lint workflow.**
 >
 > Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05. All four format groups are complete
 > — OOXML, OpenDocument, five image tranches (ADR-0032) and five audio/video tranches (ADR-0037) —
-> each with a clean sustained fuzz run. Phase 3 has not opened. See
+> each with a clean sustained fuzz run. **Phase 3 — hardening — opened 2026-09-05 (ADR-0043);
+nothing in it is delivered yet.** See
 > [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Prerequisites
@@ -220,7 +221,25 @@ repository root:
 nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
   > /tmp/strypt-fuzz.out 2>&1 &
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
+
+# What each handler has actually banked since its sources last changed:
+python3 scripts/fuzz-tally.py
+
+# Whether a run's coverage curve saturated or broke through late (ADR-0044):
+python3 scripts/fuzz-plateau.py                   # every recorded curve
+python3 scripts/fuzz-plateau.py ogg pdf           # just these targets
 ```
+
+`fuzz-tally.py` reads every `target/fuzz-runs/*/summary.md` and counts hours only since that
+handler's sources last changed — **shared modules included**, which is what showed `odf` and
+`ooxml` at zero after `container/package.rs` changed on 2026-08-28. Run it before choosing what
+to fuzz next.
+
+`fuzz-plateau.py` is **ADR-0044's plateau test**, and the plateau is not to be judged by eye: it
+splits each run into six windows and reports `saturated` or `PUNCTUATED`. Its two columns of
+output that matter are the certification lines at the end. Note that the `plateau` column inside
+an older `summary.md` is ADR-0014's superseded rule — it calls a flat `pdf` "still climbing" and
+would have passed `ogg` at 24 hours — so read the script, not the column.
 
 The default target list is **all twenty-two** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
 wav mp3 tags ogg oggpage mp4 riff ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before

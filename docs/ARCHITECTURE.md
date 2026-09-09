@@ -433,11 +433,13 @@ removable metadata**. These are the properties stage 5's verification pass depen
   should create files with restrictive permissions by default; on Windows the ACL model
   differs and needs its own handling.
 - **Live/amnesic systems (Tails, Qubes-Whonix).** Read-only system filesystem, limited
-  writable space, no network. Temp-file placement must respect `TMPDIR` and degrade
-  gracefully when it is small or read-only — writing a temp copy of a sensitive file to an
-  unexpected location would be a serious leak in itself. Both are Debian-based, which
-  informs Phase 4 packaging priorities. **Assumed, not validated — Phase 3 must test on real
-  systems.**
+  writable space, no network. **Temp-file placement deliberately ignores `TMPDIR`** and writes
+  beside the destination instead — `rename` is atomic only within a filesystem, and a temp copy
+  of a sensitive file landing on an unexpected mount would be a serious leak in itself. Both
+  distributions are Debian-based, which informs Phase 4 packaging priorities. **Validated in
+  Phase 3 by a filesystem-constraints matrix, not by booting either system** (ADR-0043); the
+  distributions themselves remain untested, and the matrix must not be reported as if they
+  were.
 - **Case-insensitive filesystems** (default macOS, Windows) can collide `photo.jpg` and
   `Photo.JPG` in batch output. Detect and refuse rather than silently overwrite.
 

@@ -1,6 +1,7 @@
 # strypt — Roadmap
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 complete (2026-09-05) · **Last updated:** 2026-09-05
+**Status:** Phase 1 complete (2026-08-22); Phase 2 complete (2026-09-05); **Phase 3 open
+(opened 2026-09-05, ADR-0043)** · **Last updated:** 2026-09-05
 
 Every phase below states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A
 phase is done when its exit criteria are met — not when its deliverables have been attempted.
@@ -568,6 +569,13 @@ Two conclusions. **A flat 100 CPU-hours for every target is the wrong shape** wh
 revising ADR-0014, not for superseding it** — superseding needs the budget *and* the plateau, and
 most targets here have neither. PDF still owes a run long enough to actually flatten.
 
+**Superseded 2026-09-10 by ADR-0044, and the "Read as" column above is wrong.** PDF got that
+longer run — 48 hours — and was flat from hour 12, yet this table's rule still calls it "still
+climbing" on one edge at 47h07m. The rule, not the handler, was the problem: measuring *last gain*
+answers where the final edge landed, not whether the curve had stopped. Every "still climbing" row
+above should be read as unclassified. See ADR-0044 for the replacement and
+`scripts/fuzz-plateau.py` for the test; the batch results are recorded under deliverable 1.
+
 **Deliverables.** In priority order, driven by user risk rather than by implementation ease:
 1. ✅ Office Open XML — `.docx`, `.xlsx`, `.pptx` (ZIP containers; `docProps/core.xml`,
    `app.xml`, custom properties, revision identifiers, comments, tracked changes,
@@ -599,7 +607,8 @@ most targets here have neither. PDF still owes a run long enough to actually fla
    since the descent is shared code — `container/package.rs` — rather than a rule each handler
    implements for itself.
 
-**Phase 3 may open.** Nothing in it exists yet.
+**Phase 3 opened 2026-09-05 (ADR-0043), rescoped from what Phase 0 wrote.** Nothing in it is
+delivered yet.
 
 Each format ships with: handler, fuzz target and seed corpus, integration tests, differential
 comparison against mat2/ExifTool, a `docs/THREAT_MODEL.md` update, and a `CHANGELOG.md` entry.
@@ -626,43 +635,90 @@ comparison against mat2/ExifTool, a `docs/THREAT_MODEL.md` update, and a `CHANGE
 
 ---
 
-## Phase 3 — Hardening
+## Phase 3 — Hardening *(open; opened 2026-09-05)*
 
 **Goal.** strypt is defensible under adversarial scrutiny before it is ever pointed at real
 at-risk users' files. Not "it works" but "we can show why you should believe it works."
 
-**Deliverables.**
-- **A sustained fuzzing budget, stated as a number.** Recorded as **ADR-0014, status
-  Proposed**: a minimum of **100 CPU-hours per format handler** since its last substantive
-  change, **plus** a coverage plateau (no new edge coverage in the final 25% of the run) —
-  because CPU-hours alone can be burned on a target that stopped exploring long ago. Both
-  conditions must hold.
+**Opened and rescoped by ADR-0043**, which revises the deliverables and exit criteria below.
+Two of the six original deliverables were written in Phase 0, before a parser existed, and did
+not survive contact: live-OS validation is replaced by a filesystem-constraints matrix
+(deliverable 6), and ADR-0019's Windows permission debt is added (deliverable 7) because the
+code already assigns it to this phase and the roadmap never listed it. **ADR-0027's rule
+carries over: "Phase 3 is open" is not "scope is open", and this phase adds no formats.**
 
-  **This number is provisional and is to be revised with real coverage data once this phase
-  actually starts.** It was set before any parser existed, so it is a hypothesis, not a
-  commitment — the project is not locked into it, and revising it upward (PDF's object graph
-  is far larger than PNG's chunk list) is an expected outcome rather than a planning failure.
-  Record actual CPU-hours and coverage curves per handler so the revision is driven by
-  measurement, then supersede ADR-0014 with the measured policy. Continuous fuzzing
-  infrastructure (a scheduled CI job, or OSS-Fuzz if strypt qualifies at that point —
-  investigate) rather than one-off manual runs.
-- Every crash, hang, OOM, and assertion failure triaged to zero, each with a regression test.
-- `cargo-deny` wired into CI as a **hard merge gate**, not advisory: `advisories`,
-  `licenses`, `bans` (including the networking-crate list), `sources`. Verify current
-  recommended `deny.toml` configuration at phase start.
-- A per-format **known-limitations page**, written *from* the fuzzing and differential-testing
-  findings, never speculatively. This document is a safety feature: it is what stops a user
-  over-trusting the tool.
-- **A decision on parser sandboxing, recorded as an ADR.** Investigate — do not assume.
-  Required inputs to that decision: (a) why mat2 removed bubblewrap sandboxing in v0.14.0,
-  which is the most relevant prior experience available and costs nothing to look up;
-  (b) what sandboxing actually buys for a `forbid(unsafe_code)` Rust parser, honestly
-  assessed — realistically resource-exhaustion bounding and supply-chain-compromise
-  containment, not memory-safety;  (c) the cross-platform maintenance cost. "Deferred, with
-  reasons" is a legitimate outcome.
-- **Live-OS validation on real systems:** Tails and Qubes-Whonix, actually booted and tested,
-  covering read-only filesystem behaviour, temp-file placement, and constrained writable
-  space. Currently an assumption everywhere in these docs; this phase converts it to fact.
+**Deliverables.** Nine, fixed by ADR-0043. Deliverable 1 starts first because it is gated by
+wall-clock rather than by attention; deliverable 8 is last by construction. Nothing else here
+gates anything else here.
+
+1. ✅ **A sustained fuzzing budget, stated as a number** — **2026-09-10, ADR-0044**, which
+   supersedes ADR-0014's plateau definition and its 100 CPU-hour figure. Three measured batches
+   (24h ×9, 24h ×5, 48h ×3; 480 CPU-hours, zero crashes) brought the archive to **80 coverage
+   curves across 22 targets**, and both halves of the old bar failed on them:
+
+   | Curve | What the old rule said | What the curve shows |
+   |---|---|---|
+   | `pdf` 48h — 3955, 235, 40, 13, 1, 4 | "still climbing" | Flat since hour 12; failed on one edge at 47h07m |
+   | `ogg` 48h — 77, 9, 5, 2, **140**, 42 | would have passed at 24h | Flat 24 hours, then a 140-edge breakthrough |
+   | `webp` 24h → 48h | final-quarter rate 1.12% → 0.00% | Same code; the rate reports where the run was cut |
+
+   **The finding that set the new rule: "still climbing" does not exist.** Classifying all 80
+   curves puts zero in a slow-slope bucket — every one is decaying or punctuated. So a plateau is
+   now a **windowed curve shape**, tested by `scripts/fuzz-plateau.py`, and the budget is **24
+   CPU-hours per handler per run**, not 100. That certifies twelve handlers and cuts outstanding
+   debt from ~1,401 CPU-hours to ~170. `scripts/fuzz-tally.py` tracks who owes what.
+
+   **Two items remain open under this deliverable and are not closed by the ADR:**
+
+   - **The seven targets with no run of 24h or longer** — `bmff detect riff tags tiff zip
+     oggpage` — owe one batch at the new budget.
+   - **`ogg` is recurrently punctuated at 12, 24 and 48 hours**, and `oggpage` on its only run —
+     the same `container/ogg.rs` through a second target. `jxl` and `png` punctuate too, less
+     severely. **More hours are not the remedy**: 84 CPU-hours have not made `ogg` converge, and
+     the fuzzer is visibly spending most of a run failing to construct a valid page CRC
+     (ADR-0041). The work is structure-aware input — a page-header dictionary or a CRC-fixing
+     mutator — and it stays listed here until it happens.
+2. **Continuous fuzzing infrastructure** — a scheduled CI job (`fuzz-long.yml`) rather than
+   one-off manual runs, with OSS-Fuzz investigated and adopted or declined with reasons.
+3. Every crash, hang, OOM, and assertion failure triaged to zero, each with a regression test.
+4. `cargo-deny` wired into CI as a **hard merge gate**, not advisory: `advisories`,
+   `licenses`, `bans` (including the networking-crate list), `sources`. Verify current
+   recommended `deny.toml` configuration at phase start. Like the no-network gate, it must be
+   **proven to fail** by a deliberate violation — an untested gate provides confidence without
+   protection.
+5. A per-format **known-limitations page**, written *from* the fuzzing and differential-testing
+   findings, never speculatively. This document is a safety feature: it is what stops a user
+   over-trusting the tool.
+6. **A filesystem-constraints matrix**, run in CI on Linux against the real CLI binary.
+   **Replaces the "boot Tails and Qubes-Whonix" deliverable** — see ADR-0043 for why, and for
+   what that gives up. Minimum cases: a read-only destination directory; a full volume, so
+   `ENOSPC` lands mid-write; removable-media filesystems with no Unix permission model
+   (`vfat`, `exfat`); a destination on a different mount from `TMPDIR`; and an unwritable
+   destination directory holding a writable file. Each case asserts the **fail-closed
+   contract**, not merely the absence of a panic: the destination is replaced in full or left
+   untouched, no `.strypt-*.tmp` survives, and no success is reported for a file that was not
+   written. Tails is an **optional confirmatory boot**; **Qubes-Whonix is deferred**, because
+   it needs bare-metal x86-64 with IOMMU that this project does not have.
+7. **ADR-0019's Windows permission gap resolved either way.** `crates/strypt-core/src/io.rs`
+   says in a comment that `Permissions::OwnerOnly` is weaker on Windows — the new file
+   inherits the parent directory's ACL — and that Phase 3's platform validation is where it
+   gets addressed. Outcome is narrowing the ACL **or** recording the gap as permanent in the
+   known-limitations page. Not silence.
+8. **A decision on parser sandboxing, recorded as an ADR.** Investigate — do not assume.
+   Required inputs to that decision: (a) why mat2 removed bubblewrap sandboxing in v0.14.0,
+   which is the most relevant prior experience available and costs nothing to look up;
+   (b) what sandboxing actually buys for a `forbid(unsafe_code)` Rust parser, honestly
+   assessed — realistically resource-exhaustion bounding and supply-chain-compromise
+   containment, not memory-safety;  (c) the cross-platform maintenance cost. "Deferred, with
+   reasons" is a legitimate outcome.
+9. **`docs/THREAT_MODEL.md` revised** to record what hardening actually taught us. **Last, by
+   ADR-0043 decision 6** — written early it would be a plan rather than a finding.
+
+   **Carried into this deliverable, deliberately not fixed early:** §7's per-format fuzzing notes
+   still read a plateau off ADR-0014's superseded rule — "had not plateaued at twelve hours" and
+   similar, in the `zip`, `odf`, `tiff` and group-4 subsections. They are wrong now (ADR-0044) and
+   are corrected here rather than in a drive-by pass, because §7 also has to absorb what the
+   `ogg` result means for that handler's confidence.
 
 **Exit criteria.**
 1. Zero open crash/panic/hang findings from fuzzing across every handler.
@@ -672,7 +728,11 @@ at-risk users' files. Not "it works" but "we can show why you should believe it 
 4. Sandboxing ADR recorded — adopted or deferred, with reasoning either way.
 5. `docs/THREAT_MODEL.md` revised to reflect what hardening actually taught us. If nothing
    changed, that is itself suspicious and worth re-examining.
-6. Tails and Qubes-Whonix validation complete, with findings documented.
+6. **The filesystem-constraints matrix passes in CI on Linux, and is proven to fail** when the
+   fail-closed contract is deliberately broken. Tails and Qubes-Whonix boots are **not**
+   required by this criterion; ADR-0043 records what that forgoes.
+7. The Windows permission gap is closed or documented as permanent — deliverable 7 resolved,
+   not carried forward silently a second time.
 
 **Risks.**
 - *This phase is the one that gets compressed under release pressure, and compressing it
@@ -684,6 +744,10 @@ at-risk users' files. Not "it works" but "we can show why you should believe it 
   and target structure let it reach. Rotate seeds, add structure-aware fuzzing via
   `Arbitrary` for the object-graph formats, and treat a plateau as a prompt to improve the
   harness rather than as a passing grade.
+- *The constraints matrix tests filesystem shape, not the distributions themselves.* It is the
+  better instrument for the failure modes we know about, and it is silent on anything specific
+  to Tails's squashfs and Persistent Storage layout or to Qubes's volatile root and inter-VM
+  copy. Do not let a green matrix become "validated on Tails" in any user-facing text.
 
 ---
 

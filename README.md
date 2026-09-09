@@ -1,6 +1,6 @@
 # strypt
 
-> ## Status: Phase 2 complete — no audit, no release, no hardening phase yet
+> ## Status: Phase 2 complete; Phase 3 (hardening) opened 2026-09-05 and has delivered nothing yet — no audit, no release
 >
 > **PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF/AVIF (`.heic`, `.heif`, `.avif`), SVG, JPEG XL, FLAC, WAV, MP3, Ogg (`.ogg`, `.opus`, `.oga`), MP4/M4A (`.mp4`, `.m4v`, `.m4a`, `.m4b`), Office Open XML
 > (`.docx`, `.xlsx`, `.pptx`), and OpenDocument (`.odt`, `.ods`, `.odp`) are implemented.**
@@ -302,8 +302,8 @@ cargo install strypt    # requires a Rust toolchain
 ```
 
 **That is the only install path, and `0.0.1` is not a release.** The crate was published early
-to hold the name, not because the project is ready to be depended on — Phase 3 hardening has
-not started and there has been no external audit. Prebuilt binaries, checksums, signing,
+to hold the name, not because the project is ready to be depended on — Phase 3 hardening opened
+on 2026-09-05 and none of it is delivered, and there has been no external audit. Prebuilt binaries, checksums, signing,
 reproducible builds, and a Homebrew formula are Phase 4 and do not exist yet. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

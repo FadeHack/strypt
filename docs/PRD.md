@@ -268,8 +268,12 @@ Two requirements that apply to every handler:
   differential testing and the Phase 5 GUI-parity check possible, and it means stripped
   output does not itself carry a random nonce.
 - **Live-OS compatibility.** Must run correctly under Tails and Qubes-Whonix constraints:
-  read-only system filesystem, limited writable space, no network. **Flagged for explicit
-  validation in Phase 3 — assumed, not verified, as of this writing.**
+  read-only system filesystem, limited writable space, no network. **Validated in Phase 3 by a
+  filesystem-constraints matrix rather than by booting either system** (ADR-0043): the
+  constraints are reproduced as filesystem shapes in CI, which is repeatable where a one-off
+  boot is not. **Neither distribution is itself tested** — Tails is an optional confirmatory
+  boot and Qubes-Whonix is deferred for want of bare-metal x86-64 hardware — so a passing
+  matrix must never be described as validation on Tails.
 
 ---
 

@@ -102,10 +102,15 @@ therefore runs on Linux (and optionally macOS) while Windows is covered by the o
   the realistic vulnerability class (`docs/THREAT_MODEL.md` §5.1), so a policy that only
   counts crashes measures the wrong thing.
 
-**Budget.** Phase 3 sets the formal minimum — proposed at 100 CPU-hours per handler since its
-last substantive change, *plus* a coverage-plateau condition, confirmed by ADR at phase
-start. Before Phase 3, the rule is simply that a handler ships with a working target and a
-real corpus.
+**Budget — ADR-0044, measured from 80 coverage curves.** A handler certifies on **one run of at
+least 24 CPU-hours** since its last substantive change, shared modules included, whose curve
+classifies **saturated** under `scripts/fuzz-plateau.py`: six equal windows, and no window after
+the first both gaining over 1% of final coverage and doubling its predecessor. `scripts/fuzz-tally.py`
+tracks what each handler has banked.
+
+ADR-0014's earlier bar — 100 CPU-hours plus "no new edge in the final 25%" — is superseded, and so
+is the `plateau` column in any `summary.md` predating 2026-09-10. A flat curve is *not* sufficient
+evidence of saturation: `ogg` went flat for 24 hours and then found 140 edges in one window.
 
 **Continuous fuzzing.** A scheduled CI job from Phase 3, with OSS-Fuzz investigated as an
 option if the project qualifies at that point.
@@ -132,6 +137,28 @@ It reads output files only — **it never becomes a runtime dependency** (ADR-00
 committed before the fix is accepted.** The offending input goes into the corpus. This is the
 single testing policy with no discretion attached: a fixed bug without a regression test is
 an unfixed bug with a delay.
+
+---
+
+### 2.7 Filesystem-constraints matrix — Phase 3, ADR-0043
+
+Everything above feeds bytes to a parser. This layer feeds a **hostile filesystem** to the write
+path, which is the other place a fail-closed promise can break — and the place where breaking it
+leaves a half-written file on a journalist's USB stick rather than a metadata leak.
+
+Cases, each run against the real CLI binary on Linux in CI: a read-only destination directory; a
+full volume, so `ENOSPC` lands mid-write; removable-media filesystems with no Unix permission
+model (`vfat`, `exfat`); a destination on a different mount from `TMPDIR`; and an unwritable
+directory holding a writable file. Built with loopback images, so they are reproducible and need
+no privileged host.
+
+**Each case asserts the contract, not the absence of a panic:** the destination is replaced in
+full or left untouched, no `.strypt-*.tmp` survives, and no success is reported for a file that
+was not written. Like every other gate here, the matrix must be **proven to fail** when that
+contract is deliberately broken.
+
+**This replaces booting Tails and Qubes-Whonix** (ADR-0043), and it does not test those
+distributions — a green matrix is never "validated on Tails".
 
 ---
 
@@ -191,6 +218,7 @@ worth knowing before sanitising anything else:
 | MSRV build | Linux | hard |
 | Fuzz smoke (short run per target) | Linux | hard from Phase 1 |
 | Continuous fuzzing (long run) | Linux | scheduled, from Phase 3 |
+| Filesystem-constraints matrix (§2.7) | Linux | hard from Phase 3 |
 | Differential vs mat2/ExifTool | Linux | scheduled + pre-release |
 
 Two notes. The no-network check is hard from the very beginning because retrofitting an

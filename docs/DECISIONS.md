@@ -2724,3 +2724,216 @@ moves by the same number of bytes, which is the number of bytes removed ahead of
   (ADR-0037 decision 2).
 - **Group 4 is closed, and with it the four format groups ADR-0027 scoped for Phase 2.** Anything
   further — Matroska, WebM, AAC in ADTS, AIFF, fragmented MP4, QuickTime — needs a superseding ADR.
+
+---
+
+## ADR-0043 — Phase 3 opens, and live-OS validation becomes a filesystem-constraints matrix
+
+**Status:** Accepted (2026-09-05)
+
+**Revises `docs/ROADMAP.md` Phase 3** — its deliverable list and its exit criteria. It does not
+touch ADR-0014, which is revised on its own schedule by decision 5 below.
+
+**Context.** Phase 2 closed on 2026-09-05 with all four groups landed and all four exit criteria
+met, so ADR-0027's gate permits the next phase to open. Phase 3's deliverables were written in
+Phase 0, before a single parser existed, and two of the six have been overtaken — one by what the
+tree turned out to be, one by what hardware exists.
+
+**The live-OS deliverable is the one that does not survive contact.** It asks for Tails and
+Qubes-Whonix "actually booted and tested", covering read-only filesystem behaviour, temp-file
+placement, and constrained writable space. Verified 2026-09-05: **Tails is x86-64 only** and
+states that it does not run on ARM; **Qubes OS requires bare-metal Xen with VT-d/IOMMU** and
+disables nested virtualisation deliberately, because of the attack surface it adds. This
+project's machine is an Apple M3 Pro. Tails therefore runs only under whole-machine emulation,
+and Qubes-Whonix does not run at all.
+
+**The hardware is the smaller problem.** The deliverable's premise is weaker than it looked when
+it was written. The two failure modes it exists to catch are already designed out and tested:
+`crates/strypt-core/src/io.rs` creates the temporary **in the destination's own directory, never
+in `TMPDIR`** — its module header gives `rename` being atomic only within a filesystem as the
+reason — and `the_temporary_sits_beside_the_destination_not_in_tmpdir` asserts it. So `EXDEV` on
+the rename and a large temporary filling a RAM-backed `tmpfs` are both closed by construction.
+
+What is left is **filesystem shape, not distribution identity**: a read-only destination
+directory, `ENOSPC` on a small volume, removable media with no Unix permission model, a
+destination on a different mount. Every one of those reproduces on a plain Linux VM with a
+loopback image — natively on aarch64, at full speed — and reproduces *in CI*, where a manual boot
+is a point-in-time anecdote that rots the next time the write path changes.
+
+**Decision.**
+
+1. **Phase 3 is open**, and its scope is exactly the nine deliverables in `docs/ROADMAP.md`
+   Phase 3 as revised by this ADR. ADR-0027's rule carries over verbatim: **"Phase 3 is open" is
+   not "scope is open"**. The format list stays locked where ADR-0042 left it, and Phase 3 adds no
+   formats.
+
+2. **Live-OS validation is replaced by a filesystem-constraints matrix**, run in CI on Linux
+   against the real CLI binary. It covers, at minimum: a **read-only destination directory**; a
+   **full volume**, so `ENOSPC` lands mid-write; **removable-media filesystems without a Unix
+   permission model** (`vfat`, `exfat`); a **destination on a different mount** from `TMPDIR`; and
+   a **destination directory the user cannot write but whose file is writable**. Each case asserts
+   the fail-closed contract, not merely the absence of a panic: the destination is either replaced
+   in full or untouched, no `.strypt-*.tmp` survives, and no success is reported for a file that
+   was not written.
+
+3. **Tails becomes an optional confirmatory boot; Qubes-Whonix is deferred**, with the hardware
+   reason recorded here rather than left as an unmet criterion nobody can meet. Exit criterion 6
+   is rewritten to ask for the matrix. **The claims this invalidates are corrected in the same
+   change as this ADR** — `docs/PRD.md` §8 and `docs/ARCHITECTURE.md` §8 both currently say live-OS
+   behaviour is assumed and that Phase 3 will test it on real systems, and both must say what is
+   actually being tested instead.
+
+4. **ADR-0019's Windows permission debt becomes an explicit deliverable.** `io.rs` says in a
+   comment that `Permissions::OwnerOnly` is weaker on Windows because the new file inherits the
+   parent directory's ACL, and that **"Phase 3's platform validation is where it gets addressed"**.
+   The roadmap never listed it. It is listed now, and its outcome may be either narrowing the ACL
+   or recording the gap as permanent — but not silence.
+
+5. **ADR-0014 is revised, not superseded**, and not yet. `docs/ROADMAP.md` already carries the
+   accumulated plateau evidence and its own reading of it: one target saturates in 39 seconds while
+   `pdf` has not flattened across three consecutive twelve-hour runs, so a flat 100 CPU-hours per
+   target is the wrong shape.
+
+   **The measured policy needs a curve per handler, not a curve for `pdf`.** Superseding needs the
+   budget **and** the plateau, and on the evidence to date only `bmff`, `detect`, `zip` and `tiff`
+   have ever plateaued — four of twenty-two. `pdf` is the loudest case, not the only one, and seven
+   targets (`jpeg`, `png`, `gif`, `mp3`, `tags`, `oggpage`, `riff`) have no plateau measurement
+   recorded at all.
+
+   **The first step is a tally, not a run.** Twenty-eight run directories under
+   `target/fuzz-runs/` already hold a `summary.md` and per-target `cov-*.tsv`. Per-handler
+   cumulative CPU-hours since last substantive change, and last-gain time per run, are computable
+   from them for free. That tally decides who owes hours, who owes only a plateau, and who is
+   already done — and it is what stops the phase burning days of CPU on targets that saturated
+   weeks ago.
+
+   **Runs are then batched to the core count.** The runner starts one process per target in
+   parallel, so selecting more targets than cores oversubscribes them and corrupts coverage
+   against wall-time, which is the measurement. Batch below the core count rather than running
+   twenty-two at once.
+
+6. **Deliverable order.** The fuzzing work starts first because it is gated by wall-clock rather
+   than by attention, and everything else proceeds beside it. Nothing in this phase gates anything
+   else in it, with one exception: **`docs/THREAT_MODEL.md`'s revision is last**, because it is
+   supposed to record what hardening taught us, and writing it early would make it a plan rather
+   than a finding.
+
+**Consequences.**
+
+- **Exit criterion 6 becomes meetable on hardware this project has.** The old one could not be met
+  at all, and an unmeetable criterion is not a high bar — it is an invitation to quietly redefine
+  the bar later, which is the failure mode this phase exists to prevent.
+- **The matrix is stronger evidence than the boot it replaces**, and this is the actual argument,
+  not a consolation. It is repeatable, it runs on every push, and it fails when someone changes the
+  write path in two years. A one-off manual boot proves the binary worked once on one image.
+- **What is given up, stated rather than glossed:** nothing now exercises Tails's real squashfs and
+  Persistent Storage layout, or Qubes's inter-VM file copy and volatile root. If a bug lives
+  specifically in those, this phase will not find it. That is a real reduction in coverage, taken
+  because the alternative was an unmeetable criterion rather than because the risk is zero.
+- **One specific hypothesis the matrix should settle.** `io.rs`'s `commit` re-asserts permissions
+  **after** the rename has already succeeded and propagates the error. On a `vfat`/`exfat` stick —
+  a borrowed machine with files on a USB key, which is `docs/PRD.md` §5's Tails persona exactly —
+  `chmod` typically fails with `EPERM`, which would make `commit` return an error for a file it
+  wrote correctly and put in place. This is a **hypothesis, not a measured defect**: it has not
+  been run on `vfat`. It fails in the safe direction if real — a false failure, not a false success
+  — so constraint 6 holds either way, but it is a real defect for that persona.
+- **Phase 4's `.deb` reasoning loses a support it had not yet earned.** `docs/ROADMAP.md` Phase 4
+  picks `.deb` partly because Tails and Qubes-Whonix are Debian-based. That argument stands on the
+  distributions being Debian-derived; it does not stand on validation that has not happened, and
+  Phase 4 must not cite this phase as having confirmed it.
+- **ADR-0012 still binds, and gets no easier here.** Hardening is where "audited", "proven" and
+  "hardened" start sounding like available words. A passing matrix is evidence about specific
+  filesystem behaviours, and nothing in this phase licenses a claim about total metadata removal.
+
+---
+
+## ADR-0044 — The fuzzing plateau is a curve shape, not an absence of new edges
+
+**Status:** Accepted (2026-09-10)
+
+**Supersedes ADR-0014's plateau definition and its 100 CPU-hour budget.** ADR-0014's other
+content — that a handler's clock resets when its sources change, shared modules included — is
+retained and is now enforced by `scripts/fuzz-tally.py`. Discharges ADR-0043 decision 5.
+
+**Context.** ADR-0014 set a provisional bar: 100 CPU-hours per handler since its last substantive
+change, **plus** a plateau, defined as no new edge in the final 25% of the run. It was written in
+Phase 0 with no measurements. Phase 3 deliverable 1 is to replace it with a measured policy, and
+there are now **80 recorded coverage curves across 22 targets**, including three batches run for
+this purpose at 12, 24 and 48 hours.
+
+**The measurements falsify the definition in both directions, which is why it is superseded
+rather than retuned.**
+
+`pdf`'s 48-hour run reached 5,944 edges with per-window gains of 3955, 235, 40, 13, 1, 4. It has
+been flat since the 12-hour mark. It found one edge at 47h07m, and ADR-0014 therefore records
+**"NO — still climbing"** for the most obviously saturated curve in the set. A single late edge
+on a five-thousand-edge corpus is noise, and a rule that a coin-flip can fail is not a gate.
+
+`ogg`'s 48-hour run gives the opposite failure. Its windows are 77, 9, 5, 2, **140**, 42: flat from hour 8
+to hour 32 — 16 edges across three windows — and then a 140-edge breakthrough in the fifth.
+**Any rule evaluated at 24 hours would have passed it**, and it would then have found 184 more
+edges. Flatness is not
+evidence of saturation; it is also what being stuck behind a hard constraint looks like, which for
+Ogg is the per-page CRC that ADR-0041 documents.
+
+**A rate-based rule fixes neither.** Measuring gain in the final quarter as a fraction of total
+coverage was the obvious repair, and `webp` shows why it fails: 1.12% at 24 hours, 0.00% at 48
+hours, same code. The number reports where the run was cut, not what the handler did.
+
+**The finding that decided the shape of the rule: "still climbing" does not exist.** Classifying
+all 80 curves puts **zero** of them in a slow-steady-slope bucket. Every curve is either a decaying
+one — large first window, monotone-ish decay after — or a punctuated one, flat with breakthroughs.
+ADR-0014 was measuring a state this project's fuzzing does not enter.
+
+**Decision.**
+
+1. **A plateau is a windowed curve shape.** Split the run into six equal windows. Window 1 is
+   initial exploration and is never tested. A run is **punctuated** if any later window's gain both
+   exceeds 1% of final coverage and at least doubles its predecessor. Otherwise it is **saturated**
+   if the final window's gain is under 1% of final coverage. `scripts/fuzz-plateau.py` is the test;
+   the rule is not to be applied by eye.
+
+2. **The 1% floor is load-bearing and is not a tuning knob.** Without it the doubling test fires on
+   noise, because a window that gained zero doubles to anything. It is what keeps `webp`'s +21 on a
+   2,229-edge corpus from reading as a breakthrough.
+
+3. **The budget is 24 CPU-hours per handler per run, not 100.** Every handler that punctuated at 12
+   hours had settled by 24 except `ogg`, `jxl` and `png`. Duration is doing the work the hour count
+   was supposed to do: a breakthrough needs long enough to occur *and decay* inside the same run.
+   `pdf` — the largest state space in the tree — was flat from hour 12 of 48.
+
+4. **A handler certifies on one run of at least 24 hours that classifies saturated.** On the
+   evidence to date that certifies twelve: `flac gif heif jpeg mp3 mp4 odf ooxml pdf svg wav webp`.
+
+5. **Three handlers are recurrently punctuated and do not certify: `ogg`, `jxl`, `png`.** `ogg` is
+   the serious case — punctuated at 12, 24 *and* 48 hours, and `oggpage` punctuated on its only run,
+   which is the same `container/ogg.rs` seen through a second target. **More hours are not the
+   remedy and this ADR does not prescribe them.** 84 CPU-hours have not made `ogg` converge, and the
+   140-edge window shows the fuzzer spending most of a run failing to construct a valid page
+   checksum. The intervention is structure-aware input — a dictionary of page headers, or a
+   CRC-fixing mutator — and it is a Phase 3 task in its own right, entered on `docs/ROADMAP.md`
+   under deliverable 1.
+
+6. **Seven targets have no run of 24 hours or longer**: `bmff detect riff tags tiff zip oggpage`.
+   They owe one run each at the new budget. This is a known scheduled cost of about **one batch**,
+   not a gap being quietly dropped.
+
+**Consequences.**
+
+- **The outstanding fuzzing debt falls from roughly 1,401 CPU-hours to roughly 170.** That is the
+  practical result of the phase's first deliverable, and it comes from measuring rather than from
+  lowering a bar: `bmff` saturates in 39 seconds and would have burnt 100 hours proving it.
+- **The policy can now fail a handler for a reason.** ADR-0014 failed 22 of 22, including targets
+  that cannot gain another edge, so it carried no information. This one certifies 12 and fails 3,
+  and the 3 are the 3 with a diagnosable cause.
+- **`ogg`'s exception must not decay into an exemption.** It is a handler where this project's
+  fuzzing is known to be weak, on a format that is rebuilt rather than edited. It stays on the
+  roadmap until the structure-aware work happens, and `docs/THREAT_MODEL.md` §7's Ogg subsection
+  records it when deliverable 9 is written.
+- **The rule is falsifiable and cheap to re-run**, which matters more than its exact constants. Any
+  future contributor can re-run `fuzz-plateau.py` over the whole archive and see whether the
+  classification still holds, including against these numbers.
+- **What this does not license.** A certified handler means its coverage curve stopped producing new
+  edges under this corpus and this harness. It is not a statement that the handler is correct, that
+  its format is fully explored, or that metadata removal is complete — ADR-0012 and constraint 7
+  bind here exactly as elsewhere.
