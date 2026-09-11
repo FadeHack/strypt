@@ -77,6 +77,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq dosfstools exfatprogs
+      # The Azure kernel ships exFAT in its extra modules. If the package for this kernel is not in
+      # the archive yet (actions/runner-images#8080), this fails: no FUSE fallback, which would test
+      # a different driver from the one a Linux user's stick meets.
+      - name: Load the exFAT kernel module
+        run: |
+          uname -r
+          sudo modprobe exfat 2>/dev/null \
+            || { sudo apt-get install -y -qq "linux-modules-extra-$(uname -r)" && sudo modprobe exfat; }
       - run: cargo build -p strypt
       - run: ./scripts/fs-matrix.sh
       - run: ./scripts/prove-fs-matrix.sh
