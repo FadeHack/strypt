@@ -686,8 +686,8 @@ gates anything else here.
 2. **Continuous fuzzing infrastructure** — a scheduled CI job (`fuzz-long.yml`) rather than
    one-off manual runs, with OSS-Fuzz investigated and adopted or declined with reasons.
 3. Every crash, hang, OOM, and assertion failure triaged to zero, each with a regression test.
-4. ✅ **`cargo-deny` as a hard merge gate** — **2026-09-11, ADR-0045**, pending its first CI
-   run. All four checks block; `advisories` lost its `continue-on-error`, `yanked`,
+4. ✅ **`cargo-deny` as a hard merge gate** — **2026-09-11, ADR-0045**, confirmed in CI the
+   same day on `9bbfd41`. All four checks block; `advisories` lost its `continue-on-error`, `yanked`,
    `unmaintained` and `unsound` are set explicitly, duplicates are denied as ADR-0008 always
    required, and the licence allow-list names only what the tree uses. Schema verified against
    cargo-deny 0.20.2. **The stricter config caught a yanked `chacha20 0.10.1` under `lopdf` on
@@ -730,8 +730,10 @@ gates anything else here.
 
 **Exit criteria.**
 1. Zero open crash/panic/hang findings from fuzzing across every handler.
-2. Both CI gates (`cargo-deny`, no-network) passing on a clean run, both proven to fail when
-   deliberately violated.
+2. ✅ Both CI gates (`cargo-deny`, no-network) passing on a clean run, both proven to fail when
+   deliberately violated. **Met 2026-09-11**: CI run on `9bbfd41` passed both gates and
+   `prove-gates.sh` caught all seven planted violations on Ubuntu, eight checks in all. It stays met only while that
+   job stays green.
 3. Known-limitations page complete for every shipped format and linked from the README.
 4. Sandboxing ADR recorded — adopted or deferred, with reasoning either way.
 5. `docs/THREAT_MODEL.md` revised to reflect what hardening actually taught us. If nothing
