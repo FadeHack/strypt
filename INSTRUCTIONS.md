@@ -222,7 +222,7 @@ nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
   > /tmp/strypt-fuzz.out 2>&1 &
 ./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
 
-# What each handler has actually banked since its sources last changed:
+# Which handlers certify under ADR-0044, and which owe a run:
 python3 scripts/fuzz-tally.py
 
 # Whether a run's coverage curve saturated or broke through late (ADR-0044):
@@ -230,16 +230,16 @@ python3 scripts/fuzz-plateau.py                   # every recorded curve
 python3 scripts/fuzz-plateau.py ogg pdf           # just these targets
 ```
 
-`fuzz-tally.py` reads every `target/fuzz-runs/*/summary.md` and counts hours only since that
-handler's sources last changed — **shared modules included**, which is what showed `odf` and
-`ooxml` at zero after `container/package.rs` changed on 2026-08-28. Run it before choosing what
-to fuzz next.
+`fuzz-tally.py` is **the certification answer**. It counts only runs since a handler's sources
+last changed — **shared modules included**, which is what showed `odf` and `ooxml` at zero after
+`container/package.rs` changed on 2026-08-28 — and certifies on the most recent complete run of
+24h or longer. Run it before choosing what to fuzz next.
 
-`fuzz-plateau.py` is **ADR-0044's plateau test**, and the plateau is not to be judged by eye: it
-splits each run into six windows and reports `saturated` or `PUNCTUATED`. Its two columns of
-output that matter are the certification lines at the end. Note that the `plateau` column inside
-an older `summary.md` is ADR-0014's superseded rule — it calls a flat `pdf` "still climbing" and
-would have passed `ogg` at 24 hours — so read the script, not the column.
+`fuzz-plateau.py` is **ADR-0044's curve test**, and a plateau is not to be judged by eye: it
+splits a run into six windows and reports `saturated` or `PUNCTUATED`. The runner calls it to
+fill each summary's `plateau` column. **Summaries written before 2026-09-11 carry ADR-0014's
+superseded rule in that column** — it calls a flat `pdf` "still climbing" and would have passed
+`ogg` at 24 hours — so for those, run the script rather than reading the column.
 
 The default target list is **all twenty-two** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
 wav mp3 tags ogg oggpage mp4 riff ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before

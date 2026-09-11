@@ -106,10 +106,10 @@ therefore runs on Linux (and optionally macOS) while Windows is covered by the o
 least 24 CPU-hours** since its last substantive change, shared modules included, whose curve
 classifies **saturated** under `scripts/fuzz-plateau.py`: six equal windows, and no window after
 the first both gaining over 1% of final coverage and doubling its predecessor. `scripts/fuzz-tally.py`
-tracks what each handler has banked.
+decides certification, from the most recent qualifying run.
 
 ADR-0014's earlier bar — 100 CPU-hours plus "no new edge in the final 25%" — is superseded, and so
-is the `plateau` column in any `summary.md` predating 2026-09-10. A flat curve is *not* sufficient
+is the `plateau` column in any `summary.md` predating 2026-09-11. A flat curve is *not* sufficient
 evidence of saturation: `ogg` went flat for 24 hours and then found 140 edges in one window.
 
 **Continuous fuzzing.** A scheduled CI job from Phase 3, with OSS-Fuzz investigated as an

@@ -463,14 +463,15 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   CPU-hours of measurement across 80 coverage curves showed it failing in both directions: it
   called the most thoroughly-saturated handler "still climbing" over a single late edge, and it
   would have passed Ogg 24 hours before Ogg found another 184. The bar is now 24 CPU-hours plus a
-  curve-shape test (`scripts/fuzz-plateau.py`), which twelve of the twenty-two fuzz targets meet.
+  curve-shape test (`scripts/fuzz-plateau.py`), which eighteen of the twenty-two fuzz targets
+  meet after a further 168 CPU-hours.
 
-  **What this says honestly: Ogg is the weakest-tested handler in the tree**, and PNG and JPEG XL
-  are behind the rest. Ogg's fuzzing keeps finding new code paths after 84 CPU-hours because the
+  **What this says honestly: Ogg is the weakest-tested handler in the tree** — both the handler
+  and its page-level target fail the test — and PNG and JPEG XL are behind the rest. Ogg's fuzzing keeps finding new code paths after 84 CPU-hours because the
   fuzzer struggles to construct the per-page checksums the format requires, so it explores less
   of the handler per hour than the numbers suggest. That is recorded rather than smoothed over,
   and the fix — feeding the fuzzer valid page structures — is outstanding work, not done work.
-  All 480 CPU-hours found zero crashes.
+  All 648 CPU-hours found zero crashes.
 
 - **WebP and WAV now share one chunk walker (ADR-0039).** WebP's behaviour is unchanged, with one
   exception that only makes it stricter: the per-frame sub-chunks of an animation are now subject

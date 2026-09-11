@@ -36,9 +36,10 @@ def gains(points, duration):
 
 def classify(windows, total):
     floor = MATERIAL * total
+    # Window 2 is tested against window 1. Skipping it once let oggpage's 3, 17, 0... certify.
     breaks = [
         i + 1
-        for i in range(2, WINDOWS)
+        for i in range(1, WINDOWS)
         if windows[i] > floor and windows[i] >= 2 * max(windows[i - 1], 1)
     ]
     if breaks:
@@ -59,20 +60,33 @@ def curves():
         if not (date and duration) or int(duration.group(1)) < 3600:
             continue
         for tsv in sorted(run.glob("cov-*.tsv")):
-            points = [
-                (int(a), int(b))
-                for a, b in (
-                    line.split("\t")
-                    for line in tsv.read_text().splitlines()
-                    if line.count("\t") == 1
-                )
-                if a.isdigit()
-            ]
+            points = read_tsv(tsv)
             if points:
                 yield tsv.stem[4:], date.group(1)[:10], int(duration.group(1)), points
 
 
+def read_tsv(path):
+    return [
+        (int(a), int(b))
+        for a, b in (
+            line.split("\t") for line in path.read_text().splitlines() if line.count("\t") == 1
+        )
+        if a.isdigit()
+    ]
+
+
+def verdict_for(tsv, duration):
+    points = read_tsv(pathlib.Path(tsv))
+    if not points:
+        return "no data"
+    return classify(gains(points, duration), points[-1][1])
+
+
 def main():
+    # `--verdict TSV DURATION` is how fuzz-sustained.sh fills its plateau column.
+    if sys.argv[1:2] == ["--verdict"] and len(sys.argv) == 4:
+        print(verdict_for(sys.argv[2], int(sys.argv[3])))
+        return
     only = sys.argv[1:]
     rows = []
     for target, date, duration, points in curves():
@@ -95,13 +109,8 @@ def main():
     for label in ("PUNCTUATED", "climbing", "saturated"):
         hit = sorted({r[0] for r in rows if r[5].startswith(label)})
         print(f"{label:11} ({len(hit)}): {' '.join(hit) or '(none)'}")
-
-    # ADR-0044 certifies on a run of at least 24h that classifies saturated.
-    long_runs = [r for r in rows if r[2] >= 24]
-    certified = sorted({r[0] for r in long_runs if r[5] == "saturated"})
-    blocked = sorted({r[0] for r in long_runs} - set(certified))
-    print(f"\nCertified under ADR-0044 ({len(certified)}): {' '.join(certified) or '(none)'}")
-    print(f"Punctuated at 24h or longer ({len(blocked)}): {' '.join(blocked) or '(none)'}")
+    print("\nThis classifies curves. Which handlers certify is fuzz-tally.py's answer, because only")
+    print("it knows when each handler's sources last changed.")
 
 
 if __name__ == "__main__":

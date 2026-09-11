@@ -107,9 +107,10 @@ applies *within* this phase as well as across phases.
 - **Know which fuzzing bar you are measuring against.** Phase 1 exit criterion 2 is *"zero panics,
   crashes, hangs, or OOMs across all four fuzz targets after a sustained run"* — no CPU-hour figure,
   no plateau. The budget-plus-plateau bar is a **Phase 3** deliverable, settled by **ADR-0044**:
-  24 CPU-hours per handler and a windowed curve shape, tested by `scripts/fuzz-plateau.py`.
-  ADR-0014 is superseded — do not cite it, and do not trust the `plateau` column in a
-  `summary.md` predating 2026-09-10, which is the old rule. Do not cite either as a Phase 1 gate.
+  24 CPU-hours per handler and a windowed curve shape, tested by `scripts/fuzz-plateau.py`;
+  `scripts/fuzz-tally.py` says who certifies. ADR-0014 is superseded — do not cite it, and do not
+  trust the `plateau` column in a `summary.md` predating 2026-09-11, which is the old rule. Do
+  not cite either as a Phase 1 gate.
 - **A per-format invariant in a pipeline-wide fuzz target must be guarded by a format check.** These
   targets drive the whole pipeline, so a mutation reaching another format's magic is dispatched to
   that format's handler. An unguarded "stripping never grows a file" assertion killed a twelve-hour

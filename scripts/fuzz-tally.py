@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""Per-handler fuzzing tally across every recorded run — Phase 3 deliverable 1 (ADR-0043).
+"""Per-handler fuzzing certification under ADR-0044 — Phase 3 deliverable 1.
 
-Reads target/fuzz-runs/*/summary.md and reports, per target, CPU-hours banked since its last
-substantive source change and whether its most recent run plateaued. That pair is ADR-0014's
-bar, and this is the instrument its revision must be built on.
+Reads target/fuzz-runs/*/summary.md and each run's cov-<target>.tsv. A handler certifies on its
+most recent complete run of at least 24 hours, since its sources last changed, whose curve
+fuzz-plateau.py classifies saturated.
 
 Two rules this encodes, both learned rather than assumed:
 
-  * Hours count only since the handler's source last changed, shared modules included — a run
-    against superseded code proves nothing about the code in the tree.
-  * A plateau is read from the MOST RECENT run, never from "plateaued once". png and jpeg both
-    plateaued inside eight hours and then climbed again on larger corpora (docs/ROADMAP.md).
+  * A run counts only if it postdates the handler's last source change, shared modules included —
+    a run against superseded code proves nothing about the code in the tree.
+  * The most recent qualifying run decides, never "saturated once". png and jpeg both plateaued
+    inside eight hours and then climbed again on larger corpora (docs/ROADMAP.md).
 """
 
 import collections
 import datetime
+import importlib.util
 import pathlib
 import re
 import subprocess
@@ -23,6 +24,10 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parent.parent
 RUNS = REPO / "target" / "fuzz-runs"
 BASE = "crates/strypt-core/src/"
+
+_spec = importlib.util.spec_from_file_location("plateau", REPO / "scripts" / "fuzz-plateau.py")
+plateau = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(plateau)
 
 # Target -> the sources whose change resets its clock. Shared modules are listed against every
 # target that reaches them, which is what makes container/package.rs reset odf and ooxml.
@@ -51,12 +56,11 @@ SRC = {
     "detect": ["detect.rs"],
 }
 
-BUDGET_HOURS = 100  # ADR-0014, provisional and expected to be revised by this very report
+MIN_SECONDS = 24 * 3600  # ADR-0044 decision 3
 
-ROW = re.compile(
-    r"^\|\s*([a-z0-9]+)\s*\|\s*(\d+)\s*\|.*?\|\s*(\d+)s of (\d+)s\s*\|\s*([^|]+?)\s*\|\s*(\d+)\s*\|"
-)
+ROW = re.compile(r"^\|\s*([a-z0-9]+)\s*\|\s*(\d+)\s*\|.*?\|\s*(\d+)s of (\d+)s\s*\|[^|]*\|\s*(\d+)\s*\|")
 DATE = re.compile(r"^- Date:\s*(\S+)", re.M)
+DURATION = re.compile(r"^- Duration:\s*(\d+)s", re.M)
 
 
 def last_change(target):
@@ -87,8 +91,8 @@ def collect():
         if not summary.is_file():
             continue
         text = summary.read_text(errors="replace")
-        stamp = DATE.search(text)
-        if not stamp:
+        stamp, duration = DATE.search(text), DURATION.search(text)
+        if not (stamp and duration):
             continue
         when = datetime.datetime.fromisoformat(stamp.group(1).replace("Z", "+00:00"))
         # An aborted run's numbers describe a harness fault, not the handler (ROADMAP, 2026-08-26).
@@ -97,81 +101,63 @@ def collect():
             match = ROW.match(line)
             if not match:
                 continue
-            target, _cov, gain, secs, plateau, crashes = match.groups()
+            target, _cov, _gain, secs, crashes = match.groups()
             runs.append(
                 dict(
                     target=target,
                     when=when,
-                    gain=int(gain),
                     secs=int(secs),
-                    plateau=plateau.strip().lower().startswith("yes"),
+                    duration=int(duration.group(1)),
                     crashes=int(crashes),
                     aborted=aborted,
+                    tsv=run_dir / f"cov-{target}.tsv",
                 )
             )
     return runs
 
 
 def main():
-    runs = collect()
     by_target = collections.defaultdict(list)
-    for run in runs:
+    for run in collect():
         by_target[run["target"]].append(run)
 
-    print(
-        f"{len(runs)} target-runs across "
-        f"{len({(r['target'], r['when']) for r in runs})} recorded results, "
-        f"{len(by_target)} targets.\n"
-    )
+    print(f"{'target':9} {'CPU-h':>7}  {'deciding run':16} verdict")
+    print(f"{'':9} {'current':>7}")
+    print("-" * 78)
 
-    rows = []
-    for target, all_runs in by_target.items():
+    certified, owed, punctuated = [], [], []
+    for target in sorted(by_target):
         changed = last_change(target)
-        current = [r for r in all_runs if not r["aborted"] and changed and r["when"] > changed]
+        current = [
+            r for r in by_target[target] if not r["aborted"] and changed and r["when"] > changed
+        ]
         banked = sum(r["secs"] for r in current) / 3600
-        latest = max(current, key=lambda r: r["when"], default=None)
-        worst = max((r["gain"] / r["secs"] for r in current if r["secs"]), default=0.0)
-        rows.append(
-            dict(
-                target=target,
-                banked=banked,
-                lifetime=sum(r["secs"] for r in all_runs if not r["aborted"]) / 3600,
-                runs=len(current),
-                plateau=bool(latest and latest["plateau"]),
-                worst=worst,
-                crashes=sum(r["crashes"] for r in all_runs if not r["aborted"]),
-            )
-        )
-
-    print(f"{'target':9} {'CPU-h':>7} {'CPU-h':>7} {'runs':>5} {'latest':>7} {'last gain':>10}  verdict")
-    print(f"{'':9} {'lifetime':>7} {'current':>7} {'now':>5} {'plateau':>7} {'(worst)':>10}")
-    print("-" * 82)
-
-    met, hours_only, no_plateau = [], [], []
-    for row in sorted(rows, key=lambda r: (-r["worst"], r["target"])):
-        owed = BUDGET_HOURS - row["banked"]
-        if row["banked"] >= BUDGET_HOURS and row["plateau"]:
-            verdict, bucket = "MEETS ADR-0014", met
-        elif row["plateau"]:
-            verdict, bucket = f"plateau yes, owes {owed:.0f}h", hours_only
+        # The runner's own completeness guard: a run killed early cannot answer the question.
+        qualifying = [
+            r
+            for r in current
+            if r["duration"] >= MIN_SECONDS and r["secs"] >= 0.9 * r["duration"] and r["tsv"].is_file()
+        ]
+        deciding = max(qualifying, key=lambda r: r["when"], default=None)
+        if deciding is None:
+            verdict, where = "owes a 24h run", "—"
+            owed.append(target)
         else:
-            verdict, bucket = f"owes {owed:.0f}h AND plateau", no_plateau
-        bucket.append(row["target"])
-        print(
-            f"{row['target']:9} {row['lifetime']:7.1f} {row['banked']:7.1f} {row['runs']:5} "
-            f"{('yes' if row['plateau'] else 'NO'):>7} {row['worst'] * 100:9.1f}%  {verdict}"
-        )
+            verdict = plateau.verdict_for(deciding["tsv"], deciding["duration"])
+            where = f"{deciding['when']:%Y-%m-%d} {deciding['duration'] // 3600}h"
+            (certified if verdict == "saturated" else punctuated).append(target)
+            verdict = "CERTIFIED" if verdict == "saturated" else verdict
+        print(f"{target:9} {banked:7.1f}  {where:16} {verdict}")
 
-    print("\n" + "=" * 82)
-    print(f"Meets ADR-0014 as written ({len(met)}): {' '.join(sorted(met)) or '(none)'}")
-    print(f"Plateaued, short on hours ({len(hours_only)}): {' '.join(sorted(hours_only)) or '(none)'}")
-    print(f"No plateau on current code ({len(no_plateau)}): {' '.join(sorted(no_plateau)) or '(none)'}")
-
-    outstanding = sum(max(0.0, BUDGET_HOURS - r["banked"]) for r in rows)
-    print(f"\nOutstanding under ADR-0014 as written: {outstanding:,.0f} CPU-hours.")
-    print("Crashes in the record are historical and each carries a regression test; a new one")
-    print("is a Phase 3 deliverable-3 finding. Totals here are not a substitute for reading")
-    print(f"the run's own summary.md. Crash rows seen: {sum(r['crashes'] for r in rows)}.")
+    print("\n" + "=" * 78)
+    print(f"Certified under ADR-0044 ({len(certified)}): {' '.join(certified) or '(none)'}")
+    print(f"Owe a 24h run ({len(owed)}): {' '.join(owed) or '(none)'}")
+    print(f"Punctuated on their deciding run ({len(punctuated)}): {' '.join(punctuated) or '(none)'}")
+    print(f"\nOutstanding: {24 * len(owed)} CPU-hours for the targets owing a run. A punctuated target")
+    print("is not owed hours — ADR-0044 decision 5 says more hours are not its remedy.")
+    crashes = sum(r["crashes"] for runs in by_target.values() for r in runs if not r["aborted"])
+    print(f"Crash rows in the record: {crashes}. Each is historical and carries a regression test;")
+    print("a new one is a Phase 3 deliverable-3 finding.")
 
 
 if __name__ == "__main__":

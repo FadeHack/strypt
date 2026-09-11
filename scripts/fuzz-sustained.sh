@@ -11,21 +11,13 @@
 #   satisfies it is a sustained run that produces NO CRASH ARTEFACT. This script's exit code
 #   answers it directly: exit 0 means criterion 2 held for the targets that ran.
 #
-#   Phase 3, ADR-0014 — a per-handler CPU-hour budget AND a coverage plateau (no new edge
-#   coverage in the final 25% of the run), both required, because CPU-hours alone can be burned
-#   on a target that stopped exploring long ago and a plateau alone can mean a harness too
-#   narrow to reach anything new. The `plateau` column and the coverage curves exist for THIS
-#   bar. They are Phase 3 evidence and are not needed to leave Phase 1.
+#   Phase 3, ADR-0044 — a complete run of at least 24 hours whose coverage curve classifies
+#   saturated under scripts/fuzz-plateau.py. The `plateau` column and the coverage curves exist
+#   for THIS bar; scripts/fuzz-tally.py decides certification across runs. Summaries written
+#   before 2026-09-11 print ADR-0014's superseded rule in that column instead.
 #
 # The 300-second commands in INSTRUCTIONS.md are smoke tests: they prove a target still builds
 # and runs. They satisfy neither bar.
-#
-# ADR-0014's 100 CPU-hours per handler is explicitly PROVISIONAL: it was written before any
-# parser existed, and the ADR itself says it is a hypothesis to revise once real coverage data
-# exists. That data is what this script produces. Run it, read the curves, then supersede
-# ADR-0014 with measured per-handler numbers — the handlers differ by more than an order of
-# magnitude in both state space and throughput, so one flat number for all seven is very
-# unlikely to be the right answer.
 #
 # Every log line is prefixed with elapsed seconds so coverage can be plotted against time.
 # This is the whole point of the run; without it there is no plateau evidence, only a
@@ -168,13 +160,20 @@ done
 
 # ---------------------------------------------------------------------------
 # Analysis. Two questions per target: where did coverage end up, and had it stopped
-# climbing? The second is ADR-0014's plateau condition and is the reason for the timestamps.
+# climbing? The second is ADR-0044's plateau test and is the reason for the timestamps.
 # It is PHASE 3 evidence — Phase 1 criterion 2 is answered by the crash count alone.
 # ---------------------------------------------------------------------------
+# Per-target coverage curve, thinned to the points where coverage actually moved. Written
+# before the summary, because the plateau column is read from it.
+for t in "${TARGETS[@]}"; do
+  awk '{ for (i=1;i<=NF;i++) if ($i=="cov:" && $(i+1)+0 > last) { last=$(i+1)+0; print $1 "\t" last } }' \
+    "$OUT_DIR/$t.log" > "$OUT_DIR/cov-$t.tsv"
+done
+
 # Budgeted CPU-hours are what was asked for; DELIVERED is what the targets actually ran. They
-# differ whenever a target stops early on a crash — and ADR-0014's exit criterion is stated in
-# CPU-hours, so reporting the budget as though it were delivered would credit the run with time
-# it never spent. Sum each log's largest elapsed-second prefix instead.
+# differ whenever a target stops early on a crash, so reporting the budget as though it were
+# delivered would credit the run with time it never spent. Sum each log's largest
+# elapsed-second prefix instead.
 delivered_cpu_hours() {
   for t in "${TARGETS[@]}"; do
     awk '$1+0 > m { m = $1+0 } END { print m+0 }' "$OUT_DIR/$t.log"
@@ -190,11 +189,12 @@ delivered_cpu_hours() {
   echo "- CPU-hours budgeted: $(awk -v d="$DURATION" -v n="${#TARGETS[@]}" 'BEGIN{printf "%.2f", d*n/3600}')"
   echo "- CPU-hours delivered: $(delivered_cpu_hours)"
   echo
-  echo "| target | cov | ft | corpus | exec/s | last cov gain | plateau (ADR-0014) | crashes |"
+  echo "| target | cov | ft | corpus | exec/s | last cov gain | plateau (ADR-0044) | crashes |"
   echo "|---|---|---|---|---|---|---|---|"
   for t in "${TARGETS[@]}"; do
     artifacts=$(new_artifacts "$t")
-    awk -v t="$t" -v dur="$DURATION" -v art="$artifacts" '
+    awk -v t="$t" -v dur="$DURATION" -v art="$artifacts" \
+        -v classify="python3 '$REPO_ROOT/scripts/fuzz-plateau.py' --verdict '$OUT_DIR/cov-$t.tsv' $DURATION" '
       # Track the last elapsed time at which cov increased, and the final values seen.
       {
         for (i = 1; i <= NF; i++) {
@@ -207,16 +207,17 @@ delivered_cpu_hours() {
       }
       END {
         if (tmax == 0) { printf "| %s | — | — | — | — | — | no data | %s |\n", t, art; exit }
-        # Plateau: no new edge coverage in the final 25% of the run (ADR-0014, Phase 3).
-        #
         # Only meaningful over a run that actually finished. A target killed early by a crash
         # is measured against the truncated length, so a short run trivially "plateaus": PDF
         # died at 2834s on 2026-08-21 with its last gain at 1912s and this column said "yes",
         # which was read as evidence and was not. Refuse to answer rather than mislead.
         if (tmax < 0.9 * dur)
           plateau = "n/a — ran " int(tmax) "s of " int(dur) "s"
-        else
-          plateau = (lastgain < 0.75 * tmax) ? "yes" : "NO — still climbing"
+        else {
+          plateau = "classifier failed"
+          classify | getline plateau
+          close(classify)
+        }
         printf "| %s | %s | %s | %s | %s | %ds of %ds | %s | %s |\n",
                t, maxcov, ft, cp, (eps == "" ? "—" : eps), lastgain, tmax, plateau, art
       }
@@ -245,17 +246,12 @@ delivered_cpu_hours() {
   echo "handler adds its own debt, so update this paragraph when one lands rather than leaving"
   echo "it to read as blanket coverage."
   echo
-  echo "The 'plateau' column is Phase 3 evidence for ADR-0014 and is not a Phase 1 gate. A"
-  echo "'NO — still climbing' means this target needs a longer run before its number can be"
-  echo "set; it does not mean the run failed. An 'n/a' means the target ended early, so the"
-  echo "question cannot be answered from this run at all — do not read it as either result."
+  echo "The 'plateau' column is ADR-0044's curve test (scripts/fuzz-plateau.py) and is Phase 3"
+  echo "evidence, not a Phase 1 gate. 'PUNCTUATED' means coverage broke through late, so a flat"
+  echo "tail cannot be trusted; it does not mean the run failed. An 'n/a' means the target ended"
+  echo "early, so the question cannot be answered from this run. Whether a handler certifies"
+  echo "is scripts/fuzz-tally.py's answer, across runs, not this column's."
 } > "$OUT_DIR/summary.md"
-
-# Per-target coverage curve, thinned to the points where coverage actually moved.
-for t in "${TARGETS[@]}"; do
-  awk '{ for (i=1;i<=NF;i++) if ($i=="cov:" && $(i+1)+0 > last) { last=$(i+1)+0; print $1 "\t" last } }' \
-    "$OUT_DIR/$t.log" > "$OUT_DIR/cov-$t.tsv"
-done
 
 cat "$OUT_DIR/summary.md"
 

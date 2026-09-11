@@ -668,11 +668,16 @@ gates anything else here.
    CPU-hours per handler per run**, not 100. That certifies twelve handlers and cuts outstanding
    debt from ~1,401 CPU-hours to ~170. `scripts/fuzz-tally.py` tracks who owes what.
 
-   **Two items remain open under this deliverable and are not closed by the ADR:**
+   **The debt batch ran 2026-09-10** — `bmff detect riff tags tiff zip oggpage` at 24h, 168
+   CPU-hours, zero crashes. Six certified. **`oggpage` did not**: windows 3, 17, 0, 0, 0, 0,
+   punctuated in window 2. It first read as saturated because `fuzz-plateau.py` skipped testing
+   window 2, which ADR-0044's text never allowed; the script was corrected to the ADR, and no
+   verdict ADR-0044 itself cites changed. **18 of 22 now certify** (`fuzz-tally.py`), and no
+   target owes hours.
 
-   - **The seven targets with no run of 24h or longer** — `bmff detect riff tags tiff zip
-     oggpage` — owe one batch at the new budget.
-   - **`ogg` is recurrently punctuated at 12, 24 and 48 hours**, and `oggpage` on its only run —
+   **One item remains open under this deliverable and is not closed by the ADR:**
+
+   - **`ogg` is recurrently punctuated at 12, 24 and 48 hours**, and `oggpage` on both its runs —
      the same `container/ogg.rs` through a second target. `jxl` and `png` punctuate too, less
      severely. **More hours are not the remedy**: 84 CPU-hours have not made `ogg` converge, and
      the fuzzer is visibly spending most of a run failing to construct a valid page CRC
