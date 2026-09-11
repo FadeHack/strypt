@@ -475,6 +475,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   stripped file is not owner-only**: those filesystems have no Unix permissions, so anyone who can
   read the drive can read it.
 
+- **A known-limitations page: [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md).** It lists,
+  format by format, what strypt keeps, cannot see and refuses, and which files mat2 handles better.
+  It is linked from the top of the README.
+
 - **No parser sandbox, for now (ADR-0048).** No change in behaviour. strypt runs as one process
   with your permissions, so a compromised dependency would have them too. The ADR says what would
   change this.

@@ -695,7 +695,10 @@ gates anything else here.
    its first run**; it was bumped to 0.10.2. `scripts/prove-gates.sh` plants seven violations
    and requires each gate's own diagnostic — including the no-network gate's — and runs in CI.
    It was itself shown failing when two gates were weakened.
-5. A per-format **known-limitations page**, written *from* the fuzzing and differential-testing
+5. ✅ **[`docs/KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md), 2026-09-11**, linked from the README.
+   Derived from THREAT_MODEL §7, the fs-matrix, ADR-0047/0048 and `fuzz-tally.py`. **A handler
+   change now owes an edit there as well as in §7.** As specified:
+   A per-format **known-limitations page**, written *from* the fuzzing and differential-testing
    findings, never speculatively. This document is a safety feature: it is what stops a user
    over-trusting the tool.
 6. ✅ **A filesystem-constraints matrix** — **2026-09-11, confirmed in CI on `a490adb`.**
@@ -739,7 +742,9 @@ gates anything else here.
    still read a plateau off ADR-0014's superseded rule — "had not plateaued at twelve hours" and
    similar, in the `zip`, `odf`, `tiff` and group-4 subsections. They are wrong now (ADR-0044) and
    are corrected here rather than in a drive-by pass, because §7 also has to absorb what the
-   `ogg` result means for that handler's confidence.
+   `ogg` result means for that handler's confidence. Also carried: §7.10 says mat2's default
+   re-renders HEIF, but the same section measured mat2's default *declining* HEIC. The
+   known-limitations page leaves HEIF out of that claim until this is settled.
 
 **Exit criteria.**
 1. Zero open crash/panic/hang findings from fuzzing across every handler.
@@ -747,7 +752,8 @@ gates anything else here.
    deliberately violated. **Met 2026-09-11**: CI run on `9bbfd41` passed both gates and
    `prove-gates.sh` caught all seven planted violations on Ubuntu, eight checks in all. It stays met only while that
    job stays green.
-3. Known-limitations page complete for every shipped format and linked from the README.
+3. ✅ Known-limitations page complete for every shipped format and linked from the README.
+   **Met 2026-09-11.**
 4. ✅ Sandboxing ADR recorded — adopted or deferred, with reasoning either way. **Met
    2026-09-11 by ADR-0048 (deferred).**
 5. `docs/THREAT_MODEL.md` revised to reflect what hardening actually taught us. If nothing
@@ -756,9 +762,9 @@ gates anything else here.
    fail-closed contract is deliberately broken. **Met 2026-09-11** on `a490adb`; stays met only
    while that job stays green. Tails and Qubes-Whonix boots are **not**
    required by this criterion; ADR-0043 records what that forgoes.
-7. The Windows permission gap is closed or documented as permanent — deliverable 7 resolved,
-   not carried forward silently a second time. **Decided by ADR-0047; met once the deliverable 5
-   page carries it.**
+7. ✅ The Windows permission gap is closed or documented as permanent — deliverable 7 resolved,
+   not carried forward silently a second time. **Met 2026-09-11**: ADR-0047, and the
+   known-limitations page carries it.
 
 **Risks.**
 - *This phase is the one that gets compressed under release pressure, and compressing it

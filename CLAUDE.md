@@ -289,5 +289,6 @@ of them work today — so run them, and **never invent output for a command you 
 5. `CHANGELOG.md` updated under `[Unreleased]`.
 6. No new `unsafe` without an ADR in `docs/DECISIONS.md` in the same commit.
 7. No new dependency without an ADR.
-8. `docs/THREAT_MODEL.md` updated if a format handler was added or changed.
+8. `docs/THREAT_MODEL.md` and `docs/KNOWN_LIMITATIONS.md` updated if a format handler was added
+   or changed.
 9. `INSTRUCTIONS.md` updated if any command changed.

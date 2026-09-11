@@ -1,6 +1,8 @@
 # strypt
 
-> ## Status: Phase 2 complete; Phase 3 (hardening) opened 2026-09-05 and has delivered nothing yet — no audit, no release
+> ## Status: Phase 2 complete; Phase 3 (hardening) in progress — no audit, no release
+>
+> **Read [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) before relying on strypt.**
 >
 > **PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF/AVIF (`.heic`, `.heif`, `.avif`), SVG, JPEG XL, FLAC, WAV, MP3, Ogg (`.ogg`, `.opus`, `.oga`), MP4/M4A (`.mp4`, `.m4v`, `.m4a`, `.m4b`), Office Open XML
 > (`.docx`, `.xlsx`, `.pptx`), and OpenDocument (`.odt`, `.ods`, `.odp`) are implemented.**
@@ -172,9 +174,9 @@
 > reader is now shared between the two handlers.
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
-> tool can guarantee total metadata removal and strypt does not claim to. Hardening is Phase 3
-> and has not started, so the 100-CPU-hour-per-handler fuzzing budget is *not* met — PDF was
-> still finding new code paths at hour 12. Two limitations are documented rather than fixed: the
+> tool can guarantee total metadata removal and strypt does not claim to. Phase 3 hardening is
+> under way: 18 of 22 fuzz targets meet its 24-CPU-hour bar (ADR-0044), and JPEG XL, Ogg and PNG
+> do not yet. Two limitations are documented rather than fixed: the
 > JPEG `APP14` marker mat2 removes, and a PDF with 19-byte cross-reference entries that strypt
 > refuses and mat2 handles. Performance is one machine; Linux and Windows are unmeasured.
 >
@@ -183,7 +185,8 @@
 > | 0 — Foundation: docs, workspace, CI gates | ✅ Done |
 > | 1 — Core engine + CLI (JPEG, PNG, WebP, PDF) | ✅ Done 2026-08-22 — all seven exit criteria met; see the caveats above |
 > | 2 — Expanded formats | ✅ Done 2026-09-05 — all four exit criteria met. OOXML 2026-08-23, OpenDocument 2026-08-24, TIFF 2026-08-26, GIF and HEIF/AVIF 2026-08-27, SVG 2026-08-29, JPEG XL 2026-08-30, FLAC 2026-09-01, WAV 2026-09-02, MP3 2026-09-03, Ogg 2026-09-04, MP4/M4A 2026-09-05 |
-> | 3 — Hardening · 4 — Distribution | ⬜ Not started |
+> | 3 — Hardening | 🔶 In progress since 2026-09-05 |
+> | 4 — Distribution | ⬜ Not started |
 > | 5 — GUI · 6 — File-manager integration · 7 — Community | ⬜ Not started |
 >
 > Full phase definitions and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md).
@@ -292,8 +295,9 @@ This matters as much as the feature list.
 - **No tool can guarantee complete metadata removal from complex formats.** strypt will never
   claim otherwise.
 
-Read [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) before relying on this tool for anything
-that matters.
+Read [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) and
+[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) before relying on this tool for anything that
+matters.
 
 ## Installation
 
@@ -303,7 +307,7 @@ cargo install strypt    # requires a Rust toolchain
 
 **That is the only install path, and `0.0.1` is not a release.** The crate was published early
 to hold the name, not because the project is ready to be depended on — Phase 3 hardening opened
-on 2026-09-05 and none of it is delivered, and there has been no external audit. Prebuilt binaries, checksums, signing,
+on 2026-09-05 and is not finished, and there has been no external audit. Prebuilt binaries, checksums, signing,
 reproducible builds, and a Homebrew formula are Phase 4 and do not exist yet. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -318,6 +322,7 @@ it installed, replace it with `strypt`.
 | [`docs/PRD.md`](docs/PRD.md) | Problem, users, requirements, competitive landscape |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design, dependencies, security architecture |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phases, deliverables, exit criteria |
+| [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) | What strypt keeps, cannot see, and refuses, per format |
 | [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) | Adversaries, protections, and limits |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architecture decision records |
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | How correctness is verified |
