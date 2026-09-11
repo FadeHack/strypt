@@ -70,6 +70,17 @@ jobs:
     env:
       RUSTUP_TOOLCHAIN: "1.95"
 
+  fs-matrix:
+    # ADR-0043. Loop mounts need sudo, which GitHub's Ubuntu runners grant without a password.
+    name: filesystem-constraints matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq dosfstools exfatprogs
+      - run: cargo build -p strypt
+      - run: ./scripts/fs-matrix.sh
+      - run: ./scripts/prove-fs-matrix.sh
+
   fuzz-smoke:
     name: fuzz smoke
     # Linux only: cargo-fuzz supports x86-64 and aarch64 on Unix-like systems and not Windows

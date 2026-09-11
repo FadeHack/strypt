@@ -778,6 +778,30 @@ If a case fails when you haven't touched the gates, check its external assumptio
 yank case needs `chacha20 0.10.1` to still be yanked. Otherwise the gate is broken, and that is
 a priority-one bug.
 
+## Filesystem-constraints matrix
+
+Linux only, as a non-root user with passwordless sudo (it loop-mounts). Needs `dosfstools` and
+`exfatprogs`. Cases and contract: [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §2.7.
+
+```sh
+cargo build -p strypt && ./scripts/fs-matrix.sh
+./scripts/prove-fs-matrix.sh     # plants five io.rs mutants; each must be caught
+```
+
+On macOS, in Docker:
+
+```sh
+docker build -t strypt-fsm - <<'EOF'
+FROM rust:1-bookworm
+RUN apt-get update -qq && apt-get install -y -qq sudo dosfstools exfatprogs python3 git \
+ && chmod -R a+w /usr/local/rustup /usr/local/cargo && useradd -m u \
+ && echo 'u ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/u && git config --system --add safe.directory '*'
+USER u
+EOF
+docker run --rm --privileged -v "$PWD":/src:ro -w /src -e CARGO_TARGET_DIR=/tmp/t strypt-fsm \
+  sh -c 'cargo build -q -p strypt && scripts/fs-matrix.sh /tmp/t/debug/strypt && scripts/prove-fs-matrix.sh'
+```
+
 ## Enabling the local git hooks
 
 Once per clone. Catches edits made outside Claude Code, which the `.claude/` hooks cannot see:
@@ -799,7 +823,7 @@ cargo deny check && \
 ./scripts/prove-gates.sh
 ```
 
-Plus, if a parser changed:
+Plus, on Linux, the [filesystem-constraints matrix](#filesystem-constraints-matrix). If a parser changed:
 
 ```sh
 cargo +nightly fuzz run <target> -- -max_total_time=300

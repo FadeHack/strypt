@@ -469,6 +469,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   names 0.10.1 and the yank gave no reason, so this is **not a known vulnerability**, and nothing
   suggests files you have already cleaned need checking again.
 
+- **CI now tests writing to hostile filesystems (ADR-0043).** No change to what strypt removes.
+  A read-only volume, a full volume, FAT and exFAT sticks, and a locked directory are each checked
+  to leave either a complete file or the original untouched. **On a FAT or exFAT drive, the
+  stripped file is not owner-only**: those filesystems have no Unix permissions, so anyone who can
+  read the drive can read it.
+
 - **No scheduled CI fuzzing, and no OSS-Fuzz for now (ADR-0046).** No change to what strypt
   removes. Long fuzzing runs stay local, because CI jobs cannot run the required 24 hours.
 

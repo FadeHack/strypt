@@ -698,7 +698,12 @@ gates anything else here.
 5. A per-format **known-limitations page**, written *from* the fuzzing and differential-testing
    findings, never speculatively. This document is a safety feature: it is what stops a user
    over-trusting the tool.
-6. **A filesystem-constraints matrix**, run in CI on Linux against the real CLI binary.
+6. **A filesystem-constraints matrix** — **built 2026-09-11; not yet run in CI.** `scripts/fs-matrix.sh`,
+   14 cases, all green on Linux 6.12 (Docker, aarch64); `scripts/prove-fs-matrix.sh` catches all five planted
+   `io.rs` mutants. **ADR-0043's `vfat` hypothesis is false there**: `chmod` succeeds and does
+   nothing, so no false failure. **The real finding is a limitation, carried into deliverable 5**:
+   on `vfat`/`exfat` the output takes the mount's mode (0755 by default), so ADR-0019's owner-only
+   permissions do not apply on a USB stick. As specified: run in CI on Linux against the real CLI binary.
    **Replaces the "boot Tails and Qubes-Whonix" deliverable** — see ADR-0043 for why, and for
    what that gives up. Minimum cases: a read-only destination directory; a full volume, so
    `ENOSPC` lands mid-write; removable-media filesystems with no Unix permission model

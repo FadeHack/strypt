@@ -149,13 +149,14 @@ leaves a half-written file on a journalist's USB stick rather than a metadata le
 Cases, each run against the real CLI binary on Linux in CI: a read-only destination directory; a
 full volume, so `ENOSPC` lands mid-write; removable-media filesystems with no Unix permission
 model (`vfat`, `exfat`); a destination on a different mount from `TMPDIR`; and an unwritable
-directory holding a writable file. Built with loopback images, so they are reproducible and need
-no privileged host.
+directory holding a writable file. Built from `tmpfs` and loopback images; mounting needs sudo,
+which CI runners grant. `scripts/fs-matrix.sh` runs it.
 
 **Each case asserts the contract, not the absence of a panic:** the destination is replaced in
 full or left untouched, no `.strypt-*.tmp` survives, and no success is reported for a file that
 was not written. Like every other gate here, the matrix must be **proven to fail** when that
-contract is deliberately broken.
+contract is deliberately broken: `scripts/prove-fs-matrix.sh` plants five `io.rs` mutants and
+requires each to be caught by its own case.
 
 **This replaces booting Tails and Qubes-Whonix** (ADR-0043), and it does not test those
 distributions — a green matrix is never "validated on Tails".
