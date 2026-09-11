@@ -21,8 +21,8 @@ by default.
 ## 2. Current phase: **Phase 3 — hardening, opened 2026-09-05**
 
 Phases 0, 1 and 2 are complete. **Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05**, all
-four groups landed and all four exit criteria met. **Phase 3 opened the same day (ADR-0043) and
-nothing in it is delivered yet** — check before referencing any of its artefacts.
+four groups landed and all four exit criteria met. **Phase 3 opened the same day (ADR-0043)**;
+`docs/ROADMAP.md` records which deliverables are done — check before referencing any of its artefacts.
 
 **ADR-0043 rescoped Phase 3 as it opened, and two changes matter before you read `docs/ROADMAP.md`:**
 live-OS validation — "boot Tails and Qubes-Whonix" — is **replaced** by a filesystem-constraints

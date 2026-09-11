@@ -686,7 +686,12 @@ gates anything else here.
 2. ✅ **Continuous fuzzing infrastructure — declined, 2026-09-11, ADR-0046.** No CI job can
    run ADR-0044's 24 hours, and a private repo cannot afford one. Local batches plus
    `fuzz-tally.py` stay the method. OSS-Fuzz is declined until strypt has users.
-3. Every crash, hang, OOM, and assertion failure triaged to zero, each with a regression test.
+3. ✅ **Triaged to zero, 2026-09-11.** Six failures in the record, all fixed: five PDF — the
+   `lopdf` overflow and four idempotence assertions, one (negative zero, 9b7cda3) from a run that
+   predates `target/fuzz-runs/` — plus the 2026-08-26 `gif` harness fault. All five `artifacts/pdf`
+   inputs replay clean and each has a regression test; the negative-zero input is now a seed too.
+   No other target has an artifact or a hang/OOM log. As specified: every crash, hang, OOM, and
+   assertion failure triaged to zero, each with a regression test.
 4. ✅ **`cargo-deny` as a hard merge gate** — **2026-09-11, ADR-0045**, confirmed in CI the
    same day on `9bbfd41`. All four checks block; `advisories` lost its `continue-on-error`, `yanked`,
    `unmaintained` and `unsound` are set explicitly, duplicates are denied as ADR-0008 always
@@ -747,7 +752,8 @@ gates anything else here.
    known-limitations page leaves HEIF out of that claim until this is settled.
 
 **Exit criteria.**
-1. Zero open crash/panic/hang findings from fuzzing across every handler.
+1. ✅ Zero open crash/panic/hang findings from fuzzing across every handler. **Met 2026-09-11**
+   (deliverable 3); stays met only until the next batch reports an artifact.
 2. ✅ Both CI gates (`cargo-deny`, no-network) passing on a clean run, both proven to fail when
    deliberately violated. **Met 2026-09-11**: CI run on `9bbfd41` passed both gates and
    `prove-gates.sh` caught all seven planted violations on Ubuntu, eight checks in all. It stays met only while that
