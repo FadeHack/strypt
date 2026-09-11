@@ -469,6 +469,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   names 0.10.1 and the yank gave no reason, so this is **not a known vulnerability**, and nothing
   suggests files you have already cleaned need checking again.
 
+- **No scheduled CI fuzzing, and no OSS-Fuzz for now (ADR-0046).** No change to what strypt
+  removes. Long fuzzing runs stay local, because CI jobs cannot run the required 24 hours.
+
 - **How much fuzzing counts as enough is now measured rather than guessed (ADR-0044).** No change
   to what strypt removes. The project's own bar for testing a format handler was set before any
   parser existed — 100 CPU-hours plus "no new coverage in the last quarter of the run" — and 480

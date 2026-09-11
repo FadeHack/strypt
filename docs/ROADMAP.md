@@ -683,8 +683,9 @@ gates anything else here.
      the fuzzer is visibly spending most of a run failing to construct a valid page CRC
      (ADR-0041). The work is structure-aware input — a page-header dictionary or a CRC-fixing
      mutator — and it stays listed here until it happens.
-2. **Continuous fuzzing infrastructure** — a scheduled CI job (`fuzz-long.yml`) rather than
-   one-off manual runs, with OSS-Fuzz investigated and adopted or declined with reasons.
+2. ✅ **Continuous fuzzing infrastructure — declined, 2026-09-11, ADR-0046.** No CI job can
+   run ADR-0044's 24 hours, and a private repo cannot afford one. Local batches plus
+   `fuzz-tally.py` stay the method. OSS-Fuzz is declined until strypt has users.
 3. Every crash, hang, OOM, and assertion failure triaged to zero, each with a regression test.
 4. ✅ **`cargo-deny` as a hard merge gate** — **2026-09-11, ADR-0045**, confirmed in CI the
    same day on `9bbfd41`. All four checks block; `advisories` lost its `continue-on-error`, `yanked`,

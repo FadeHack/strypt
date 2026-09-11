@@ -3004,3 +3004,35 @@ release in the same semver range. That is a lockfile change, not a new dependenc
 - **What this does not claim.** `cargo-deny` reads metadata and advisory databases. It does not
   audit code. A passing gate means no *known* problem is declared against the tree, not that the
   tree is safe.
+
+---
+
+## ADR-0046 — No scheduled CI fuzzing job, and OSS-Fuzz is declined for now
+
+**Status:** Accepted (2026-09-11)
+
+Discharges Phase 3 deliverable 2 by declining it. No exit criterion depends on it.
+
+**Context.** Verified 2026-09-11: GitHub-hosted jobs stop at 6 hours; this repository is private,
+so its Linux runners have 2 vCPU and the account has 2,000 free minutes a month. ADR-0044 certifies
+on one run of at least 24 hours, which no CI job can produce. A full 24-hour sweep would cost
+about 15,800 runner-minutes. A weekly 10-minute-per-target job fits the budget but is under 1% of
+that bar.
+
+**Decision.**
+
+1. **No `fuzz-long.yml`.** Local batches stay the continuous-fuzzing method, and
+   `scripts/fuzz-tally.py` stays the authority on which handlers are certified.
+2. **After any handler change, run `fuzz-tally.py` and re-fuzz every target that lost
+   certification.** This replaces the scheduled job.
+3. **OSS-Fuzz is declined.** It accepts open-source projects "with a significant user base and/or
+   critical to the global IT infrastructure"; a private, pre-release project is neither. Revisit
+   after Phase 4. ClusterFuzzLite is declined with it: it needs a Docker build and adds nothing
+   cargo-fuzz lacks here.
+
+**Consequences.**
+
+- **Only `pdf` and `detect` are fuzzed on push** (the smoke job). A crash introduced in any other
+  handler goes unseen until the next local batch.
+- **Making the repository public would change the cost side, not the 6-hour cap:** Actions become
+  free on 4-vCPU runners, and an all-targets smoke job becomes affordable. Revisit this ADR then.

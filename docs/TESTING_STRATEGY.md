@@ -112,8 +112,8 @@ ADR-0014's earlier bar — 100 CPU-hours plus "no new edge in the final 25%" —
 is the `plateau` column in any `summary.md` predating 2026-09-11. A flat curve is *not* sufficient
 evidence of saturation: `ogg` went flat for 24 hours and then found 140 edges in one window.
 
-**Continuous fuzzing.** A scheduled CI job from Phase 3, with OSS-Fuzz investigated as an
-option if the project qualifies at that point.
+**Continuous fuzzing.** Local batches, not CI (ADR-0046). After a handler change, re-fuzz
+whatever `scripts/fuzz-tally.py` shows has lost certification. OSS-Fuzz is declined until strypt has users.
 
 ### 2.5 Differential testing — against mat2 and ExifTool
 
@@ -218,7 +218,7 @@ worth knowing before sanitising anything else:
 | Gate proof — each gate fails on a planted violation (`scripts/prove-gates.sh`) | Linux | hard from Phase 3 |
 | MSRV build | Linux | hard |
 | Fuzz smoke (short run per target) | Linux | hard from Phase 1 |
-| Continuous fuzzing (long run) | Linux | scheduled, from Phase 3 |
+| Continuous fuzzing (long run) | local only | declined in CI (ADR-0046) |
 | Filesystem-constraints matrix (§2.7) | Linux | hard from Phase 3 |
 | Differential vs mat2/ExifTool | Linux | scheduled + pre-release |
 

@@ -14,7 +14,7 @@ empty is currently the largest gap between strypt's stated guarantees and its ac
 | `no-network.yml` — resolved dependency-graph check | **hard, from day one** | Linux |
 | `deny.yml` — `cargo deny check` | advisory now, hard from Phase 3 | Linux |
 | `fuzz-smoke.yml` — short run per target | hard, from Phase 1 | Linux |
-| `fuzz-long.yml` — sustained run | scheduled, from Phase 3 | Linux |
+| `fuzz-long.yml` — sustained run | declined (ADR-0046) | — |
 | `differential.yml` — vs mat2 and ExifTool | scheduled + pre-release | Linux |
 
 ## Toolchain pinning — required
