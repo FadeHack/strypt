@@ -510,6 +510,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   and the fix — feeding the fuzzer valid page structures — is outstanding work, not done work.
   All 648 CPU-hours found zero crashes.
 
+  That fix is now in: the Ogg fuzz targets repair page checksums after each mutation. Whether it
+  brings Ogg up to the bar is for the next 24-hour run to say.
+
 - **WebP and WAV now share one chunk walker (ADR-0039).** WebP's behaviour is unchanged, with one
   exception that only makes it stricter: the per-frame sub-chunks of an animation are now subject
   to the same item limit as the rest of the file. WebP's fuzz target was re-run against the change,

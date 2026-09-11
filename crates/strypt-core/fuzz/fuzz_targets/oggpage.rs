@@ -10,11 +10,22 @@
 //! one it can read back with the same packets and the same granule positions.
 //!
 //! A panic is a finding; so is a hang, so is unbounded allocation (`docs/THREAT_MODEL.md` §5.1).
+//!
+//! The mutator re-stamps page CRCs, as in the `ogg` target.
 
 #![no_main]
 
-use libfuzzer_sys::fuzz_target;
+use libfuzzer_sys::{fuzz_mutator, fuzz_target};
 
 fuzz_target!(|data: &[u8]| {
     strypt_core::fuzzing::ogg_round_trip(data);
+});
+
+fuzz_mutator!(|data: &mut [u8], size: usize, max_size: usize, seed: u32| {
+    let size = libfuzzer_sys::fuzzer_mutate(data, size, max_size);
+    // One in eight keeps its broken CRC, so the refusal path stays under the fuzzer.
+    if seed % 8 != 0 {
+        strypt_core::fuzzing::ogg_restamp(data.get_mut(..size).unwrap_or_default());
+    }
+    size
 });

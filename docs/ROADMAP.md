@@ -683,6 +683,11 @@ gates anything else here.
      the fuzzer is visibly spending most of a run failing to construct a valid page CRC
      (ADR-0041). The work is structure-aware input — a page-header dictionary or a CRC-fixing
      mutator — and it stays listed here until it happens.
+
+     **The mutator landed 2026-09-11**: both targets re-stamp page CRCs after libFuzzer's mutation,
+     leaving one in eight broken so the refusal path stays covered. A 300s seeds-only A/B raised
+     coverage from 1221 to 1336 (`ogg`) and from 268 to 305 (`oggpage`). That is a direction, not a
+     verdict: both now owe a 24h run, and this item closes only if that run certifies.
 2. ✅ **Continuous fuzzing infrastructure — declined, 2026-09-11, ADR-0046.** No CI job can
    run ADR-0044's 24 hours, and a private repo cannot afford one. Local batches plus
    `fuzz-tally.py` stay the method. OSS-Fuzz is declined until strypt has users.

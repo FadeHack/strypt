@@ -452,6 +452,34 @@ fn stamp_crc(out: &mut [u8], at: usize) {
     }
 }
 
+/// Re-stamp every page [`pages`] could frame from the start, stopping at the first it could not.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn restamp(data: &mut [u8]) {
+    let mut at = 0usize;
+    loop {
+        let Some(header) = data.get(at..at.saturating_add(HEADER_BYTES)) else {
+            return;
+        };
+        if header.get(..MAGIC.len()) != Some(MAGIC.as_slice()) {
+            return;
+        }
+        let segments = usize::from(header.last().copied().unwrap_or_default());
+        let lacing_at = at.saturating_add(HEADER_BYTES);
+        let body_at = lacing_at.saturating_add(segments);
+        let Some(lacing) = data.get(lacing_at..body_at) else {
+            return;
+        };
+        let end = lacing
+            .iter()
+            .fold(body_at, |sum, n| sum.saturating_add(usize::from(*n)));
+        let Some(page) = data.get_mut(at..end) else {
+            return;
+        };
+        stamp_crc(page, 0);
+        at = end;
+    }
+}
+
 /// A read position across a packet's fragments.
 struct Cursor<'a> {
     parts: &'a [&'a [u8]],
@@ -587,6 +615,32 @@ mod tests {
         assert_eq!(
             walk(&data),
             Err(WalkError::at(MalformedDetail::UnexpectedMarker, 0))
+        );
+    }
+
+    #[cfg(feature = "fuzzing")]
+    #[test]
+    fn restamp_repairs_every_framed_page_and_stops_at_a_truncated_one() {
+        let mut data = page(BOS, 0, 1, 0, &[b"HELLO"]);
+        data.extend_from_slice(&page(EOS, 0, 1, 1, &[b"WORLD"]));
+        let first = data.len() / 2;
+        data[first - 1] ^= 0xFF;
+        let last = data.len() - 1;
+        data[last] ^= 0xFF;
+        assert!(walk(&data).is_err());
+
+        restamp(&mut data);
+        assert_eq!(walk(&data).unwrap().len(), 2);
+
+        let mut truncated = data[..data.len() - 1].to_vec();
+        truncated[first - 1] ^= 0xFF;
+        let tail = truncated[first..].to_vec();
+        restamp(&mut truncated);
+        assert!(walk(&truncated[..first]).is_ok());
+        assert_eq!(
+            truncated[first..],
+            tail,
+            "a page it cannot frame is left alone"
         );
     }
 

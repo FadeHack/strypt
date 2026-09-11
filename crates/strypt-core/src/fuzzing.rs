@@ -188,6 +188,13 @@ pub fn tags_scan(data: &[u8]) {
     assert!(end <= data.len(), "a tag span ran past the end of the file");
 }
 
+/// Re-stamp the page CRCs of a mutated Ogg input, for the `ogg` and `oggpage` custom mutators.
+///
+/// Without it nearly every mutation dies at the checksum (ADR-0044 decision 5).
+pub fn ogg_restamp(data: &mut [u8]) {
+    ogg::restamp(data);
+}
+
 /// Walk an Ogg stream and write it back out, exercising both directions of the page layer.
 ///
 /// Separate from the `ogg` handler target for the reason ADR-0028 gives for separating `zip` from
