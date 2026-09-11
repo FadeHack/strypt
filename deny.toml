@@ -1,31 +1,35 @@
-# cargo-deny configuration — see docs/ARCHITECTURE.md §6 and ADR-0008.
+# cargo-deny configuration — see docs/ARCHITECTURE.md §6, ADR-0008 and ADR-0045.
 #
-# Advisory until Phase 3, a hard merge gate from Phase 3 onward (docs/ROADMAP.md).
-# Verify the current schema at phase start; cargo-deny's config format has changed before.
+# Every check is a hard merge gate, and scripts/prove-gates.sh shows each one failing.
+# Schema verified against cargo-deny 0.20.2 on 2026-09-11; it has changed before.
 
 [advisories]
 # Security advisories from the RustSec database. Any `ignore` entry needs a comment
 # explaining why the advisory does not apply and when it will be revisited.
 ignore = []
+# Set explicitly because defaults have moved between releases. `unsound` defaults to the
+# workspace only, which would ignore a soundness advisory against lopdf.
+yanked = "deny"
+unmaintained = "all"
+unsound = "all"
 
 [licenses]
 # ADR-0002: strypt is MIT OR Apache-2.0 and must stay embeddable. Copyleft licences
 # (including LGPL, which is mat2's licence) are incompatible with static linking into
 # permissively-licensed binaries and must not enter the tree.
+# Only licences the tree actually uses. A new one is added with the ADR its dependency needs.
 allow = [
     "MIT",
     "Apache-2.0",
-    "Apache-2.0 WITH LLVM-exception",
-    "BSD-2-Clause",   # kamadak-exif, if adopted — see docs/ARCHITECTURE.md §4
     "BSD-3-Clause",
-    "ISC",
     "Unicode-3.0",
     "Zlib",
 ]
 confidence-threshold = 0.93
 
 [bans]
-multiple-versions = "warn"
+# ADR-0008 names duplicate versions as part of the hard gate.
+multiple-versions = "deny"
 wildcards = "deny"
 
 # ADR-0004 expressed as policy. NOTE: this list is the *explanatory* layer — the

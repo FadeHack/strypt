@@ -85,7 +85,7 @@ jobs:
         with:
           tool: cargo-fuzz
       # A short run per target, on every push. This will not find a deep bug — the sustained
-      # budget is Phase 3's job (ADR-0014) — but it does catch a target that stopped building
+      # budget is Phase 3's job (ADR-0044) — but it does catch a target that stopped building
       # or an invariant assertion that a change just broke, which is the failure that would
       # otherwise sit unnoticed until someone remembered to fuzz manually.
       # `seeds/` is the committed corpus; `corpus/` is libFuzzer's scratch and is git-ignored,

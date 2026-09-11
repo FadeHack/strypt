@@ -28,7 +28,7 @@ nothing in it is delivered yet.** See
 | Rust stable | build, test, lint | Edition 2024. Stable was **1.97.1** (released 2026-07-16) as of 2026-08-19. |
 | Rust nightly | fuzzing only | `cargo-fuzz` requires nightly. |
 | `cargo-fuzz` | fuzzing | `cargo install cargo-fuzz` — **Linux/macOS only**, x86-64 and aarch64. Not supported on Windows. |
-| `cargo-deny` | supply-chain gate | `cargo install cargo-deny` |
+| `cargo-deny` | supply-chain gate | `cargo install cargo-deny --locked --version 0.20.2` |
 | ExifTool, mat2 | differential testing | Optional locally, required for release verification. **Never runtime dependencies.** Verified working 2026-08-19 with ExifTool 13.55 and mat2 0.15.0. |
 | `webp-pixbuf-loader`, `webpinfo` | WebP differential | Required for `scripts/webp-differential.sh`. Without the pixbuf loader mat2 cannot read WebP and the comparison is meaningless; the script refuses to run. Verified 2026-08-21 with loader 0.2.7 and libwebp 1.6.0. |
 | Chrome or Chromium | optional corpus fixture | Only for `build_real_corpus.py --with-browser`. Verified 2026-08-21 with Chrome 151. |
@@ -729,15 +729,19 @@ corpus before the fix is accepted** ([`docs/TESTING_STRATEGY.md`](docs/TESTING_S
 
 ## Supply-chain checks
 
-**`cargo-deny` is not installed locally** (`cargo install cargo-deny`). CI runs it via the
-cargo-deny action; `deny.toml` is already configured.
+Every check is a hard merge gate (ADR-0045). CI runs cargo-deny 0.20.2; install the same
+locally with `cargo install cargo-deny --locked --version 0.20.2`.
 
 ```sh
 cargo deny check                 # all checks
-cargo deny check advisories      # RustSec advisories only
+cargo deny check advisories      # RustSec advisories and yanked crates
 cargo deny check licenses        # licence compatibility
-cargo deny check bans            # banned crates, including all networking crates
+cargo deny check bans            # banned crates, duplicates, wildcards
+cargo deny check sources         # crates.io only
 ```
+
+A red `advisories` run with no change here means a new advisory or a yank. Fix it, or add a
+reasoned `ignore` to `deny.toml`. Never make the job non-blocking again.
 
 ## The no-network gate
 
@@ -757,22 +761,22 @@ cargo tree -i reqwest                         # who pulls in a given crate (expe
 cargo tree --prefix none --format '{p}' | sort -u
 ```
 
-**To verify the gate itself still works**, deliberately break it on a throwaway branch:
+## Proving the gates fail
 
 ```sh
-git switch -c test/network-gate
-cargo add ureq -p strypt-core
-./scripts/check-no-network.sh    # must exit 1
-git checkout crates/strypt-core/Cargo.toml && rm -f Cargo.lock
-git switch - && git branch -D test/network-gate
+./scripts/prove-gates.sh         # ~20s; needs network
 ```
 
-Verified 2026-08-19: this flagged `ureq`, its declaration, and `rustls` pulled in
-transitively — then passed cleanly again after reverting. If it ever does not fail, the gate
-is broken and that is a priority-one bug.
+Plants one violation per check in a throwaway copy of the tree — a networking crate, a
+duplicate, a wildcard, a copyleft licence, a git source, a known vulnerability, a yanked
+crate — and requires each gate to fail **with that check's own diagnostic**. Your checkout is
+never touched. CI runs it on every push, so a gate weakened in `deny.toml` or
+`check-no-network.sh` fails the build. Replaces the manual throwaway-branch procedure used
+on 2026-08-19.
 
-An untested gate provides confidence without protection. Re-run this check whenever the CI
-configuration changes.
+If a case fails when you haven't touched the gates, check its external assumption first: the
+yank case needs `chacha20 0.10.1` to still be yanked. Otherwise the gate is broken, and that is
+a priority-one bug.
 
 ## Enabling the local git hooks
 
@@ -791,7 +795,8 @@ cargo fmt --check && \
 cargo clippy --all-targets --all-features -- -D warnings && \
 cargo test && \
 ./scripts/check-no-network.sh && \
-cargo deny check          # once cargo-deny is installed
+cargo deny check && \
+./scripts/prove-gates.sh
 ```
 
 Plus, if a parser changed:

@@ -686,11 +686,14 @@ gates anything else here.
 2. **Continuous fuzzing infrastructure** — a scheduled CI job (`fuzz-long.yml`) rather than
    one-off manual runs, with OSS-Fuzz investigated and adopted or declined with reasons.
 3. Every crash, hang, OOM, and assertion failure triaged to zero, each with a regression test.
-4. `cargo-deny` wired into CI as a **hard merge gate**, not advisory: `advisories`,
-   `licenses`, `bans` (including the networking-crate list), `sources`. Verify current
-   recommended `deny.toml` configuration at phase start. Like the no-network gate, it must be
-   **proven to fail** by a deliberate violation — an untested gate provides confidence without
-   protection.
+4. ✅ **`cargo-deny` as a hard merge gate** — **2026-09-11, ADR-0045**, pending its first CI
+   run. All four checks block; `advisories` lost its `continue-on-error`, `yanked`,
+   `unmaintained` and `unsound` are set explicitly, duplicates are denied as ADR-0008 always
+   required, and the licence allow-list names only what the tree uses. Schema verified against
+   cargo-deny 0.20.2. **The stricter config caught a yanked `chacha20 0.10.1` under `lopdf` on
+   its first run**; it was bumped to 0.10.2. `scripts/prove-gates.sh` plants seven violations
+   and requires each gate's own diagnostic — including the no-network gate's — and runs in CI.
+   It was itself shown failing when two gates were weakened.
 5. A per-format **known-limitations page**, written *from* the fuzzing and differential-testing
    findings, never speculatively. This document is a safety feature: it is what stops a user
    over-trusting the tool.

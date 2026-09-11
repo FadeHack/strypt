@@ -2937,3 +2937,70 @@ ADR-0014 was measuring a state this project's fuzzing does not enter.
   edges under this corpus and this harness. It is not a statement that the handler is correct, that
   its format is fully explored, or that metadata removal is complete — ADR-0012 and constraint 7
   bind here exactly as elsewhere.
+
+---
+
+## ADR-0045 — Every supply-chain check is a hard gate, and CI proves each one fails
+
+**Status:** Accepted (2026-09-11)
+
+**Completes ADR-0016**, which kept `advisories` non-blocking until Phase 3, and **brings
+`deny.toml` into line with ADR-0008**, which named duplicate versions as part of the hard gate
+while the config only warned on them. Discharges Phase 3 deliverable 4.
+
+**Context.** Three of `cargo-deny`'s four checks were already hard. Two things were missing.
+`advisories` still ran with `continue-on-error`, and **`cargo-deny` had never been shown
+failing at all.** The no-network gate had, once, by hand, on 2026-08-19 (the procedure was in
+`INSTRUCTIONS.md`). Exit criterion 2 asks for both gates to be proven to fail, and a manual
+procedure has the same flaw ADR-0043 found in the Tails boot: it proves the gate worked on the
+day someone remembered to run it.
+
+Verified 2026-09-11: cargo-deny **0.20.2** is current, and `cargo-deny-action@v2` bundles it. The
+advisories `version` field is no longer used, and `unsound` defaults to workspace crates only.
+
+**The stricter config caught something on its first run.** With `yanked = "deny"`, the tree
+failed on `chacha20 0.10.1`, pulled in through `lopdf` → `rand`. Both 0.10.0 and 0.10.1 are
+yanked without a message, and no RustSec advisory names either. It is bumped to 0.10.2, a patch
+release in the same semver range. That is a lockfile change, not a new dependency, so ARCHITECTURE
+§6 does not ask for its own ADR; it is recorded here.
+
+**Decision.**
+
+1. **`advisories` is a hard gate.** `continue-on-error` is removed. A scheduled run that goes red
+   with no commit here is a finding. Fix it, or add an `ignore` entry with a reason and a revisit
+   date. Never restore the non-blocking job.
+2. **`yanked = "deny"`, `unmaintained = "all"`, `unsound = "all"`, set explicitly.** Defaults have
+   moved between releases. `unsound` at its default would ignore a soundness advisory against
+   `lopdf`, the crate that parses hostile PDFs.
+3. **`multiple-versions = "deny"`.** The tree has no duplicates today, so this costs nothing yet.
+   When an upgrade makes one unavoidable, the answer is a `skip` entry with a reason, not a
+   return to `warn`.
+4. **The licence allow-list names only licences the tree uses.** `ISC`, `BSD-2-Clause` and
+   `Apache-2.0 WITH LLVM-exception` matched nothing, and `BSD-2-Clause` was there for a crate
+   never adopted. A new dependency already needs an ADR, so its licence gets added at that
+   point, deliberately.
+5. **`scripts/prove-gates.sh` runs in CI.** It copies the tree, plants one violation per check,
+   and requires that check's own diagnostic rather than just a non-zero exit. The cases are: a
+   banned networking crate (which must also trip `check-no-network.sh`), a duplicate version, a
+   wildcard, a copyleft licence, a git source, a known vulnerability, and a yanked crate.
+   **The script was itself shown failing**: with `yanked` and `multiple-versions` set back to
+   `warn`, it named both cases and exited 1.
+
+**Consequences.**
+
+- **Exit criterion 2 can now be met, and is met locally.** It will not be met in CI until the
+  workflow has run there. Do not record it as met before then.
+- **A PR can be blocked by an advisory published overnight.** ADR-0008 accepted this in
+  advance: "That is the gate working, not a nuisance to be downgraded to a warning."
+- **The proof depends on external state:** RUSTSEC-2021-0003 staying published (it is fixed
+  upstream, so it has no reason to be withdrawn), `chacha20 0.10.1` staying yanked, and GitHub
+  serving `dtolnay/itoa`. If any of these changes, the proof fails when the gate has not got
+  weaker. That false alarm errs toward caution, and the script says which assumption to check
+  first.
+- **`multiple-versions = "deny"` will cause friction on upgrades.** Duplicate `windows-sys`
+  versions are common in Rust trees. The friction is intended: every duplicate is extra code
+  running on the user's documents, and a `skip` entry with a reason documents that it was
+  looked at.
+- **What this does not claim.** `cargo-deny` reads metadata and advisory databases. It does not
+  audit code. A passing gate means no *known* problem is declared against the tree, not that the
+  tree is safe.

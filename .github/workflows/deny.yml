@@ -1,12 +1,9 @@
-# Supply-chain policy (ADR-0008), split by determinism — see ADR-0016.
+# Supply-chain policy (ADR-0008). Every check is a hard merge gate from Phase 3 (ADR-0045).
 #
-# `bans`, `licenses`, and `sources` are HARD now: they depend only on what is in this
-# repository, so they can only fail because someone changed something here. Running them
-# advisory-only hid a genuine `bans` failure on the very first CI run.
-#
-# `advisories` stays advisory until Phase 3, because it depends on the RustSec database and
-# can start failing with no change to this repository. When it does fail, that is the gate
-# working, not a nuisance to be silenced.
+# `bans`, `licenses` and `sources` depend only on this repository (ADR-0016). `advisories` also
+# depends on RustSec and crates.io, so it can go red with no commit here — a new advisory or a
+# yank. That is the gate working: fix it, or add a reasoned `ignore` to deny.toml. Never
+# restore `continue-on-error`.
 
 name: cargo-deny
 
@@ -15,7 +12,7 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    # Advisories appear independently of commits, so check on a schedule too.
+    # Advisories and yanks appear independently of commits, so check on a schedule too.
     - cron: "0 6 * * 1"
 
 permissions:
@@ -23,7 +20,7 @@ permissions:
 
 jobs:
   policy:
-    name: bans, licenses, sources (hard gate)
+    name: bans, licenses, sources
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -36,13 +33,24 @@ jobs:
           command: check bans licenses sources
 
   advisories:
-    name: advisories (advisory until Phase 3)
+    name: advisories and yanked crates
     runs-on: ubuntu-latest
-    # TODO(Phase 3): remove this line to make advisories a hard gate too.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: "1.97.1"
           command: check advisories
+
+  prove-gates:
+    # Plants one violation per check in a copy of the tree and requires each gate to catch it
+    # (scripts/prove-gates.sh). A gate weakened in deny.toml or check-no-network.sh fails here.
+    name: every gate fails when violated
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@v2
+        with:
+          # The version cargo-deny-action@v2 bundles as of 2026-09-11, so both jobs agree.
+          tool: cargo-deny@0.20.2
+      - run: ./scripts/prove-gates.sh

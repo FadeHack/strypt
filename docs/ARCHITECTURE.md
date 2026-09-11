@@ -390,9 +390,11 @@ work out whether files they already published need re-checking.
 
 ## 6. Supply-chain security
 
-- **`cargo-deny` in CI as a hard merge gate** covering `advisories`, `licenses`, `bans`
-  (including the networking-crate list from §5.2), and `sources`. `cargo-deny` subsumes
-  `cargo-audit`'s advisory checking; running both is optional redundancy, not a requirement.
+- **`cargo-deny` in CI as a hard merge gate** covering `advisories` (yanked crates included),
+  `licenses`, `bans` (the networking-crate list from §5.2, duplicates, wildcards), and
+  `sources` — all four blocking since ADR-0045, and each proven to fail on every push by
+  `scripts/prove-gates.sh`. `cargo-deny` subsumes `cargo-audit`'s advisory checking; running
+  both is optional redundancy, not a requirement.
 - **Minimise dependencies** (ADR-0008). Each direct dependency is justified in §4. A new one
   needs an ADR, and "it is convenient" is not sufficient.
 - **`Cargo.lock` is committed.** strypt ships binaries; reproducibility beats float.

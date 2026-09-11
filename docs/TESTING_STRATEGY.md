@@ -213,8 +213,9 @@ worth knowing before sanitising anything else:
 | `cargo fmt --check` | Linux | hard |
 | `cargo clippy -- -D warnings` | Linux | hard |
 | `cargo test` | Linux, macOS, Windows | hard |
-| `cargo-deny` (advisories, licenses, bans, sources) | Linux | hard (from Phase 3; advisory before) |
+| `cargo-deny` (advisories, licenses, bans, sources) | Linux | hard — all four from 2026-09-11 (ADR-0045) |
 | No-network dependency-graph check | Linux | **hard from Phase 0** |
+| Gate proof — each gate fails on a planted violation (`scripts/prove-gates.sh`) | Linux | hard from Phase 3 |
 | MSRV build | Linux | hard |
 | Fuzz smoke (short run per target) | Linux | hard from Phase 1 |
 | Continuous fuzzing (long run) | Linux | scheduled, from Phase 3 |
@@ -224,7 +225,8 @@ worth knowing before sanitising anything else:
 Two notes. The no-network check is hard from the very beginning because retrofitting an
 invariant after a violation lands is much harder than holding it from the start. And every
 gate must be **proven to fail** when deliberately violated — an untested gate provides
-confidence without providing protection, which is worse than having none.
+confidence without providing protection, which is worse than having none. For the supply-chain
+gates that proof is automated and runs on every push; the filesystem matrix (§2.7) owes the same.
 
 ---
 

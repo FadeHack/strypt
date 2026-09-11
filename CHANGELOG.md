@@ -457,6 +457,18 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   `docs/PRD.md` and `docs/ARCHITECTURE.md` previously implied such validation was coming and have
   been corrected.
 
+- **Every supply-chain check now blocks a merge, and CI proves each one works (ADR-0045).** No
+  change to what strypt removes. Known security advisories, yanked crates, duplicate dependency
+  versions, unexpected licences and non-crates.io sources all fail the build now; before this,
+  advisories only warned. On every push, a script plants one violation of each kind in a
+  throwaway copy of the tree and checks that the right gate catches it, so a gate that has been
+  quietly weakened fails as well.
+
+  The stricter check found one real issue on its first run: `chacha20 0.10.1`, pulled in through
+  the PDF library, had been **yanked by its publisher**. It is now 0.10.2. No security advisory
+  names 0.10.1 and the yank gave no reason, so this is **not a known vulnerability**, and nothing
+  suggests files you have already cleaned need checking again.
+
 - **How much fuzzing counts as enough is now measured rather than guessed (ADR-0044).** No change
   to what strypt removes. The project's own bar for testing a format handler was set before any
   parser existed — 100 CPU-hours plus "no new coverage in the last quarter of the run" — and 480
