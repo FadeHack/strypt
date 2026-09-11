@@ -360,7 +360,10 @@ across years and contributors. Three layers, from weakest to strongest:
 The CI gate is authoritative because it is the only layer that cannot be bypassed by a
 contributor who has not read the docs — which, over a project's life, is most contributors.
 
-### 5.3 Parser isolation — a Phase 3 investigation, not a v1 feature
+### 5.3 Parser isolation — deferred (ADR-0048)
+
+**Decided 2026-09-11: no sandbox.** ADR-0048 records the evidence and when to revisit. The
+text below is the original framing.
 
 Running each format handler in a restricted subprocess (seccomp/Landlock on Linux, sandbox
 profiles on macOS) or a WASM sandbox would contain a parser compromise. It is explicitly

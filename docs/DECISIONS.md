@@ -3072,3 +3072,51 @@ this is permanent unless a later ADR admits `unsafe` for it.
   Unix finding in deliverable 6.
 - **Carried into the known-limitations page (deliverable 5)** in one line: on Windows the output has
   the permissions of the folder it is written to.
+
+---
+
+## ADR-0048 — Parser sandboxing is deferred
+
+**Status:** Accepted (2026-09-11)
+
+Discharges Phase 3 deliverable 8 and meets exit criterion 4. Answers ARCHITECTURE §5.3.
+
+**Context.** The three inputs deliverable 8 requires:
+
+1. **mat2's experience.** mat2 0.14.0 (2025-10-23) removed bubblewrap because it "was a significant
+   source of issues over the years, was annoying to test in the continuous integration suite, didn't
+   provide significant security improvement besides mitigating possible command injections in
+   exiftool, and was best-effort anyway" ([release notes](https://dustri.org/b/mat2-0140.html)).
+   strypt spawns no subprocess, so the one gain mat2 names does not exist here.
+2. **What it buys a `forbid(unsafe_code)` parser.** Measured 2026-09-11 against the lockfile:
+   - `lopdf`, the largest hostile-input parser in the tree, has **no `unsafe`**.
+   - The `unsafe` that remains sits in foundational crates such as `hashbrown`, `memchr`,
+     `encoding_rs` and `aes`.
+   - Resource exhaustion already fails closed: an OOM or a hang writes nothing and reports nothing.
+   - The real gain is **containing a compromised dependency**. The no-network gate matches crate
+     names, so it cannot see a dependency calling `std::net` directly. A sandbox can.
+   - But a compromised parser's most dangerous act is **returning uncleaned or watermarked output**,
+     and a sandbox has to pass the output through.
+3. **Cross-platform cost.** Verified 2026-09-11:
+   - **Linux** has safe crates. The `landlock` crate (0.4.5) restricts filesystem access, but its
+     network rules need kernel 6.7 or later (Tails 7 ships 6.12) and cover **TCP only**. Blocking UDP
+     needs seccomp as well.
+   - **macOS** has only the deprecated `sandbox_init`/`sandbox-exec`, which needs FFI.
+   - **Windows** AppContainer needs FFI.
+   - Both FFI routes mean `unsafe`, which ADR-0047 has just declined for a smaller gain.
+
+**Decision.** No sandbox. strypt stays a single process with no privilege separation.
+
+**Consequences.**
+
+- **A compromised dependency runs with the user's full access** (THREAT_MODEL §5.2). Mitigations
+  remain dependency minimisation, the lockfile, `cargo-deny` and the no-network gate.
+- **The no-network gate's `std::net` blind spot is recorded here** and goes into THREAT_MODEL with
+  deliverable 9.
+- **Revisit when any of these happens:**
+  - a RustSec vulnerability or `unsound` advisory against a crate that parses untrusted bytes here;
+  - a dependency that spawns processes;
+  - Phase 5's GUI, where a UI/worker split is natural.
+- **If adopted, start with** Landlock plus seccomp on Linux, applied in-process once the input and
+  the temporary file are open. Treat it as defence for one platform and do not describe it as
+  cross-platform.

@@ -721,7 +721,11 @@ gates anything else here.
    inherits the parent directory's ACL — and that Phase 3's platform validation is where it
    gets addressed. Outcome is narrowing the ACL **or** recording the gap as permanent in the
    known-limitations page. Not silence.
-8. **A decision on parser sandboxing, recorded as an ADR.** Investigate — do not assume.
+8. ✅ **Deferred, 2026-09-11, ADR-0048.** mat2 dropped bubblewrap because it mainly contained
+   exiftool, and strypt runs no subprocess. `lopdf` has no `unsafe`. The one real gain, containing
+   a compromised dependency, cannot stop it returning dirty output, and outside Linux it needs
+   `unsafe`. **Carried into deliverable 9**: the no-network gate cannot see `std::net`.
+   As specified: **A decision on parser sandboxing, recorded as an ADR.** Investigate — do not assume.
    Required inputs to that decision: (a) why mat2 removed bubblewrap sandboxing in v0.14.0,
    which is the most relevant prior experience available and costs nothing to look up;
    (b) what sandboxing actually buys for a `forbid(unsafe_code)` Rust parser, honestly
@@ -744,7 +748,8 @@ gates anything else here.
    `prove-gates.sh` caught all seven planted violations on Ubuntu, eight checks in all. It stays met only while that
    job stays green.
 3. Known-limitations page complete for every shipped format and linked from the README.
-4. Sandboxing ADR recorded — adopted or deferred, with reasoning either way.
+4. ✅ Sandboxing ADR recorded — adopted or deferred, with reasoning either way. **Met
+   2026-09-11 by ADR-0048 (deferred).**
 5. `docs/THREAT_MODEL.md` revised to reflect what hardening actually taught us. If nothing
    changed, that is itself suspicious and worth re-examining.
 6. ✅ **The filesystem-constraints matrix passes in CI on Linux, and is proven to fail** when the
