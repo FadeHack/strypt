@@ -698,8 +698,8 @@ gates anything else here.
 5. A per-format **known-limitations page**, written *from* the fuzzing and differential-testing
    findings, never speculatively. This document is a safety feature: it is what stops a user
    over-trusting the tool.
-6. **A filesystem-constraints matrix** — **built 2026-09-11; not yet run in CI.** `scripts/fs-matrix.sh`,
-   14 cases, all green on Linux 6.12 (Docker, aarch64); `scripts/prove-fs-matrix.sh` catches all five planted
+6. ✅ **A filesystem-constraints matrix** — **2026-09-11, confirmed in CI on `a490adb`.**
+   `scripts/fs-matrix.sh`, 14 cases, green on Linux 6.12 aarch64 (Docker) and 6.17 x86-64 (CI); `scripts/prove-fs-matrix.sh` catches all five planted
    `io.rs` mutants. **ADR-0043's `vfat` hypothesis is false there**: `chmod` succeeds and does
    nothing, so no false failure. **The real finding is a limitation, carried into deliverable 5**:
    on `vfat`/`exfat` the output takes the mount's mode (0755 by default), so ADR-0019's owner-only
@@ -744,8 +744,9 @@ gates anything else here.
 4. Sandboxing ADR recorded — adopted or deferred, with reasoning either way.
 5. `docs/THREAT_MODEL.md` revised to reflect what hardening actually taught us. If nothing
    changed, that is itself suspicious and worth re-examining.
-6. **The filesystem-constraints matrix passes in CI on Linux, and is proven to fail** when the
-   fail-closed contract is deliberately broken. Tails and Qubes-Whonix boots are **not**
+6. ✅ **The filesystem-constraints matrix passes in CI on Linux, and is proven to fail** when the
+   fail-closed contract is deliberately broken. **Met 2026-09-11** on `a490adb`; stays met only
+   while that job stays green. Tails and Qubes-Whonix boots are **not**
    required by this criterion; ADR-0043 records what that forgoes.
 7. The Windows permission gap is closed or documented as permanent — deliverable 7 resolved,
    not carried forward silently a second time.
