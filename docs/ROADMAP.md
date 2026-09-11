@@ -713,7 +713,10 @@ gates anything else here.
    untouched, no `.strypt-*.tmp` survives, and no success is reported for a file that was not
    written. Tails is an **optional confirmatory boot**; **Qubes-Whonix is deferred**, because
    it needs bare-metal x86-64 with IOMMU that this project does not have.
-7. **ADR-0019's Windows permission gap resolved either way.** `crates/strypt-core/src/io.rs`
+7. ✅ **Recorded as permanent, 2026-09-11, ADR-0047.** Narrowing needs `unsafe` or a wrapper
+   last released in 2021, and the default profile ACL already covers the common case. **Carried
+   into deliverable 5**: on Windows the output has the permissions of the folder it is written to.
+   As specified: **ADR-0019's Windows permission gap resolved either way.** `crates/strypt-core/src/io.rs`
    says in a comment that `Permissions::OwnerOnly` is weaker on Windows — the new file
    inherits the parent directory's ACL — and that Phase 3's platform validation is where it
    gets addressed. Outcome is narrowing the ACL **or** recording the gap as permanent in the
@@ -749,7 +752,8 @@ gates anything else here.
    while that job stays green. Tails and Qubes-Whonix boots are **not**
    required by this criterion; ADR-0043 records what that forgoes.
 7. The Windows permission gap is closed or documented as permanent — deliverable 7 resolved,
-   not carried forward silently a second time.
+   not carried forward silently a second time. **Decided by ADR-0047; met once the deliverable 5
+   page carries it.**
 
 **Risks.**
 - *This phase is the one that gets compressed under release pressure, and compressing it

@@ -603,8 +603,8 @@ bits, or it can not.
   usually FAT/exFAT, which has no Unix permission bits at all.
 - **Windows is weaker and this is a known limitation, not an oversight.** There is no umask
   equivalent; a new file inherits the parent directory's ACL, and strypt does not currently
-  narrow it. `Permissions::OwnerOnly` therefore means less there than on Unix. Phase 3's
-  platform validation is where this gets addressed.
+  narrow it. `Permissions::OwnerOnly` therefore means less there than on Unix. **Recorded as
+  permanent by ADR-0047.**
 - If the timestamp loss proves genuinely annoying in practice, a `--preserve-times` flag is
   the right shape for the fix — opt-in, named for what it does, with the leak stated in its
   help text. It is not the default.
@@ -3036,3 +3036,39 @@ that bar.
   handler goes unseen until the next local batch.
 - **Making the repository public would change the cost side, not the 6-hour cap:** Actions become
   free on 4-vCPU runners, and an all-targets smoke job becomes affordable. Revisit this ADR then.
+
+---
+
+## ADR-0047 — Windows output keeps its inherited ACL, permanently
+
+**Status:** Accepted (2026-09-11)
+
+Resolves ADR-0019's Windows bullet and discharges Phase 3 deliverable 7 by recording the gap.
+
+**Context.** Verified 2026-09-11:
+
+- Rust's `std::os::windows::fs::OpenOptionsExt` takes no security descriptor. Setting a DACL means
+  calling Win32 directly.
+- A file created without a descriptor gets its DACL from the parent's inheritable ACEs ([Microsoft
+  Learn, "DACL for a New Object"](https://learn.microsoft.com/en-us/windows/win32/secauthz/dacl-for-a-new-object)).
+- A same-volume rename keeps the file's ACL. The temporary is beside the destination, so the output
+  carries the destination directory's inheritable ACEs, like any file the user saves there.
+- Under `C:\Users\<name>` those ACEs are SYSTEM, Administrators and the user. That is the Windows
+  counterpart of `0600`, allowing for administrators, just as root can read `0600`.
+- The safe wrappers, `windows-acl` 0.3.0 and `windows-permissions` 0.2.4, were both last released
+  in 2021.
+
+**Decision.** strypt does not narrow the ACL. `Permissions::OwnerOnly` is a no-op on Windows, and
+this is permanent unless a later ADR admits `unsafe` for it.
+
+**Consequences.**
+
+- **Narrowing would add the project's first `unsafe`** (ADR-0007), or an unmaintained wrapper around
+  the Win32 security API, to protect a case the default profile ACL already covers.
+- **The exposure is output written outside the profile**, such as `C:\Users\Public`, a shared folder,
+  or a directory whose ACL grants Users or Everyone. There the output can be read by whoever can
+  read that directory.
+- **FAT and exFAT have no ACLs at all**, so no narrowing would help on a USB stick. That matches the
+  Unix finding in deliverable 6.
+- **Carried into the known-limitations page (deliverable 5)** in one line: on Windows the output has
+  the permissions of the folder it is written to.

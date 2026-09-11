@@ -154,7 +154,7 @@ pub enum Overwrite {
 /// Whether output permissions are tightened.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Permissions {
-    /// Owner read/write only (`0600` on Unix).
+    /// Owner read/write only (`0600` on Unix; a no-op on Windows, ADR-0047).
     ///
     /// The default, and the decision recorded in ADR-0019. A stripped file is the *more*
     /// sensitive artefact of the pair, not the less: the user is about to publish it, and a
@@ -342,10 +342,8 @@ fn create_private(path: &Path, permissions: Permissions) -> Result<File> {
         source,
     })?;
 
-    // On Windows the ACL model has no umask equivalent and the new file inherits the parent
-    // directory's ACL. strypt does not currently narrow that, so `Permissions::OwnerOnly` is
-    // weaker there than on Unix. Recorded as a known limitation rather than papered over
-    // (ADR-0019); Phase 3's platform validation is where it gets addressed.
+    // On Windows the file inherits the parent directory's ACL and `OwnerOnly` is a no-op:
+    // std takes no security descriptor, and narrowing would need `unsafe` (ADR-0047).
     let _ = permissions;
     Ok(file)
 }

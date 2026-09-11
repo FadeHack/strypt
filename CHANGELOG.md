@@ -475,6 +475,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   stripped file is not owner-only**: those filesystems have no Unix permissions, so anyone who can
   read the drive can read it.
 
+- **On Windows, the stripped file has the permissions of the folder it is written to (ADR-0047).**
+  No change in behaviour; this is now permanent rather than pending. Inside your user folder that
+  means you, administrators and SYSTEM. In a shared or public folder, anyone who can read the
+  folder can read the file.
+
 - **No scheduled CI fuzzing, and no OSS-Fuzz for now (ADR-0046).** No change to what strypt
   removes. Long fuzzing runs stay local, because CI jobs cannot run the required 24 hours.
 

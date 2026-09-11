@@ -432,8 +432,8 @@ removable metadata**. These are the properties stage 5's verification pass depen
   where an open handle can block replacement. In-place mode must handle this explicitly
   rather than assuming POSIX behaviour.
 - **Permissions and ownership.** Output must not be created world-readable. Copy-out mode
-  should create files with restrictive permissions by default; on Windows the ACL model
-  differs and needs its own handling.
+  should create files with restrictive permissions by default. On Windows the output keeps
+  the destination directory's inherited ACL (ADR-0047).
 - **Live/amnesic systems (Tails, Qubes-Whonix).** Read-only system filesystem, limited
   writable space, no network. **Temp-file placement deliberately ignores `TMPDIR`** and writes
   beside the destination instead — `rename` is atomic only within a filesystem, and a temp copy
