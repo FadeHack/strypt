@@ -1,0 +1,78 @@
+name: release
+
+# Builds every release target twice and fails unless each pair is byte-identical (ADR-0050).
+# The second build changes the checkout, CARGO_HOME and RUSTUP_HOME, as another machine would.
+# A tag also attests the binaries; publishing them is ADR-0049 item 6.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      prove:
+        description: "Drop the CARGO_HOME remap; the gate must then fail"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04 }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
+          - { target: aarch64-apple-darwin, os: macos-15 }
+          - { target: x86_64-apple-darwin, os: macos-15 }
+          - { target: x86_64-pc-windows-msvc, os: windows-2025 }
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      T: ${{ matrix.target }}
+      PROVE: ${{ inputs.prove == true }}
+    steps:
+      # Actions on the release path are pinned by commit (ADR-0050 decision 4).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: a, persist-credentials: false }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: second checkout, persist-credentials: false }
+
+      - name: Plant a path leak
+        if: env.PROVE == 'true'
+        run: sed -i.bak '/remap-path-prefix=\$CARGO=/d' a/scripts/build-release.sh "second checkout/scripts/build-release.sh"
+
+      - name: Build
+        run: bash a/scripts/build-release.sh "$T" out-a
+      - name: Build again, as another machine would
+        run: |
+          export CARGO_HOME="$RUNNER_TEMP/cargo-b" RUSTUP_HOME="$RUNNER_TEMP/rustup-b"
+          bash "second checkout/scripts/build-release.sh" "$T" out-b
+
+      - name: Compare
+        run: |
+          a=$(ls out-a); b=$(ls out-b)
+          if [ "$a" = "$b" ] && cmp "out-a/$a" "out-b/$b"; then same=true; else same=false; fi
+          if [ "$PROVE" = true ]; then
+            [ $same = false ] || { echo "::error::the gate passed a planted path leak"; exit 1; }
+            echo "the gate caught the planted leak"
+          else
+            [ $same = true ] || { echo "::error::$T is not reproducible"; exit 1; }
+            (command -v sha256sum >/dev/null && sha256sum "out-a/$a") || shasum -a 256 "out-a/$a"
+          fi
+
+      - if: startsWith(github.ref, 'refs/tags/') && env.PROVE != 'true'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with: { subject-path: out-a/* }
+      - if: env.PROVE != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with: { name: "strypt-${{ matrix.target }}", path: out-a/*, if-no-files-found: error }

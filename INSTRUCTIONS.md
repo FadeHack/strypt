@@ -235,6 +235,17 @@ docker run --rm --privileged -v "$PWD":/src:ro -w /src -e CARGO_TARGET_DIR=/tmp/
   sh -c 'cargo build -q -p strypt && scripts/fs-matrix.sh /tmp/t/debug/strypt && scripts/prove-fs-matrix.sh'
 ```
 
+## Release builds
+
+ADR-0050. Release binaries come only from CI's `release` workflow, which builds each target twice
+and fails unless the two match. A local release build embeds your home directory's paths.
+
+```sh
+scripts/build-release.sh aarch64-apple-darwin   # -> target/release-artifacts/strypt-<version>-<target>
+gh workflow run release.yml                      # the gate on all five targets; publishes nothing
+gh workflow run release.yml -f prove=true        # drops a remap; each job passes only if the gate catches it
+```
+
 ## Performance measurement
 
 The numbers in [`docs/PRD.md`](docs/PRD.md) §9. Needs a release binary and ImageMagick.

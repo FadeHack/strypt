@@ -3210,13 +3210,18 @@ Discharges ADR-0049 decision 5 item 4 and ROADMAP Phase 4's reproducible-builds 
 - **A release build embeds its build machine's paths.** `target/release/strypt` holds 82 absolute
   paths naming the local account. They come from panic locations in `~/.cargo/registry` and
   `~/.rustup`, and `strip = true` does not remove them.
-- **Two clean clones built from different directories differ.** `--remap-path-prefix` for the
-  checkout, `CARGO_HOME` and `RUSTUP_HOME` removes every path. That leaves 48 bytes: `LC_UUID` and the
-  code signature over it, because Apple's `ld` hashes object-file paths into the UUID.
-  `-Wl,-oso_prefix,<checkout>/` fixes that; `man ld` documents it as helping "build servers generate
-  identical binaries". With all four flags, both clones produced identical `aarch64-apple-darwin`
-  binaries, and identical `x86_64-apple-darwin` binaries cross-built from arm64. Linux and Windows
-  are unmeasured, since no Docker or Windows host is available here.
+- **Three settings make the bytes independent of the machine:**
+  - `--remap-path-prefix` for `CARGO_HOME`;
+  - `--remap-path-prefix` for std's source. With rust-src installed, std's paths resolve into the
+    toolchain, so they are mapped to the `/rustc/<commit>` that a machine without rust-src embeds;
+  - `-Wl,-oso_prefix,<checkout>/`, because Apple's `ld` hashes object-file paths into `LC_UUID`.
+    `man ld` documents this as helping "build servers generate identical binaries".
+- **Measured with those settings.** `scripts/build-release.sh` produced identical `aarch64-apple-darwin`
+  binaries from two checkouts that also differed in `CARGO_HOME` and `RUSTUP_HOME`, one toolchain
+  with rust-src and one without. It also produced identical `x86_64-apple-darwin` binaries,
+  cross-built from arm64. Dropping the `CARGO_HOME` remap leaked 61 registry paths and broke the
+  match. Cargo already passes workspace paths as relative ones. Linux and Windows are unmeasured,
+  since no Docker or Windows host is available here.
 
 Verified 2026-09-13:
 
@@ -3226,8 +3231,8 @@ Verified 2026-09-13:
   timestamp ([rb-general, 2024-12](https://lists.reproducible-builds.org/pipermail/rb-general/2024-December/003592.html)).
 - `actions/attest` v4 writes a Sigstore-signed SLSA v1 provenance attestation, free on public
   repositories; `gh attestation verify` checks it. `attest-build-provenance` is now a wrapper around it.
-- `macos-15-intel` is GitHub's last x86_64 macOS image, retiring August 2027. `ubuntu-24.04-arm` is
-  free on public repositories.
+- GitHub has announced the end of x86_64 macOS runners in August 2027. `ubuntu-24.04-arm` is free on
+  public repositories.
 - Tails 7 is based on Debian 13.
 - `dist` (formerly cargo-dist) is maintained, at 0.32.0 (2026-05-21).
 
@@ -3237,22 +3242,24 @@ Verified 2026-09-13:
    `scripts/build-release.sh <target>`, which both CI and anyone verifying run. It sets:
    - `--locked`, with the toolchain from `rust-toolchain.toml`;
    - `SOURCE_DATE_EPOCH` to the commit time;
-   - path remaps: the checkout to `/strypt`, `CARGO_HOME` to `/cargo`, `RUSTUP_HOME` to `/rustup`;
+   - path remaps: `CARGO_HOME` to `/cargo`, std's source to `/rustc/<commit>`, and the checkout to
+     `/strypt` for any build-script output;
    - on macOS, `-oso_prefix` for the checkout.
 2. **Five targets.**
    - `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl`: static, so they run on Tails and
      older Debian whatever their glibc, each built on its native runner.
    - `aarch64-apple-darwin`, plus `x86_64-apple-darwin` cross-built on the same arm64 runner, so
-     losing `macos-15-intel` changes nothing.
+     losing Intel runners changes nothing.
    - `x86_64-pc-windows-msvc`.
 
    musl's allocator is slow under thread contention, and strypt runs on one thread. Take
    `measure-performance.sh` on the musl build before the first release; mimalloc is declined because
    it would add a C dependency.
-3. **A reproducibility gate.** The release job builds each target twice, in two directories, and
-   publishes nothing if any pair differs. It must be proven to fail, as every gate must: dropping one
-   remap flag has to turn it red. It proves independence from build path and time on one runner
-   image, not across operating-system images or linker versions, and is described no more broadly.
+3. **A reproducibility gate.** The release job builds each target twice and publishes nothing if any
+   pair differs. The second build uses another checkout, with its own `CARGO_HOME` and `RUSTUP_HOME`.
+   Running the workflow with `prove` drops the `CARGO_HOME` remap, and the gate must then fail. It
+   proves the build does not depend on paths, home directories or build time on one runner image. It
+   says nothing across operating-system images or linker versions, and is described no more broadly.
 4. **Provenance for every artefact.** `actions/attest` signs each binary and `SHA256SUMS`. That
    meets exit criterion 2 even for a target that stops being byte-reproducible. Actions on the
    release path are pinned by commit SHA.
