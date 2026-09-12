@@ -18,11 +18,10 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 3 — hardening, opened 2026-09-05**
+## 2. Current phase: **none open — Phase 3 closed 2026-09-12; Phase 4 needs an opening ADR**
 
-Phases 0, 1 and 2 are complete. **Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05**, all
-four groups landed and all four exit criteria met. **Phase 3 opened the same day (ADR-0043)**;
-`docs/ROADMAP.md` records which deliverables are done — check before referencing any of its artefacts.
+Phases 0 to 3 are complete. **Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05**, all
+four groups landed and all four exit criteria met. **Phase 3 opened the same day (ADR-0043) and closed 2026-09-12** with all seven exit criteria met.
 
 **ADR-0043 rescoped Phase 3 as it opened, and two changes matter before you read `docs/ROADMAP.md`:**
 live-OS validation — "boot Tails and Qubes-Whonix" — is **replaced** by a filesystem-constraints

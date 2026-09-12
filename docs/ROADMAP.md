@@ -635,7 +635,7 @@ comparison against mat2/ExifTool, a `docs/THREAT_MODEL.md` update, and a `CHANGE
 
 ---
 
-## Phase 3 — Hardening *(open; opened 2026-09-05)*
+## Phase 3 — Hardening *(complete; opened 2026-09-05, closed 2026-09-12)*
 
 **Goal.** strypt is defensible under adversarial scrutiny before it is ever pointed at real
 at-risk users' files. Not "it works" but "we can show why you should believe it works."

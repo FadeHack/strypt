@@ -445,7 +445,7 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Changed
 
-- **Phase 3 — hardening — is open (ADR-0043), and none of it is delivered yet.** No change to what
+- **Phase 3 — hardening — is complete (ADR-0043; opened 2026-09-05, closed 2026-09-12).** No change to what
   strypt removes: this phase adds no formats. What changed for users is what the project promises
   to verify. **The planned "boot Tails and Qubes-Whonix" validation is replaced by a
   filesystem-constraints matrix in CI** — a read-only destination, a full volume, `vfat`/`exfat`
