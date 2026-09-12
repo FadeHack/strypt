@@ -201,8 +201,8 @@ Added as each handler lands, from what implementing and testing it actually taug
 from what the specification says ought to be true. §4's general limitations still apply on top
 of everything here.
 
-**Fuzzing notes below that mention a plateau, "still climbing" or ADR-0014 predate ADR-0044, which
-superseded that rule.** Their run facts stand; for certification, see `scripts/fuzz-tally.py`.
+Fuzzing run history is in `CHANGELOG.md` and `target/fuzz-runs/`; certification is
+`scripts/fuzz-tally.py`'s (ADR-0044). Each subsection keeps one line on it.
 
 ### 7.1 PDF (Phase 1)
 
@@ -422,9 +422,7 @@ consequence is documented rather than hidden.
 walker and the Exif reader are written in this repository, under the crate's panic-freedom
 lints, over the shared checked-reading primitive. The residual risks are the ones safe Rust
 still has — a hang or unbounded allocation on a hostile file — which is what the `jpeg` fuzz
-target exists to find. A five-minute run over the seed corpus on 2026-08-19 executed 6.8
-million inputs with no crash, hang, or timeout; that is a smoke test, not the Phase 3 budget
-(ADR-0014).
+target exists to find.
 
 ### 7.3 PNG (Phase 1)
 
@@ -502,9 +500,8 @@ decompressor and feeds it attacker-controlled bytes, and strypt's does not. The 
 is written in this repository, under the crate's panic-freedom lints, over the shared
 checked-reading primitive. CRCs are copied rather than recomputed, so there is no checksum
 code either. The residual risks are the ones safe Rust still has — a hang or unbounded
-allocation on a hostile file — which is what the `png` fuzz target exists to find. A
-90-second run over the seed corpus on 2026-08-19 executed 4.46 million inputs with no crash,
-hang, or timeout; that is a smoke test, not the Phase 3 budget (ADR-0014).
+allocation on a hostile file — which is what the `png` fuzz target exists to find.
+It is punctuated under ADR-0044 (KNOWN_LIMITATIONS).
 
 ---
 
@@ -598,8 +595,7 @@ checked-reading primitive, and it shares the Exif and XMP readers with the JPEG 
 handlers rather than adding parsers of its own. WebP carries no checksums at all, so unlike PNG
 there is not even a CRC field to reason about. The residual risks are the ones safe Rust still
 has — a hang or unbounded allocation on a hostile file — which is what the `webp` fuzz target
-exists to find. A 180-second run over the seed corpus on 2026-08-19 executed 6.99 million inputs with no
-crash, hang, or timeout; that is a smoke test, not the Phase 3 budget (ADR-0014).
+exists to find.
 
 ### 7.5 What real producers showed (Phase 1)
 
@@ -799,16 +795,8 @@ content-type whitelist, and strypt processes it. Two comparison exclusions (`dat
 `create_system`) are justified in the script's own comments; both are values *both* tools
 normalise to a constant.
 
-**Fuzzing — sustained, clean (2026-08-25).** `ooxml` and `zip` each ran **12.00 hours** in the
-four-target run of 2026-08-24/25, after a first clean 12 hours on 2026-08-24. Zero crashes, zero
-hangs, zero OOMs; no artefacts newer than the run marker. `ooxml` reached 2625 edges at 9347
-exec/s, `zip` 1040 edges at 37309 exec/s. Both were re-run deliberately because the container and
-scanner layers moved out from under them when OpenDocument landed — a target that was clean
-before a refactor says nothing about the code after it.
-
-`zip` is the one target in that run that **plateaued**, its last coverage gain at 6519s of
-43205s. `ooxml` was **still climbing at twelve hours** (last gain 36544s), which is Phase 3
-evidence for ADR-0014 rather than a failure of this run.
+**Fuzzing.** `ooxml` and `zip`, clean; re-run when OpenDocument moved the container and scanner
+layers under them.
 
 ### 7.7 OpenDocument — `.odt`, `.ods`, `.odp` (Phase 2)
 
@@ -964,22 +952,7 @@ its omit list. strypt processes that document and removes the object's metadata.
 an embedded chart is an ordinary thing to have, so this is a real difference — and it is one
 data point about one release, not a general claim about either tool.
 
-**Fuzzing — sustained, clean (2026-08-25).** The run this format group owed has been delivered:
-**12.00 hours on `odf`**, alongside `zip`, `ooxml` and `pdf` in parallel — **48.00 CPU-hours
-budgeted and 48.00 delivered**, the four of them clean. `odf` executed **382,180,435 inputs** at
-8846 exec/s, reaching 2487 edges and adding 4850 corpus units, with **zero crashes, zero hangs
-and zero OOMs**: no artefact newer than the run marker, `slowest_unit_time_sec: 0`, peak RSS
-411 MB. `pdf` was included because its two most recent fixes had had only a smoke run; it
-executed 226,228,005 inputs, also clean.
-
-Budget matching delivery is the part worth reading twice. A target that crashes stops early, so
-a run that delivers every hour it budgeted is a run in which nothing died — which is exactly what
-the earlier PDF runs could not say (§7.1).
-
-**`odf` had not plateaued at twelve hours**, its last coverage gain arriving at 39934s of 43205s.
-That is ADR-0014's Phase 3 condition and **not** Phase 1 exit criterion 2, which asks only for a
-sustained run with no crash artefact. Recorded here so the distinction is not re-collapsed later:
-this group's fuzzing debt is cleared; ADR-0014's number for this handler is not yet set.
+**Fuzzing.** `odf`, clean.
 
 ### 7.8 TIFF (Phase 2)
 
@@ -1040,36 +1013,7 @@ including a sweep asserting that no `SYNTHETIC` marker survives any fixture, a b
 check that the picture crossed the rebuild, an every-prefix truncation sweep, and a
 single-byte-flip sweep over every fixture; 14 unit tests in the handler and its tag table.
 
-**Fuzzing — sustained, clean (2026-08-26).** The run this tranche owed has been delivered:
-**12.00 hours on `tiff`**, alongside `detect` in parallel — **24.00 CPU-hours budgeted and 24.00
-delivered**, both clean. `tiff` executed **1,417,537,939 inputs** at 32,812 exec/s, reaching 1217
-edges and adding 11,606 corpus units, with **zero crashes, zero hangs and zero OOMs**: no artefact
-newer than the run marker, `slowest_unit_time_sec: 0`, peak RSS 628 MB. `detect` was included
-because its parser changed in the same work — TIFF now routes to a handler and BigTIFF became its
-own named refusal — and it executed 2,991,380,340 inputs, also clean.
-
-Budget matching delivery is the part worth reading twice, as it was for the 08-25 run. A target
-that crashes stops early, so a run that spends every hour it budgeted is one in which nothing
-died.
-
-**Both targets plateaued, and `tiff` did so decisively.** Its last coverage gain arrived at
-**17,217s of 43,203s** — nothing in the final 60% of the run, 17 new edges in total across 1.4
-billion inputs, the curve flat from 1200 edges at two seconds to 1217 at under five hours.
-`detect` is starker still: its last gain was at **one second**, and it never moved off 194 edges
-through three billion inputs.
-
-**That is ADR-0014 Phase 3 evidence and not a Phase 1 gate, and the distinction matters in an
-unusual direction here.** Every previous plateau note in this document recorded a target that had
-*not* flattened. These two have, which makes them the first per-handler evidence at the opposite
-end from PDF — which has now failed to flatten across two consecutive twelve-hour runs. A flat
-100 CPU-hours for every handler is very unlikely to be the right shape when one handler exhausts
-its grammar in five hours and another is still climbing at twelve.
-
-**It does not license superseding ADR-0014, and has not been used to.** That ADR requires the
-CPU-hour budget **and** a plateau, both; `tiff` has the plateau and 12 of the 100 hours. Setting
-per-handler numbers from measurement needs PDF's flattening run too, which is still owed. Phase 1
-exit criterion 2 — a sustained run with no crash artefact — is what this run answers, and it
-answers it for both targets.
+**Fuzzing.** `tiff`, clean; `detect` re-ran because TIFF changed its routing.
 
 **Measured against other tools on 2026-08-25.** `scripts/tiff-differential.sh` compares strypt
 against **mat2 0.15.0** and **ExifTool 13.55** over all 10 well-formed fixtures: **zero tags
@@ -1157,49 +1101,8 @@ comparison of every image block before and after — made by a **GIF walker writ
 file** rather than borrowed from the crate, so the check cannot pass by the parser agreeing with
 itself. 20 unit tests in the handler.
 
-**Fuzzing — sustained, clean (2026-08-27).** The run this tranche owed has been delivered:
-**12.00 hours on `gif`**, alongside `pdf`, `jpeg`, `png`, `webp` and `detect` in parallel —
-**72.00 CPU-hours budgeted and 72.01 delivered, all six clean**. `gif` executed **1,073,948,408
-inputs** at 24,859 exec/s, reaching 1322 edges and adding 6,104 corpus units, with **zero crashes,
-zero hangs and zero OOMs**: no artefact newer than the run marker, `slowest_unit_time_sec: 0`,
-peak RSS 592 MB. Every target ran the full 43,201 seconds and exited through libFuzzer's own
-`Done` line rather than dying early — the check worth making, because a target that crashes stops
-early, so a run that spends every hour it budgeted is one in which nothing died.
-
-**The first attempt at this run was aborted, and why is worth recording.** It started 2026-08-26
-at 13:54 over `gif detect jpeg png webp`, and `gif` died at 17:01 after 144,505,581 inputs. The
-failure was in the fuzz target, not the handler: the input was a TIFF (`49 49 2A 00`), and these
-targets drive the whole pipeline, so a mutation that reaches another format's magic is dispatched
-to that format's handler. The target then asserted a GIF-shaped invariant — that stripping never
-makes a file larger — against TIFF, which is rebuilt rather than edited and may legitimately grow
-(ADR-0033). The assertion had been correct for every supported format until TIFF landed that
-morning. `png` and `webp` carried the same unguarded assertion; all three now check `detect`
-first, and the triggering input is kept as a seed. The remaining four targets were stopped rather
-than left to finish, because they were running the pre-fix binaries and because that run had no
-`pdf` in it — see `target/fuzz-runs/20260826-135442-aborted/ABORTED.md`. **No handler was wrong
-and no file was ever stripped incorrectly**, but a harness that raises a false alarm costs a
-sustained run, and this one cost seven hours of GIF's twelve.
-
-**This run also answers exit criterion 2 without an interpretation for the first time.** The
-criterion names four targets — `pdf`, `jpeg`, `png`, `webp` — and asks for zero crashes across
-all four after a sustained run. Every previous claim on it rested on one target's clean run plus
-standing evidence for the others; `docs/ROADMAP.md` recorded that gap as an open caveat from
-2026-08-22. All four were in this run, all four ran the full twelve hours, and all four came back
-clean, so the caveat is closed by measurement rather than by argument. `pdf` executed 250,357,511
-inputs, `jpeg` 580,596,344, `png` 969,850,801, `webp` 898,387,838. `detect` was included because
-its parser changed in the same work — GIF now routes to a handler instead of being named as
-unsupported — and it executed 2,606,291,785 inputs, also clean.
-
-**Five of the six had not plateaued at twelve hours, and that is ADR-0014 Phase 3 evidence, not a
-Phase 1 gate.** By the runner's strict rule — any coverage gain in the final stretch counts as
-still climbing — only `detect` flattened, its last gain at **2s of 43,203s** across 2.6 billion
-inputs. The rule is strict enough to be misleading here, and the curves say more than the column
-does: `gif` went from 1321 edges at 19,633s to 1322 at 38,315s, **one edge in its last six and a
-half hours**, and `pdf` from 4609 at 26,534s to 4611 at 39,092s, **two edges in its last three and
-a half**. Both are nearly flat without meeting the test. **`pdf` has now failed to flatten across
-three consecutive twelve-hour runs**, which continues to argue that ADR-0014's flat 100 CPU-hours
-for every handler is the wrong shape — but it still does not license superseding that ADR, which
-requires the CPU-hour budget **and** a plateau, both. Do not cite any of this as a Phase 1 gate.
+**Fuzzing.** `gif`, clean. Its first run aborted on a harness fault, not a handler defect — the
+origin of the per-format `detect()` guard (ROADMAP, Phase 2).
 
 **Measured against other tools on 2026-08-26.** `scripts/gif-differential.sh` compares strypt
 against **mat2 0.15.0** and **ExifTool 13.55** over all 14 well-formed fixtures: **zero tags
@@ -1312,30 +1215,8 @@ Five things about that result need stating rather than leaving implied.
   six of six runs, so it is a quirk of these minimal fixtures meeting that code path, not a
   property of the format.
 
-**Fuzzing — sustained, clean (2026-08-27).** `heif`, `bmff` and `detect` each ran twelve hours in
-parallel — **36.00 CPU-hours budgeted, 36.01 delivered, all three clean**, with **zero crashes,
-zero hangs and zero OOMs**: no artefact newer than the run marker, `slowest_unit_time_sec: 0`
-throughout, peak RSS 923, 628 and 546 MB. All three ran the full 43,201 seconds and exited through
-libFuzzer's own `Done` line rather than dying early — the check worth making, because a target that
-crashes stops early, so a run that spends every hour it budgeted is one in which nothing died.
-Together they executed **5,615,172,697 inputs**: `heif` 182,076,323 at 4,214 exec/s to 3140 edges,
-`bmff` 2,393,879,564 at 55,412 exec/s, and `detect` 3,039,216,810 at 70,350 exec/s. `detect` was
-included because its parser changed: HEIF and AVIF now route by `ftyp` brand instead of being named
-as unsupported. **With that, this tranche meets the Phase 1 bar in full.**
-
-The `heif` target deliberately carries **no "stripping never grows a file" assertion** — this
-handler rebuilds, so growth is legitimate — which is the rule the aborted GIF run of 2026-08-26
-produced.
-
-**The plateau column is ADR-0014 Phase 3 evidence and not a Phase 1 gate**, and this run stretches
-its range at both ends. `heif` was **still climbing**, its last coverage gain at 40,374s of 43,211s,
-and it reached 3140 edges — more than any handler in the tree except PDF, which fits a rebuild
-driven by three allow-lists across two codecs. `bmff` did the opposite: it flattened after **39
-seconds** and then took 2.39 billion further inputs without finding one new edge, the fastest
-plateau this project has measured, which is what a small module with a tiny input grammar looks
-like when it is genuinely saturated. **A flat 100-CPU-hour budget for every target is the wrong
-shape when one saturates in 39 seconds and PDF has not flattened in three consecutive twelve-hour
-runs** — but that argues for revising ADR-0014, and does not license superseding it here.
+**Fuzzing.** `heif` and `bmff`, clean. `heif` carries no "stripping never grows a file" assertion,
+because this handler rebuilds.
 
 ### 7.11 SVG (Phase 2)
 
@@ -1398,15 +1279,9 @@ claim for any of them. The script was **verified able to fail**: run against a p
 it reported 19 gaps. Its `Title`/`Desc` exclusion is paired with a positive assertion that both
 really do survive, so the one softening in the filter is a declared decision rather than a hole.
 
-**Fuzzing — sustained, clean (2026-08-29).** `svg` and `detect` each ran twelve hours: **1,168,301,485
-and 2,970,240,898 inputs, zero crashes, hangs or OOMs**, peak RSS 688 MB and 605 MB, both exiting
-through libFuzzer's own `Done` line rather than dying early. `svg` was still climbing at 41,365s of
-43,202s, so this run clears the tranche's Phase 1 debt and sets no ADR-0014 plateau number — the two
-are different questions. The `svg` target deliberately carries **no "stripping never grows
-a file" assertion** — a `data:` URI is re-encoded through another handler, and TIFF's and HEIF's
-rebuild and may legitimately grow. What replaces it is stronger and is what ADR-0035 §1 promises:
-**a document with nothing to remove comes back byte-identical**, asserted only when `detect` really
-chose SVG, which is the format-guard rule the aborted GIF run of 2026-08-26 produced.
+**Fuzzing.** `svg`, clean. It carries no "never grows" assertion — a `data:` URI is re-encoded
+through another handler, and TIFF and HEIF may grow — but asserts ADR-0035 §1's stronger promise
+instead: a document with nothing to remove comes back byte-identical, guarded by `detect()`.
 
 ---
 
@@ -1476,16 +1351,8 @@ is fair in both directions. The **reverse direction is the interesting one**: Ex
 `Exif`, `xml ` and `brob`, and leaves `jumb`, `jbrd`, `jxli`, `free` and `skip`. A **C2PA manifest
 naming the capture device and the signing identity survives mat2 and does not survive strypt**.
 
-**Fuzzing.** The `jxl` target asserts re-inspect-clean and idempotence on every input that strips,
-plus — because deletion cannot synthesise bytes — that stripping never grows a file, that one
-**guarded by a `detect()` check** that the input really is JXL, which is the rule the aborted GIF
-run of 2026-08-26 produced.
-
-**Sustained, clean (2026-08-30).** `jxl` and `detect` each ran twelve hours: **461,869,797 and
-2,955,406,167 inputs, zero crashes, hangs or OOMs**, peak RSS 759 MB and 592 MB, both exiting
-through libFuzzer's own `Done` line rather than dying early, and no artefact written. `jxl` was
-still climbing at 41,175s of 43,211s, so this run clears the tranche's Phase 1 debt and sets no
-ADR-0014 plateau number — the two are different questions.
+**Fuzzing.** `jxl`, clean but punctuated under ADR-0044 (KNOWN_LIMITATIONS). It asserts
+re-inspect-clean, idempotence, and — guarded by `detect()` — that stripping never grows a file.
 
 ### 7.13 FLAC (Phase 2)
 
@@ -1560,24 +1427,9 @@ mutagen, which knows `VORBIS_COMMENT` and `PICTURE`. An **`APPLICATION` block, a
 a catalogue number and ISRCs, and a reserved block type all survive mat2 and do not survive
 strypt**.
 
-**Fuzzing.** The `flac` target asserts re-inspect-clean and idempotence on every input that strips,
-plus — because deletion cannot synthesise bytes — that stripping never grows a file, that one
-**guarded by a `detect()` check** that the input really is FLAC, which is the rule the aborted GIF
-run of 2026-08-26 produced.
-
-**Sustained, clean (2026-09-01).** `flac` and `detect` each ran twelve hours: **364,442,899 and
-3,106,317,026 inputs, zero crashes, hangs or OOMs**, peak RSS 1,267 MB and 626 MB, both exiting
-through libFuzzer's own `Done` line rather than dying early, and no artefact written. `flac` was
-still climbing at 39,896s of 43,202s, so this run clears the tranche's Phase 1 debt and sets no
-ADR-0014 plateau number — the two are different questions. Its peak RSS is the **highest any target
-has reached** (`jxl` peaked at 759 MB) and sits at 62% of libFuzzer's 2 GB default ceiling; nothing
-hit it, but a future handler sharing this pipeline has less headroom than the earlier numbers
-suggest.
-
-**Re-run, clean (2026-09-03).** ADR-0040 put an ID3 reader in front of this handler, so `flac` ran
-again: **590,410,789 inputs, zero crashes**, and it was still finding new coverage at 41,737s of
-43,200s. Fewer inputs than the 2026-09-01 run because each one now walks the tag peel first — a
-re-run measures the changed handler, not the old number again.
+**Fuzzing.** `flac`, clean, with the same assertions as `jxl`; re-run when `formats/tags.rs` and
+`formats/vorbis.rs` became shared. Its peak RSS, 1,267 MB, is 62% of libFuzzer's 2 GB default, so
+a target sharing this pipeline has less headroom than earlier numbers suggested.
 
 ### 7.14 WAV (Phase 2)
 
@@ -1652,24 +1504,9 @@ every fixture. So the difference between the two tools on this format is in the 
 audio, and **neither reaches the sample values**. The differential compares that payload on every
 run, which is where it will show up if the re-encode ever stops being lossless.
 
-**Fuzzing.** The `wav` target asserts re-inspect-clean and idempotence on every input that strips,
-plus — because deletion cannot synthesise bytes — that stripping never grows a file, that one
-**guarded by a `detect()` check** that the input really is WAV, which is the rule the aborted GIF
-run of 2026-08-26 produced. A second target, `riff`, drives the shared walker directly and asserts
-that what the writer emits the walker reads back, as `zip` and `bmff` do for their containers.
-`webp` is re-run alongside both, because ADR-0039 moved code out of a shipped handler.
-
-**Sustained, clean (2026-09-02).** `wav`, `riff`, `webp` and `detect` each ran twelve hours:
-**1,409,562,055, 3,156,792,583, 824,711,801 and 2,707,768,453 inputs, zero crashes, hangs or
-OOMs**, peak RSS 985 MB, 447 MB, 750 MB and 481 MB, all four exiting through libFuzzer's own `Done`
-line rather than dying early, and no artefact written. `wav` was still climbing at 42,672s of
-43,204s, so this run clears the tranche's Phase 1 debt and sets no ADR-0014 plateau number — the two
-are different questions.
-
-**`webp` was still climbing too, at 41,349s** — on a handler shipped since Phase 1, whose previous
-sustained run flattened. ADR-0039 moved its chunk walk into shared code, and the honest reading is
-that the re-run explored paths the earlier one had not; it found nothing, but it is the reason the
-re-run was required rather than optional, and a later change to `container/riff.rs` owes the same.
+**Fuzzing.** `wav` and `riff`, clean; `riff` drives the shared walker directly and asserts the
+writer's output reads back. `webp` re-ran because ADR-0039 moved its code, and a later change to
+`container/riff.rs` owes the same.
 
 ### 7.15 MP3 (Phase 2)
 
@@ -1754,12 +1591,7 @@ behaviour, and **for those files mat2 is the better recommendation**.
 removed, and a trailing ID3v1, APE or Lyrics3 tag on a FLAC — which used to survive silently under
 that handler's "the frames are not decoded" note — is peeled too. §7.13 covers the rest of FLAC.
 
-**Fuzzing — sustained, clean (2026-09-03).** `mp3`, `tags`, `flac` and `detect` each ran **12.00
-hours** in parallel — 48.00 CPU-hours, **7,273,768,346 inputs**, **zero crashes, hangs or OOMs**,
-peak RSS 722 MB. `tags` is the shared reader, so the run covers the ID3 path FLAC uses as well as
-MP3's. `mp3` and `flac` were **still finding new coverage** at 40,176s and 41,737s of 43,200s: that
-is ADR-0014's Phase 3 plateau question, not Phase 1 exit criterion 2, which asks for a sustained run
-with no crash artefact and is what this run answers.
+**Fuzzing.** `mp3` and `tags`, clean; `tags` covers the ID3 path FLAC uses too.
 
 ---
 
@@ -1850,15 +1682,8 @@ serial number; strypt clears both. In the other direction, **strypt refuses file
 clean** — a multiplexed or chained stream, and a Theora video in an Ogg. Refusing is correct
 fail-closed behaviour, and **for those files mat2 is the better recommendation**.
 
-**Fuzzing — sustained, clean (2026-09-04).** `ogg`, `oggpage`, `flac` and `detect` each ran **12.00
-hours** in parallel — 48.00 CPU-hours, **4,377,342,181 inputs**, **zero crashes, hangs or OOMs**, peak
-RSS 1,161 MB on `ogg`. `flac` is in the run because `formats/vorbis.rs` is shared, so it covers the
-comment path both handlers use. `ogg` and `flac` were **still finding new coverage** at 39,178s and
-40,105s of 43,200s: that is ADR-0014's Phase 3 plateau question, not Phase 1 exit criterion 2, which
-asks for a sustained run with no crash artefact and is what this run answers.
-
-**Certified 2026-09-12 under ADR-0044**, `ogg` and `oggpage` both, with zero crashes, once the
-harness repaired page CRCs (§5.1). Before that, Ogg was the least-fuzzed handler in the tree.
+**Fuzzing.** `ogg` and `oggpage`, certified 2026-09-12 under ADR-0044 once the harness repaired
+page CRCs (§5.1). Before that, Ogg was the least-fuzzed handler in the tree.
 
 ---
 
@@ -1966,13 +1791,7 @@ all three. In the other direction, **mat2's `MP4Parser` registers `video/mp4` an
 — fragmented MP4, and a QuickTime `.mov`. Refusing is correct fail-closed behaviour, and **for those
 files mat2 is the better recommendation**.
 
-**Fuzzing — sustained, clean (2026-09-05).** `mp4`, `bmff`, `heif` and `detect` each ran **12.00
-hours** in parallel — 48.02 CPU-hours delivered, **5,457,344,752 inputs**, **zero crashes, hangs or
-OOMs**, peak RSS 1,050 MB on `mp4`. `bmff` and `heif` are in the run because the shared box walk
-changed, so their earlier clean runs no longer covered the code they exercise. `mp4` and `heif` were
-**still finding new coverage** at 42,908s and 40,136s of 43,200s: that is ADR-0014's Phase 3 plateau
-question, not Phase 1 exit criterion 2, which asks for a sustained run with no crash artefact and is
-what this run answers.
+**Fuzzing.** `mp4`, clean; `bmff` and `heif` re-ran because the shared box walk changed.
 
 ---
 
