@@ -449,6 +449,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   repository goes public first, with GitHub's private vulnerability reporting as the preferred
   security channel; prebuilt binaries follow once builds are reproducible.
 
+- **The reminder that filenames, folder names and visible content are not touched now follows
+  every `show` and `strip`.** It used to appear only when `show` found metadata, so a clean
+  result, the one that leads to publishing, came without it. JSON output is unchanged.
+
 - **Security reports now go through GitHub's private vulnerability reporting**, with email kept for
   reporters without a GitHub account ([`SECURITY.md`](SECURITY.md)).
 

@@ -10,6 +10,8 @@ authors.workspace = true
 readme.workspace = true
 keywords.workspace = true
 categories = ["command-line-utilities", "multimedia::images"]
+# The tests read fixtures from the workspace's `corpus/`, which is not packaged.
+exclude = ["tests/"]
 
 [[bin]]
 name = "strypt"

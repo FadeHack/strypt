@@ -131,6 +131,8 @@ fn main() -> ExitCode {
 struct Outcome {
     /// Whether `show` found anything removable.
     found: bool,
+    /// Whether any file was reported on, rather than failing.
+    reported: bool,
     /// The most serious failure seen so far.
     worst: Failure,
 }
@@ -193,6 +195,7 @@ fn run_show(input: &InputArgs, show_values: bool) -> u8 {
     for path in collect(input, &mut outcome) {
         match inspect_file(&path, limits, &options) {
             Ok(report) => {
+                outcome.reported = true;
                 if report.has_findings() {
                     outcome.found = true;
                 }
@@ -235,6 +238,7 @@ fn run_strip(input: &InputArgs, in_place: bool, output_dir: Option<&Path>, force
 
         match strip_file(&path, &destination, limits, overwrite, &options) {
             Ok(report) => {
+                outcome.reported = true;
                 if input.json {
                     json.push(render::strip_json(&path, &destination, &report));
                 } else {
@@ -338,10 +342,10 @@ fn finish(json: bool, values: &[serde_json::Value], outcome: &Outcome) {
                 "files": values,
             })
         );
-    } else if outcome.found {
+    } else if outcome.reported {
         // A standing reminder rather than a per-file line. strypt reads file contents; the
         // things it cannot see are frequently the ones that identify someone
-        // (docs/THREAT_MODEL.md §4).
+        // (docs/THREAT_MODEL.md §4). Most needed after a clean result, when a user publishes.
         eprintln!(
             "strypt: filenames, folder names, and anything visible in the document itself \
              are not touched."
