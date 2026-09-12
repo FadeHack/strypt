@@ -20,41 +20,17 @@ by default.
 
 ## 2. Current phase: **none open — Phase 3 closed 2026-09-12; Phase 4 needs an opening ADR**
 
-Phases 0 to 3 are complete. **Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05**, all
-four groups landed and all four exit criteria met. **Phase 3 opened the same day (ADR-0043) and closed 2026-09-12** with all seven exit criteria met.
+Phases 0–3 are complete; [`docs/ROADMAP.md`](docs/ROADMAP.md) has the status, and
+[`README.md`](README.md) the format list. Every other format is reported as unsupported, never
+passed through.
 
-**ADR-0043 rescoped Phase 3 as it opened, and two changes matter before you read `docs/ROADMAP.md`:**
-live-OS validation — "boot Tails and Qubes-Whonix" — is **replaced** by a filesystem-constraints
-matrix running in CI, because Tails is x86-64 only and Qubes needs bare-metal IOMMU that this
-project does not have, *and* because the failure modes it was written to catch are already designed
-out in `io.rs`. Tails is an optional confirmatory boot; Qubes-Whonix is deferred. A green matrix is
-**not** "validated on Tails" and must never be written up as such.
+**The scope is locked.** ADR-0027's format list is finished — a format outside it needs a
+superseding ADR, and opening or closing a phase is not an invitation to add one. **"A phase is open" is not
+"scope is open"** (ADR-0043). A green filesystem matrix is **not** "validated on Tails" and must
+never be written up as such (ADR-0043).
 
-`strypt show` and `strypt strip` process PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL,
-FLAC, WAV, MP3, Ogg, MP4, M4A, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every other
-format is reported as unsupported and never passed through untouched.
-
-**The scope is still locked.** ADR-0027's list is finished, not widened — a format outside it needs
-a superseding ADR, and closing a phase is not an invitation to add one. Phase 3 is hardening
-(`docs/ROADMAP.md`), not more formats — **"Phase 3 is open" is not "scope is open"** (ADR-0043).
-
-**Where things stand — read `docs/ROADMAP.md` for the detail, which is not repeated here:**
-
-| | Status |
-|---|---|
-| Group 1 — Office Open XML | ✅ 2026-08-23 |
-| Group 2 — OpenDocument | ✅ 2026-08-24 |
-| Group 3 — TIFF / GIF / HEIF+AVIF | ✅ 2026-08-26, 08-27, 08-27 |
-| Group 3 — SVG | ✅ 2026-08-29 |
-| Group 3 — JPEG XL | ✅ 2026-08-30 |
-| Group 4 — FLAC | ✅ 2026-09-01 |
-| Group 4 — WAV | ✅ 2026-09-02 |
-| Group 4 — MP3 | ✅ 2026-09-03 |
-| Group 4 — Ogg | ✅ 2026-09-04 |
-| Group 4 — MP4 | ✅ 2026-09-05 |
-
-**Check before referencing a later-phase artefact.** Nothing beyond the above exists. That rule
-applies *within* this phase as well as across phases.
+**Check before referencing a later-phase artefact.** If ROADMAP does not mark it done, it does not
+exist.
 
 ### Required reading before touching a handler
 
@@ -77,8 +53,7 @@ applies *within* this phase as well as across phases.
 - **ADR-0039 (WAV + RIFF)** — answers ADR-0037's open question: the RIFF walk now lives in
   `container/riff.rs` and is shared with WebP, so **a change there changes WebP too**. WAV is edited
   by chunk surgery because `cue `'s offsets index the wave list's data section, not the file. Two
-  things to know: `cue ` is kept although ExifTool calls it metadata, and `id3 ` is dropped unread —
-  no ID3 reader enters the tree before tranche 3.
+  things to know: `cue ` is kept although ExifTool calls it metadata, and `id3 ` is dropped unread.
 - **ADR-0040 (MP3 + tags)** — the one format that is **not a container**: no header, no index, just
   frames with tags glued to each end. Edited by deletion at both ends; there is no allow-list because
   the frames are the payload, so the *boundary* is the whole safety argument — a tag length is refused
@@ -117,23 +92,10 @@ applies *within* this phase as well as across phases.
 
 ### Closed does not mean unqualified
 
-Read these before repeating "Phase 1 is done" anywhere user-facing. Each is a real limit:
-
-- No committed real-producer fixture exists (ADR-0025 decided that deliberately; the build script
-  and manifests are committed and rebuild the corpus). JPEG real-producer coverage depends on
-  `ianare/exif-samples`, which is archived and unlicensed, so it cannot be mirrored.
-- Recorded capability gaps stand: the JPEG `APP14` marker mat2 removes, and the 19-byte-xref PDF
-  strypt refuses and mat2 strips. Refusing is correct fail-closed behaviour, and **mat2 is the
-  better recommendation for that file**.
-- Performance is measured on one machine. Linux and Windows are unmeasured.
-- **Panics inside `lopdf` are contained, not eliminated (ADR-0024).** Calls go through
-  `strypt_core::panic_guard`. Read that module's header before trusting it: it cannot catch a stack
-  overflow or an abort, it needs unwinding panics (so **do not set `panic = "abort"`**), and it says
-  nothing about a dependency returning a wrong answer quietly.
-
-Every handler carries deliberate limitations of its own — what is out of reach, what is refused,
-what is kept on purpose. They live in `docs/THREAT_MODEL.md` §7, one subsection per format, and
-that is the document to read before making a claim about what strypt removes.
+Read [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) before repeating "Phase N is done"
+anywhere user-facing, and THREAT_MODEL §7 before claiming what strypt removes. **Panics inside
+`lopdf` are contained, not eliminated (ADR-0024)** — read `panic_guard`'s header first, and
+**do not set `panic = "abort"`**.
 
 ### Premise correction — settled, and binding (ADR-0012)
 
