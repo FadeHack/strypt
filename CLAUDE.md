@@ -18,9 +18,10 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **none open — Phase 3 closed 2026-09-12; Phase 4 needs an opening ADR**
+## 2. Current phase: **Phase 4 — Distribution** (opened 2026-09-12, ADR-0049)
 
-Phases 0–3 are complete; [`docs/ROADMAP.md`](docs/ROADMAP.md) has the status, and
+Phases 0–3 are complete. ADR-0049 decision 5 sets Phase 4's deliverable order;
+[`docs/ROADMAP.md`](docs/ROADMAP.md) has the status, and
 [`README.md`](README.md) the format list. Every other format is reported as unsupported, never
 passed through.
 

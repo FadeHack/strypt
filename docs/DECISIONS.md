@@ -3120,3 +3120,75 @@ Discharges Phase 3 deliverable 8 and meets exit criterion 4. Answers ARCHITECTUR
 - **If adopted, start with** Landlock plus seccomp on Linux, applied in-process once the input and
   the temporary file are open. Treat it as defence for one platform and do not describe it as
   cross-platform.
+
+---
+
+## ADR-0049 — Phase 4 opens, and the repository goes public on its existing history
+
+**Status:** Accepted (2026-09-12)
+
+Settles `docs/ROADMAP.md` Phase 4's three opening-ADR inputs. **Amends ADR-0046**'s smoke-job scope.
+
+**Context.** Phase 3 closed 2026-09-12. Release downloads, a Homebrew tap and private vulnerability
+reporting (PVR) all need a public repository, so its prerequisites come first. Every commit and every
+blob, binaries included, was audited on 2026-09-12:
+
+- **Commit metadata** carries the owner's personal address and a fixed UTC offset. The owner accepts
+  both as public.
+- **The local account name** appears once in `real-producer-corpus/real-corpus/MANIFEST.csv`.
+  `build_real_corpus.py` copies `identify`'s raw output, and that output quotes an absolute path. The
+  name also appears in a since-deleted `.codex/hooks.json`.
+- **Origin** holds only `refs/heads/main`, with no pull-request refs, so going public exposes nothing
+  beyond `main`.
+
+Verified 2026-09-12:
+
+- Changing visibility leaves commits, branches and tags unchanged.
+- Private forks are detached and stay private.
+- PVR is available on public repositories only.
+- Standard runners are free and unlimited on public repositories, with 4 vCPU on Linux x64 and arm64.
+  The 6-hour job cap and the Free plan's 20 concurrent jobs still apply.
+- homebrew-core requires a stable tagged release, and a notability bar that is higher for
+  self-submitted software ([Homebrew/brew#21923](https://github.com/Homebrew/brew/pull/21923),
+  merged 2026-04-05).
+
+**Decision.**
+
+1. **Phase 4 is open**, and its deliverables and exit criteria stand as written. As under ADR-0043,
+   "a phase is open" is not "scope is open": no formats are added.
+2. **History is not rewritten** (input 1). The existing repository's visibility is flipped.
+   - `build_real_corpus.py` writes paths relative to the corpus root, and `MANIFEST.csv` is
+     regenerated.
+   - The account name stays in history, by the owner's decision.
+   - No CI gate checks for local paths. Review is the defence.
+3. **`SECURITY.md`** (input 2):
+   - PVR is enabled at the flip and becomes the preferred channel. Email stays as the fallback for
+     reporters without a GitHub account.
+   - Before the flip, the owner sends the address a test report from an unrelated account and confirms
+     it arrived and did not land in spam.
+   - The "not available" limit is rewritten in the flip commit.
+4. **ADR-0046** (input 3):
+   - After the flip, the fuzz smoke job covers all 22 targets, as a 60-second matrix.
+   - ADR-0046 is otherwise unchanged. No job can run ADR-0044's 24 hours, so certification stays local.
+   - OSS-Fuzz stays declined until Phase 4 closes, because being public does not meet its criteria.
+5. **Deliverable order:**
+   1. manifest path fix and email drill (2, 3);
+   2. flip to public, with PVR and the wider smoke job (3, 4);
+   3. reproducible builds with provenance, in their own ADR, before any binary ships — traceability
+      cannot be retrofitted onto a release;
+   4. signing, in its own ADR, alongside 3, because its outcome shapes the README's verification steps;
+   5. GitHub Releases for the five targets, with SHA256 checksums;
+   6. Homebrew, as a project tap, since homebrew-core's notability bar excludes a new repository;
+   7. `.deb`, opening with ROADMAP's own question of whether it reaches Tails and Qubes-Whonix users
+      (ADR-0043's `.deb` caveat binds);
+   8. README and `INSTRUCTIONS.md` finalised, with the banner and demo;
+   9. clean-machine install tests (exit criterion 4), last, because they test 8.
+
+**Consequences.**
+
+- **Anyone who reads the history sees the commit address, the UTC offset and the account name.**
+  These were accepted on 2026-09-12. Once the repository is public, a later rewrite cannot unpublish
+  them.
+- **Nothing mechanical stops the next absolute path.** The manifest fix removes one source, but any
+  tool that quotes a path into a committed file can repeat it.
+- **Commit IDs are unchanged**, so the SHAs cited in the docs and in `target/fuzz-runs/` stay valid.

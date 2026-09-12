@@ -1,7 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–3 complete; **Phase 4 not opened** — it needs an opening ADR · **Last
-updated:** 2026-09-12
+**Status:** Phases 0–3 complete; **Phase 4 open** (ADR-0049) · **Last updated:** 2026-09-12
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -105,7 +104,10 @@ permanent. Criteria 1, 2 and 6 stay met only while the next batch and those CI j
 
 ---
 
-## Phase 4 — Distribution
+## Phase 4 — Distribution *(open; opened 2026-09-12)*
+
+Opened by ADR-0049, which settles the three inputs below and sets the deliverable order: the public
+repository first, reproducible builds before any binary ships.
 
 **Goal.** A person can install and run strypt without a Rust toolchain, through channels that
 do not themselves undermine the trust model.
@@ -150,7 +152,7 @@ do not themselves undermine the trust model.
   demo made from synthetic fixtures, both stripped by strypt before committing.
 - **The repository made public.**
 
-**Inputs to the Phase 4 opening ADR.**
+**Inputs to the Phase 4 opening ADR** — all three settled by ADR-0049.
 - A privacy check of git history and commit author emails before the repository goes public.
 - `SECURITY.md`'s reporting channel — confirm it works for a public repository.
 - Revisiting ADR-0046: an all-targets CI fuzz job becomes affordable once the repository is public.
