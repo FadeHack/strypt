@@ -3173,16 +3173,20 @@ Verified 2026-09-12:
    - OSS-Fuzz stays declined until Phase 4 closes, because being public does not meet its criteria.
 5. **Deliverable order:**
    1. manifest path fix and email drill (2, 3);
-   2. flip to public, with PVR and the wider smoke job (3, 4);
-   3. reproducible builds with provenance, in their own ADR, before any binary ships — traceability
+   2. README banner and `strypt show` demo, before the flip so first visitors see them. The demo is a
+      static image rendered by a script from the real binary on synthetic fixtures, so it can be
+      regenerated when the output changes. Both images have a neutral prompt and are stripped by
+      strypt before commit;
+   3. flip to public, with PVR and the wider smoke job (3, 4);
+   4. reproducible builds with provenance, in their own ADR, before any binary ships — traceability
       cannot be retrofitted onto a release;
-   4. signing, in its own ADR, alongside 3, because its outcome shapes the README's verification steps;
-   5. GitHub Releases for the five targets, with SHA256 checksums;
-   6. Homebrew, as a project tap, since homebrew-core's notability bar excludes a new repository;
-   7. `.deb`, opening with ROADMAP's own question of whether it reaches Tails and Qubes-Whonix users
+   5. signing, in its own ADR, alongside 4, because its outcome shapes the README's verification steps;
+   6. GitHub Releases for the five targets, with SHA256 checksums;
+   7. Homebrew, as a project tap, since homebrew-core's notability bar excludes a new repository;
+   8. `.deb`, opening with ROADMAP's own question of whether it reaches Tails and Qubes-Whonix users
       (ADR-0043's `.deb` caveat binds);
-   8. README and `INSTRUCTIONS.md` finalised, with the banner and demo;
-   9. clean-machine install tests (exit criterion 4), last, because they test 8.
+   9. README and `INSTRUCTIONS.md` finalised with install paths and checksum verification;
+   10. clean-machine install tests (exit criterion 4), last, because they test 9.
 
 **Consequences.**
 
