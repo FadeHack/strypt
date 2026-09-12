@@ -139,9 +139,11 @@ do not themselves undermine the trust model.
   particular service. macOS notarisation and Windows Authenticode have real cost and
   identity requirements that may conflict with a pseudonymous maintainer; if signing is not
   adopted, document why and make checksum verification prominent instead.
+  *Settled by ADR-0051: no Apple Developer ID; Windows through SignPath after the first release.*
 - **Reproducible builds**: every published binary traceable to the exact source commit, ideally
   byte-reproducible. For a tool asking to be trusted by at-risk users, "you can verify this
   binary came from this source" is a core feature, not packaging polish.
+  *Designed by ADR-0050; not yet delivered.*
 - A Homebrew formula.
 - At least one native Linux package format. **`.deb` is the leading candidate** because both
   Tails and Qubes-Whonix are Debian-based — but confirm at phase start that this transfers

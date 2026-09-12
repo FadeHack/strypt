@@ -3196,3 +3196,123 @@ Verified 2026-09-12:
 - **Nothing mechanical stops the next absolute path.** The manifest fix removes one source, but any
   tool that quotes a path into a committed file can repeat it.
 - **Commit IDs are unchanged**, so the SHAs cited in the docs and in `target/fuzz-runs/` stay valid.
+
+---
+
+## ADR-0050 — Release binaries are built reproducibly, by one script, never on a personal machine
+
+**Status:** Accepted (2026-09-13)
+
+Discharges ADR-0049 decision 5 item 4 and ROADMAP Phase 4's reproducible-builds deliverable.
+
+**Context.** Measured 2026-09-13 on macOS arm64 with the pinned 1.97.1:
+
+- **A release build embeds its build machine's paths.** `target/release/strypt` holds 82 absolute
+  paths naming the local account. They come from panic locations in `~/.cargo/registry` and
+  `~/.rustup`, and `strip = true` does not remove them.
+- **Two clean clones built from different directories differ.** `--remap-path-prefix` for the
+  checkout, `CARGO_HOME` and `RUSTUP_HOME` removes every path. That leaves 48 bytes: `LC_UUID` and the
+  code signature over it, because Apple's `ld` hashes object-file paths into the UUID.
+  `-Wl,-oso_prefix,<checkout>/` fixes that; `man ld` documents it as helping "build servers generate
+  identical binaries". With all four flags, both clones produced identical `aarch64-apple-darwin`
+  binaries, and identical `x86_64-apple-darwin` binaries cross-built from arm64. Linux and Windows
+  are unmeasured, since no Docker or Windows host is available here.
+
+Verified 2026-09-13:
+
+- Cargo's `trim-paths` is still unstable ([cargo#12137](https://github.com/rust-lang/cargo/issues/12137)),
+  so rustc's `--remap-path-prefix` is the stable route.
+- rustc passes `/Brepro` to the MSVC linker when `SOURCE_DATE_EPOCH` is set, which clears the PE
+  timestamp ([rb-general, 2024-12](https://lists.reproducible-builds.org/pipermail/rb-general/2024-December/003592.html)).
+- `actions/attest` v4 writes a Sigstore-signed SLSA v1 provenance attestation, free on public
+  repositories; `gh attestation verify` checks it. `attest-build-provenance` is now a wrapper around it.
+- `macos-15-intel` is GitHub's last x86_64 macOS image, retiring August 2027. `ubuntu-24.04-arm` is
+  free on public repositories.
+- Tails 7 is based on Debian 13.
+- `dist` (formerly cargo-dist) is maintained, at 0.32.0 (2026-05-21).
+
+**Decision.**
+
+1. **Byte-reproducible, not only traceable.** Every release artefact is built by
+   `scripts/build-release.sh <target>`, which both CI and anyone verifying run. It sets:
+   - `--locked`, with the toolchain from `rust-toolchain.toml`;
+   - `SOURCE_DATE_EPOCH` to the commit time;
+   - path remaps: the checkout to `/strypt`, `CARGO_HOME` to `/cargo`, `RUSTUP_HOME` to `/rustup`;
+   - on macOS, `-oso_prefix` for the checkout.
+2. **Five targets.**
+   - `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl`: static, so they run on Tails and
+     older Debian whatever their glibc, each built on its native runner.
+   - `aarch64-apple-darwin`, plus `x86_64-apple-darwin` cross-built on the same arm64 runner, so
+     losing `macos-15-intel` changes nothing.
+   - `x86_64-pc-windows-msvc`.
+
+   musl's allocator is slow under thread contention, and strypt runs on one thread. Take
+   `measure-performance.sh` on the musl build before the first release; mimalloc is declined because
+   it would add a C dependency.
+3. **A reproducibility gate.** The release job builds each target twice, in two directories, and
+   publishes nothing if any pair differs. It must be proven to fail, as every gate must: dropping one
+   remap flag has to turn it red. It proves independence from build path and time on one runner
+   image, not across operating-system images or linker versions, and is described no more broadly.
+4. **Provenance for every artefact.** `actions/attest` signs each binary and `SHA256SUMS`. That
+   meets exit criterion 2 even for a target that stops being byte-reproducible. Actions on the
+   release path are pinned by commit SHA.
+5. **No release binary is built on a personal machine.** The 82 paths are why. Local
+   `cargo build --release` is unchanged.
+6. **`dist` is declined.** Its value is generated workflows and installer scripts. strypt needs
+   neither, and every action it adds is supply-chain surface on the release path.
+
+**Consequences.**
+
+- **A toolchain bump changes every hash.** It is recorded in `CHANGELOG.md`, and a verifier must
+  use the release's own `rust-toolchain.toml`.
+- **Signing will change the bytes.** An embedded Authenticode or Developer ID signature alters the
+  binary, so ADR-0051 must say what a verifier compares.
+- **Linux and Windows reproducibility is a claim until the gate first runs green.** Until then it
+  must not appear in user-facing text.
+
+---
+
+## ADR-0051 — No Apple Developer ID; Windows signing through SignPath after the first release
+
+**Status:** Accepted (2026-09-13)
+
+Discharges ADR-0049 decision 5 item 5, ROADMAP Phase 4's signing deliverable, and its "signing
+identity versus maintainer privacy" risk.
+
+**Context.** Verified 2026-09-13:
+
+- **Apple.** The Developer Program costs $99 a year, and enrolment needs your legal name. A Developer
+  ID certificate is named `Developer ID Application: <name> (<Team ID>)`, and `codesign` reads that
+  name from every binary signed with it.
+- **Gatekeeper checks quarantined files only.** `curl` does not quarantine a download, and Homebrew
+  formula installs are not affected. A browser download is quarantined. Since macOS 15, the
+  Control-click override is gone, and the user must approve the file in System Settings → Privacy &
+  Security.
+- **Azure Artifact Signing** costs $9.99 a month. Individual public-trust identities are limited to
+  the US and Canada.
+- **SignPath Foundation** signs free for OSI-licensed projects with no proprietary parts. The
+  certificate is issued to SignPath Foundation, which is named as the publisher. The project must
+  already be released in the form to be signed, built verifiably from source.
+
+**Decision.**
+
+1. **No Apple Developer ID.** A legal name in every binary conflicts with a pseudonymous
+   maintainer, and the fee recurs. macOS binaries carry only the linker's ad-hoc signature, which
+   Apple Silicon requires and which ADR-0050 reproduces byte for byte. The finalised README (ADR-0049
+   item 9) recommends Homebrew or `curl`, and describes the System Settings step for a browser
+   download. It must not tell anyone to turn Gatekeeper off.
+2. **Windows ships unsigned in the first release, then SignPath is applied for.** If SignPath
+   accepts, an amendment here settles what a verifier compares, because an embedded Authenticode
+   signature changes the bytes ADR-0050 reproduces. Azure is declined because of its identity
+   requirement and its region limit.
+3. **Verification rests on provenance and checksums on every platform** (ADR-0050 decision 4). The
+   README makes `gh attestation verify` and `SHA256SUMS` prominent, which is ROADMAP's mitigation for
+   an unsigned download.
+
+**Consequences.**
+
+- **Windows SmartScreen may warn about the unsigned binary**, at least until SignPath signs it.
+- **A macOS browser download needs one extra approval step.** The README must explain it without
+  weakening the user's defaults.
+- **Revisitable.** A Developer ID can be added later without affecting earlier releases, if the
+  maintainer's situation changes.

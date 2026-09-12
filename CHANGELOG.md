@@ -469,6 +469,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   three phases behind, still cited ADR-0014's superseded fuzzing rule, and omitted CI's
   `--all-features` test run and MSRV build. Differential results live in THREAT_MODEL §7.
 
+- **How release binaries will be built and signed is decided (ADR-0050, ADR-0051).** No release
+  yet. CI will build each binary twice and publish it only if the two builds match, with a signed
+  provenance record and a SHA256 checksum. macOS binaries will not carry an Apple Developer ID;
+  Windows signing through SignPath Foundation follows the first release.
+
 - **The CLI's contract is tested end to end** (TESTING_STRATEGY §2.2): exit codes, the JSON schema,
   stdout and stderr, and that strypt never changes an input, overwrites without `--force`, follows a
   symlink, or prints values unasked. 21 tests, each safety test shown to fail against a planted bug.
