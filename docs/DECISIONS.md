@@ -3227,8 +3227,9 @@ Verified 2026-09-13:
 
 - Cargo's `trim-paths` is still unstable ([cargo#12137](https://github.com/rust-lang/cargo/issues/12137)),
   so rustc's `--remap-path-prefix` is the stable route.
-- rustc passes `/Brepro` to the MSVC linker when `SOURCE_DATE_EPOCH` is set, which clears the PE
-  timestamp ([rb-general, 2024-12](https://lists.reproducible-builds.org/pipermail/rb-general/2024-December/003592.html)).
+- ~~rustc passes `/Brepro` to the MSVC linker when `SOURCE_DATE_EPOCH` is set.~~ **Wrong,
+  corrected 2026-09-13:** only rustc's bootstrap passes it, and the first gate run failed on the PE
+  timestamp. The script passes `/Brepro` itself.
 - `actions/attest` v4 writes a Sigstore-signed SLSA v1 provenance attestation, free on public
   repositories; `gh attestation verify` checks it. `attest-build-provenance` is now a wrapper around it.
 - GitHub has announced the end of x86_64 macOS runners in August 2027. `ubuntu-24.04-arm` is free on
@@ -3244,7 +3245,7 @@ Verified 2026-09-13:
    - `SOURCE_DATE_EPOCH` to the commit time;
    - path remaps: `CARGO_HOME` to `/cargo`, std's source to `/rustc/<commit>`, and the checkout to
      `/strypt` for any build-script output;
-   - on macOS, `-oso_prefix` for the checkout.
+   - on macOS, `-oso_prefix` for the checkout; on Windows, `/Brepro`.
 2. **Five targets.**
    - `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl`: static, so they run on Tails and
      older Debian whatever their glibc, each built on its native runner.

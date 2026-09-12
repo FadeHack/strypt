@@ -30,8 +30,9 @@ flags=(
 )
 # Apple's ld hashes object-file paths into LC_UUID; --remap-path-prefix does not reach it.
 [[ $TARGET == *-apple-darwin ]] && flags+=("-Clink-arg=-Wl,-oso_prefix,$SRC/")
+# link.exe stamps the PE header with the link time; rustc never passes /Brepro itself.
+[[ $TARGET == *-windows-msvc ]] && flags+=("-Clink-arg=/Brepro")
 
-# Makes rustc pass /Brepro on MSVC, which zeroes the PE timestamp.
 SOURCE_DATE_EPOCH=$(git -C "$ROOT" log -1 --format=%ct)
 export SOURCE_DATE_EPOCH
 # The unit separator lets a path contain spaces, which RUSTFLAGS cannot.

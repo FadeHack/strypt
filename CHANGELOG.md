@@ -473,7 +473,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   yet. CI will build each binary twice and publish it only if the two builds match, with a signed
   provenance record and a SHA256 checksum. macOS binaries will not carry an Apple Developer ID;
   Windows signing through SignPath Foundation follows the first release. `scripts/build-release.sh`
-  and the `release` workflow implement the build and its gate.
+  and the `release` workflow implement the build and its gate. The gate's first run caught Windows
+  stamping the link time into the binary.
 
 - **The CLI's contract is tested end to end** (TESTING_STRATEGY §2.2): exit codes, the JSON schema,
   stdout and stderr, and that strypt never changes an input, overwrites without `--force`, follows a

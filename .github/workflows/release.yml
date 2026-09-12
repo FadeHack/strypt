@@ -64,6 +64,8 @@ jobs:
           if [ "$a" = "$b" ] && cmp "out-a/$a" "out-b/$b"; then same=true; else same=false; fi
           if [ "$PROVE" = true ]; then
             [ $same = false ] || { echo "::error::the gate passed a planted path leak"; exit 1; }
+            # Any difference fails the gate, so check this one is the planted leak.
+            grep -qa cargo-b "out-b/$b" || { echo "::error::the builds differ, but not by the leak"; exit 1; }
             echo "the gate caught the planted leak"
           else
             [ $same = true ] || { echo "::error::$T is not reproducible"; exit 1; }
