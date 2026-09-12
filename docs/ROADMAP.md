@@ -146,7 +146,8 @@ do not themselves undermine the trust model.
   cleanly to the actual distribution path (Debian proper has its own packaging process and
   timelines, and inclusion in a derivative is not automatic).
 - **The README finalised for a public audience** — install paths, checksum verification, and the
-  status line brought up to date with what this phase delivers.
+  status line brought up to date with what this phase delivers. Add a banner and a `strypt show`
+  demo made from synthetic fixtures, both stripped by strypt before committing.
 - **The repository made public.**
 
 **Inputs to the Phase 4 opening ADR.**
