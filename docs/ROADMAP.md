@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–3 complete; **Phase 4 open** (ADR-0049) · **Last updated:** 2026-09-12
+**Status:** Phases 0–3 complete; **Phase 4 open** (ADR-0049) · **Last updated:** 2026-09-13
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -143,7 +143,7 @@ do not themselves undermine the trust model.
 - **Reproducible builds**: every published binary traceable to the exact source commit, ideally
   byte-reproducible. For a tool asking to be trusted by at-risk users, "you can verify this
   binary came from this source" is a core feature, not packaging polish.
-  *Designed by ADR-0050; not yet delivered.*
+  *ADR-0050's gate first ran green on all five targets 2026-09-13. Delivered when a release ships.*
 - A Homebrew formula.
 - At least one native Linux package format. **`.deb` is the leading candidate** because both
   Tails and Qubes-Whonix are Debian-based — but confirm at phase start that this transfers

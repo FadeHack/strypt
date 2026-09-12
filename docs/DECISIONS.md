@@ -3275,8 +3275,14 @@ Verified 2026-09-13:
   use the release's own `rust-toolchain.toml`.
 - **Signing will change the bytes.** An embedded Authenticode or Developer ID signature alters the
   binary, so ADR-0051 must say what a verifier compares.
-- **Linux and Windows reproducibility is a claim until the gate first runs green.** Until then it
-  must not appear in user-facing text.
+- **The gate first ran green on 2026-09-13**, at `b710b8d`: all five targets
+  ([run 34719784195](https://github.com/FadeHack/strypt/actions/runs/34719784195)). The prove run
+  ([34719785986](https://github.com/FadeHack/strypt/actions/runs/34719785986)) found the planted path
+  in all five. The four non-Windows hashes matched a run of the previous commit on other runners.
+  Windows needed `/Brepro` first.
+- **A verifier needs the release's toolchain, not only its commit.** A local build on macOS 26 with ld-1230
+  differed from CI's ld-1167 build: every section had the same size, but the data was laid out in a
+  different order. Each release must name its runner image and linker version.
 
 ---
 
