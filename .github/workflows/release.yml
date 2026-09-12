@@ -2,7 +2,7 @@ name: release
 
 # Builds every release target twice and fails unless each pair is byte-identical (ADR-0050).
 # The second build changes the checkout, CARGO_HOME and RUSTUP_HOME, as another machine would.
-# A tag also attests the binaries; publishing them is ADR-0049 item 6.
+# A tag also attests the binaries and drafts a GitHub Release, which the owner publishes (ADR-0049 item 6).
 on:
   push:
     tags: ["v*"]
@@ -78,3 +78,74 @@ jobs:
       - if: env.PROVE != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: "strypt-${{ matrix.target }}", path: out-a/*, if-no-files-found: error }
+
+      # A verifier needs the same image and linker, not only the commit (ADR-0050).
+      - name: Record the toolchain
+        if: env.PROVE != 'true'
+        run: |
+          case $T in
+            *-apple-darwin) l=$(ld -v 2>&1 | head -1) ;;
+            *-linux-*) l=$(ld --version | head -1) ;;
+            *) l="Visual Studio $("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property catalog_productDisplayVersion)" ;;
+          esac
+          mkdir meta; printf '| `%s` | %s %s | %s |\n' "$T" "$ImageOS" "$ImageVersion" "$l" > "meta/$T.md"
+      - if: env.PROVE != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with: { name: "meta-${{ matrix.target }}", path: meta/*, if-no-files-found: error }
+
+  release:
+    needs: build
+    if: inputs.prove != true
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: { pattern: "strypt-*", path: dist, merge-multiple: true }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: { pattern: "meta-*", path: meta, merge-multiple: true }
+
+      - name: Checksums and notes
+        run: |
+          cd dist
+          [ "$(ls | wc -l)" = 5 ] || { echo "::error::expected five binaries"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            v=${GITHUB_REF_NAME#v}
+            [ "$(ls strypt-"$v"-* | wc -l)" = 5 ] || { echo "::error::$GITHUB_REF_NAME does not match the crate version"; exit 1; }
+          fi
+          sha256sum -- * > ../SHA256SUMS && mv ../SHA256SUMS .
+          {
+            echo "Built from \`$GITHUB_SHA\` by \`scripts/build-release.sh\`; each binary was built twice, byte-identical."
+            echo
+            echo '```sh'
+            echo "sha256sum -c SHA256SUMS --ignore-missing"
+            echo "gh attestation verify <file> -R $GITHUB_REPOSITORY"
+            echo '```'
+            echo
+            echo "To rebuild, use this commit's \`rust-toolchain.toml\` on the same image and linker:"
+            echo
+            echo "| Target | Runner image | Linker |"
+            echo "|---|---|---|"
+            cat ../meta/*.md
+          } > ../notes.md
+          cat SHA256SUMS ../notes.md
+
+      - if: github.ref_type == 'tag'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with: { subject-path: dist/SHA256SUMS }
+      - name: Draft the release
+        if: github.ref_type == 'tag'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: >
+          gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --draft --verify-tag
+          --title "strypt $GITHUB_REF_NAME" --notes-file notes.md dist/*
+      - if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-preview
+          path: |
+            dist/SHA256SUMS
+            notes.md
