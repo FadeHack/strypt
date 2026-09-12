@@ -72,7 +72,9 @@ FILES = [
 ]
 
 def run(*args):
-    return subprocess.run(args, text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+    out = subprocess.run(args, text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+    # exiftool's and identify's warnings quote absolute paths, and MANIFEST.csv is committed.
+    return out.replace(f"{CORPUS}/", "").replace(f"{ROOT}/", "")
 
 def acquire():
     CACHE.mkdir(exist_ok=True)
