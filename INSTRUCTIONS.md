@@ -322,6 +322,15 @@ Requires ImageMagick, which it uses to synthesise realistically-sized inputs; th
 when machine load is high relative to core count — numbers taken under load are pessimistic,
 which is the direction nobody thinks to double-check.
 
+## README images
+
+`docs/assets/demo.svg` is rendered from the real release binary on `corpus/jpeg/exif-gps.jpg`;
+re-run after any change to CLI output. The script then strips both README images with strypt.
+
+```sh
+python3 scripts/render-demo.py
+```
+
 ## Test fixtures
 
 ```sh

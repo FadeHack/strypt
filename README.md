@@ -1,6 +1,4 @@
-# strypt
-
-**Remove hidden metadata from files before you share them.**
+<img src="docs/assets/banner.svg" alt="strypt — remove hidden metadata from files before you share them" width="100%">
 
 Photos carry GPS coordinates and camera serial numbers. PDFs carry author names, organisation
 names, and editing timestamps. Word documents carry all of that plus the editing sessions they
@@ -16,6 +14,10 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 
 <!-- Badge placeholders — activate in Phase 4 -->
 <!-- [![CI](…)](…) [![crates.io](…)](…) [![License](…)](…) -->
+
+<img src="docs/assets/demo.svg" alt="strypt strip removes a photo's GPS, serial number and author, and strypt show then finds nothing">
+
+<sub>A synthetic test photo from <code>corpus/</code>; its GPS, serial number and author are invented.</sub>
 
 ## Formats
 

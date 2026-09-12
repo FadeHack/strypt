@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="t">
+<title id="t">strypt — remove hidden metadata from files before you share them</title>
+<rect width="1280" height="320" rx="16" fill="#0d1117"/>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace">
+<text x="80" y="150" font-size="96" font-weight="700" fill="#f0f6fc">strypt</text>
+<text x="80" y="206" font-size="26" fill="#8b949e">Remove hidden metadata from files before you share them.</text>
+<g font-size="18" fill="#6e7681">
+<rect x="80" y="238" width="68" height="34" rx="17" fill="none" stroke="#30363d"/>
+<text x="114" y="261" text-anchor="middle">GPS</text>
+<rect x="164" y="238" width="162" height="34" rx="17" fill="none" stroke="#30363d"/>
+<text x="245" y="261" text-anchor="middle">serial number</text>
+<rect x="342" y="238" width="92" height="34" rx="17" fill="none" stroke="#30363d"/>
+<text x="388" y="261" text-anchor="middle">author</text>
+<rect x="450" y="238" width="130" height="34" rx="17" fill="none" stroke="#30363d"/>
+<text x="515" y="261" text-anchor="middle">timestamps</text>
+<rect x="596" y="238" width="152" height="34" rx="17" fill="none" stroke="#30363d"/>
+<text x="672" y="261" text-anchor="middle">edit history</text>
+<path d="M92 255H136M176 255H314M354 255H422M462 255H568M608 255H736" stroke="#f85149" stroke-width="2"/>
+</g>
+</g>
+</svg>
