@@ -98,7 +98,7 @@ Kept items are listed in each strip report as retained, so you can see them.
 
 **HEIF / AVIF**
 - Kept: numeric colour signalling.
-- Data in the pixels is out of reach, and the ICC profile is removed.
+- Data in the pixels is out of reach, for mat2 too, and the ICC profile is removed.
 - **Apple Live Photos are refused.** Hidden thumbnails are removed, and ExifTool, ImageMagick and
   libheif don't show them.
 

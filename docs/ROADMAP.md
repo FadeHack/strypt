@@ -750,7 +750,8 @@ gates anything else here.
    assessed — realistically resource-exhaustion bounding and supply-chain-compromise
    containment, not memory-safety;  (c) the cross-platform maintenance cost. "Deferred, with
    reasons" is a legitimate outcome.
-9. **`docs/THREAT_MODEL.md` revised** to record what hardening actually taught us. **Last, by
+9. ✅ **Done 2026-09-12**: §5.1, §5.2, §5.5, §6 and §7 revised; the §7.10 claim was wrong, since
+   mat2 0.15.0 never re-renders HEIF or AVIF. As specified: **`docs/THREAT_MODEL.md` revised** to record what hardening actually taught us. **Last, by
    ADR-0043 decision 6** — written early it would be a plan rather than a finding.
 
    **Carried into this deliverable, deliberately not fixed early:** §7's per-format fuzzing notes
@@ -772,7 +773,7 @@ gates anything else here.
    **Met 2026-09-11.**
 4. ✅ Sandboxing ADR recorded — adopted or deferred, with reasoning either way. **Met
    2026-09-11 by ADR-0048 (deferred).**
-5. `docs/THREAT_MODEL.md` revised to reflect what hardening actually taught us. If nothing
+5. ✅ **Met 2026-09-12** (deliverable 9). `docs/THREAT_MODEL.md` revised to reflect what hardening actually taught us. If nothing
    changed, that is itself suspicious and worth re-examining.
 6. ✅ **The filesystem-constraints matrix passes in CI on Linux, and is proven to fail** when the
    fail-closed contract is deliberately broken. **Met 2026-09-11** on `a490adb`; stays met only

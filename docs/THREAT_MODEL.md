@@ -1,6 +1,6 @@
 # strypt — Threat Model
 
-**Status:** Phase 1 complete (2026-08-22); Phase 2 group 2 landed (2026-08-24) · **Last updated:** 2026-08-24
+**Status:** Phases 1–2 complete; revised for Phase 3 hardening · **Last updated:** 2026-09-12
 
 **This document must be revisited every time a format handler is added or substantially
 changed.** A new format brings new places for data to hide, and a threat model that lags the
@@ -136,10 +136,20 @@ out by construction; **resource exhaustion and non-termination are the realistic
 risks**, which is why fuzzing must treat hangs and OOMs as findings equal in severity to
 crashes.
 
+*Phase 3 finding:* no hang or OOM has been found. Four of the five PDF findings were wrong output
+caught by the idempotence assertion, not crashes, so correctness assertions in the harness earn
+more than crash-only fuzzing. Hours do not replace structure: `ogg` did not certify in 84
+CPU-hours, then certified in 24 once its mutator repaired page CRCs (ADR-0044). `jxl` and `png`
+still do not certify (`scripts/fuzz-tally.py`).
+
 **5.2 Supply-chain compromise.** A malicious or compromised dependency runs with full access
 to the user's most sensitive documents, and is the attack path least visible to users.
 Mitigated by minimal dependencies (ADR-0008), `cargo-deny` as a hard CI gate, a committed
 `Cargo.lock`, and release SBOMs. Not eliminated.
+
+*Phase 3 finding:* no sandbox contains a compromised dependency (ADR-0048), and the no-network gate
+matches crate names, so it cannot see a dependency calling `std::net` directly. The stricter
+`cargo-deny` caught a yanked crate on its first run (ADR-0045).
 
 **5.3 A malicious build or distribution channel.** A tampered binary could exfiltrate
 everything it touches. Mitigated by reproducible builds, published checksums, and provenance
@@ -157,7 +167,8 @@ formats are reported as unsupported and never silently passed through.
 temp files can each contain the metadata the user just removed — a durable copy of the
 secret. Hence: never log metadata values above trace level; temp files go alongside the
 destination with restrictive permissions and are removed on failure; error messages name
-fields, not values.
+fields, not values. Restrictive means owner-only on Unix filesystems only: on `vfat`/`exfat` the
+output takes the mount's mode, and on Windows the folder's ACL (ADR-0043, ADR-0047).
 
 **5.6 Over-trust induced by the tool's own confidence.** If strypt's output reads as an
 unqualified guarantee, users will take risks they would not otherwise take. This is a threat
@@ -180,6 +191,7 @@ Stated so they can be challenged; each is a place the model could be wrong.
    a small population of documents "the one with no metadata" can itself be a lead. strypt
    cannot resolve this; users in that situation need to consider whether a plausible-looking
    file is safer than a clean one.
+6. strypt's dependencies are not malicious. Nothing contains one that is (§5.2, ADR-0048).
 
 ---
 
@@ -188,6 +200,9 @@ Stated so they can be challenged; each is a place the model could be wrong.
 Added as each handler lands, from what implementing and testing it actually taught us — not
 from what the specification says ought to be true. §4's general limitations still apply on top
 of everything here.
+
+**Fuzzing notes below that mention a plateau, "still climbing" or ADR-0014 predate ADR-0044, which
+superseded that rule.** Their run facts stand; for certification, see `scripts/fuzz-tally.py`.
 
 ### 7.1 PDF (Phase 1)
 
@@ -1244,9 +1259,8 @@ deliberately — the refusal names Live Photos so the user knows what happened.
 
 **What is not reached.** Metadata concealed inside the compressed image data, for the same reason
 as TIFF §7.8 and GIF §7.9: strypt copies the coded bytes without decoding them, which is what keeps
-the pixels bit-identical. **mat2's default path re-renders the image and does reach that.** Where a
-user's threat model includes data hidden in the pixel stream, mat2 is the better recommendation
-(ADR-0012). Removing the ICC profile also trades colour fidelity, as it does for TIFF and JPEG.
+the pixels bit-identical. **mat2 does not reach it either**: in 0.15.0 (current, checked
+2026-09-12) HEIC and AVIF go only through ExifTool, and its default mode refuses HEIC. Removing the ICC profile also trades colour fidelity, as it does for TIFF and JPEG.
 
 **Output is never byte-identical to input, even for a clean file** — a rebuild reorders the file by
 construction. **Idempotence is byte-identical and is tested.**
@@ -1842,6 +1856,9 @@ RSS 1,161 MB on `ogg`. `flac` is in the run because `formats/vorbis.rs` is share
 comment path both handlers use. `ogg` and `flac` were **still finding new coverage** at 39,178s and
 40,105s of 43,200s: that is ADR-0014's Phase 3 plateau question, not Phase 1 exit criterion 2, which
 asks for a sustained run with no crash artefact and is what this run answers.
+
+**Certified 2026-09-12 under ADR-0044**, `ogg` and `oggpage` both, with zero crashes, once the
+harness repaired page CRCs (§5.1). Before that, Ogg was the least-fuzzed handler in the tree.
 
 ---
 

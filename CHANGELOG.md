@@ -479,6 +479,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   format by format, what strypt keeps, cannot see and refuses, and which files mat2 handles better.
   It is linked from the top of the README.
 
+- **Corrected: mat2 does not reach data hidden in HEIF or AVIF pixels either.** Earlier docs
+  recommended mat2 for that; mat2 0.15.0 cleans those formats through ExifTool without re-rendering.
+
 - **No open fuzzing findings.** No change in behaviour. Every crash fuzzing has ever found is
   fixed, and each has a regression test.
 

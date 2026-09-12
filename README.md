@@ -53,8 +53,7 @@
 > fixtures with zero differing pixels, and the `heif`, `bmff` and `detect` fuzz targets have each
 > run 12 hours — 36 CPU-hours, 5.6 billion inputs, zero crashes, hangs or OOMs — so **the tranche
 > is complete**. Recorded limitations: output is never byte-identical to input even for a clean file; metadata
-> inside the compressed image data is out of reach, where **mat2's re-rendering default is the
-> better tool**; and a **motion HEIF is refused, which means Apple Live Photos are refused** rather
+> inside the compressed image data is out of reach, for mat2 too; and a **motion HEIF is refused, which means Apple Live Photos are refused** rather
 > than partly cleaned, because video is a later group.
 >
 > One finding worth repeating outside the threat model: **a hidden thumbnail in a HEIC or AVIF is
