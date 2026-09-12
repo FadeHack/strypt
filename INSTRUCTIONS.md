@@ -1,800 +1,225 @@
 # INSTRUCTIONS.md — build, test, and lint
 
-**This file is the source of truth for commands.** [`CLAUDE.md`](CLAUDE.md) points here
-rather than duplicating commands, so they cannot drift apart. **Update this file in the same
-commit as any change to the build, test, or lint workflow.**
-
----
-
-> ## ⚠️ Phase 1 complete (2026-08-22) · Phase 2 in progress
->
-> **Every command below was executed and verified**, the Phase 1 ones on 2026-08-19, the
-> Office Open XML ones on 2026-08-23, the OpenDocument ones on 2026-08-24, the TIFF ones on
-> 2026-08-26, and the GIF ones the same day. `strypt show` and `strypt strip` work on PDF, JPEG,
-> PNG, WebP, TIFF, GIF, HEIF, AVIF, SVG, JPEG XL, FLAC, WAV, `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp`. Every
-> other format is detected and reported as unsupported — never processed, and never passed through
-> untouched.
->
-> Phase 2 opened 2026-08-23 (ADR-0027) and closed 2026-09-05. All four format groups are complete
-> — OOXML, OpenDocument, five image tranches (ADR-0032) and five audio/video tranches (ADR-0037) —
-> each with a clean sustained fuzz run. **Phase 3 — hardening — opened 2026-09-05 (ADR-0043);
-nothing in it is delivered yet.** See
-> [`docs/ROADMAP.md`](docs/ROADMAP.md).
+The source of truth for commands. Update it in the same commit as any change to a command.
+Why a rule exists lives in [`docs/DECISIONS.md`](docs/DECISIONS.md); results live in
+[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.
 
 ## Prerequisites
 
-| Tool | Purpose | Notes |
-|---|---|---|
-| Rust stable | build, test, lint | Edition 2024. Stable was **1.97.1** (released 2026-07-16) as of 2026-08-19. |
-| Rust nightly | fuzzing only | `cargo-fuzz` requires nightly. |
-| `cargo-fuzz` | fuzzing | `cargo install cargo-fuzz` — **Linux/macOS only**, x86-64 and aarch64. Not supported on Windows. |
-| `cargo-deny` | supply-chain gate | `cargo install cargo-deny --locked --version 0.20.2` |
-| ExifTool, mat2 | differential testing | Optional locally, required for release verification. **Never runtime dependencies.** Verified working 2026-08-19 with ExifTool 13.55 and mat2 0.15.0. |
-| `webp-pixbuf-loader`, `webpinfo` | WebP differential | Required for `scripts/webp-differential.sh`. Without the pixbuf loader mat2 cannot read WebP and the comparison is meaningless; the script refuses to run. Verified 2026-08-21 with loader 0.2.7 and libwebp 1.6.0. |
-| Chrome or Chromium | optional corpus fixture | Only for `build_real_corpus.py --with-browser`. Verified 2026-08-21 with Chrome 151. |
-| `qpdf` | fixture validation | Optional. `qpdf --check` confirms a generated PDF fixture is structurally sound. |
-| ImageMagick | fixture validation | Optional. `magick identify` confirms a JPEG, PNG, WebP, or GIF fixture still decodes; `magick compare -metric AE` confirms stripping changed no pixels. |
-| Python 3 | fixture generation | Optional. Only needed to regenerate `corpus/`. |
-| `cwebp` | WebP base bitstreams | **Not needed.** The two base bitstreams are committed as literals inside `make_webp_fixtures.py`; `cwebp 1.6.0` produced them once. Only needed to replace them. |
+| Tool | Needed for |
+|---|---|
+| rustup | everything. `rust-toolchain.toml` pins the compiler and rustup installs it on first use; the MSRV is `rust-version` in `Cargo.toml` (ADR-0013) |
+| Rust nightly, `cargo install cargo-fuzz` | fuzzing. Linux and macOS only |
+| `cargo install cargo-deny --locked --version 0.20.2` | supply-chain checks; the version CI runs |
+| Python 3 | fixtures, fuzz analysis, README images |
+| mat2, ExifTool | differential testing. **Never runtime dependencies** |
+| ffmpeg, libheif, `webpinfo`, `webp-pixbuf-loader`, LibreOffice | individual differentials; see [Differential testing](#differential-testing) |
+| ImageMagick, `qpdf` | performance measurement and fixture checks |
 
-Check your toolchain:
+## Build, test, lint
 
 ```sh
-rustc --version          # expect a current stable, edition 2024 capable
-cargo --version
-rustup show              # confirm the active toolchain is what you think it is
-```
-
-> **Toolchain versions (verified 2026-08-19 against `static.rust-lang.org/dist/channel-rust-stable.toml`,
-> the authoritative rustup channel manifest):** stable is **1.97.1**, released 2026-07-16
-> (rustc build dated 2026-07-14). 1.97.0 shipped 2026-07-09; 1.97.1 is a point release fixing
-> an LLVM miscompilation. Under the MSRV policy in ADR-0013 (`stable - 2`), **the MSRV is
-> currently 1.95**.
->
-> Note that `releases.rs` reported stale data (stable 1.96.0) when checked on the same day.
-> Prefer the channel manifest or `rust-lang/rust` release tags as the authoritative source.
->
-> **CI must not trust whatever toolchain happens to be on a developer's machine.** A
-> `rust-toolchain.toml` pinning an explicit rustup-managed version is a Phase 0 deliverable —
-> see `docs/ROADMAP.md`. The 1.97.1 point release is a concrete illustration of why: a
-> compiler miscompilation reaching a release build of a parser that handles hostile input is
-> exactly the class of problem an unpinned toolchain lets through silently.
-
-## Build
-
-```sh
-cargo build                      # debug build, whole workspace
-cargo build --release            # optimised
-cargo build -p strypt-core       # library only
-cargo build -p strypt        # CLI only
-```
-
-## Test
-
-```sh
-cargo test                       # whole workspace
-cargo test -p strypt-core        # library only
-cargo test -- --nocapture        # show output from passing tests
-cargo test jpeg                  # run tests matching a name
-```
-
-## Lint and format
-
-Both are **required gates** — CI runs them with the same flags.
-
-```sh
-cargo fmt                        # apply formatting
-cargo fmt --check                # verify without changing (what CI runs)
+cargo build                      # whole workspace
+cargo build --release
+cargo test --all-features        # what CI runs, on Linux, macOS and Windows
+cargo test -p strypt             # CLI contract tests only
+cargo test jpeg                  # tests matching a name
+cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 ```
+
+`--all-features` compiles the `fuzzing` module; without it clippy and the tests skip a module.
 
 ## Running strypt
 
 ```sh
 cargo run -p strypt -- show corpus/pdf/info-dictionary.pdf
-cargo run -p strypt -- strip corpus/pdf/info-dictionary.pdf
-./target/debug/strypt --help
-```
-
-`show` reports what is in a file and never writes. `strip` writes a sanitised copy beside the
-input as `<name>.stripped.<ext>`; the original is untouched unless you pass `--in-place`.
-
-```sh
-strypt show FILE...                    # report metadata; exits 1 if any is found
-strypt show --show-values FILE...      # include the values, not only the field names
-strypt show --json FILE...             # machine-readable, stable schema
-strypt strip FILE...                   # write sanitised copies
+strypt show FILE...                    # report metadata; never writes
+strypt show --show-values FILE...      # include values, not only field names
+strypt show --json FILE...             # machine-readable
+strypt strip FILE...                   # write FILE.stripped.EXT beside each input
 strypt strip --in-place FILE...        # replace the originals
 strypt strip --output-dir OUT FILE...  # write copies into OUT
-strypt strip --force FILE...           # overwrite an existing output file
-strypt strip --recursive DIR           # descend into a directory
-strypt strip --max-bytes 1048576 FILE  # refuse inputs above this size
+strypt strip --force FILE...           # overwrite an existing output
+strypt strip --recursive DIR           # descend into a directory; symlinks are not followed
+strypt strip --max-bytes 1048576 FILE  # refuse larger inputs
 ```
 
 ### Exit codes
 
-**Stable across releases** — scripts and pre-commit hooks depend on them.
+Stable across releases; scripts depend on them. When a batch hits several, the most serious wins.
 
 | Code | Meaning |
 |---|---|
 | 0 | Success, and `show` found nothing removable |
-| 1 | `show` found metadata, or `strip` had at least one file fail |
+| 1 | `show` found metadata, or `strip` had a file fail |
 | 2 | Usage error |
 | 3 | A file could not be read or written |
-| 4 | A file's format has no handler in this release |
-| 5 | Output failed post-strip verification and was discarded — strypt does not trust its own result. Treat this as a bug report, not as a bad file |
+| 4 | A file's format has no handler |
+| 5 | Output failed post-strip verification and was discarded — report it as a bug |
 
-When a batch hits several of these, the most serious one wins.
+## Full pre-commit check
+
+What CI runs:
+
+```sh
+cargo fmt --check && \
+cargo clippy --all-targets --all-features -- -D warnings && \
+cargo test --all-features && \
+./scripts/check-no-network.sh && \
+cargo deny check && \
+./scripts/prove-gates.sh
+```
+
+CI also builds at the MSRV (`rustup toolchain install 1.95`, then `cargo +1.95 build
+--all-features`), runs the [filesystem matrix](#filesystem-constraints-matrix) on Linux, and
+fuzzes every target for 60 seconds. Enable the local pre-commit hook once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
 
 ## Fuzzing
 
-Requires nightly and a Unix-like platform. Run from the fuzz crate, which is its own
-workspace:
+From the fuzz crate, which is its own workspace:
 
 ```sh
 cd crates/strypt-core/fuzz
-mkdir -p corpus/pdf corpus/jpeg corpus/png corpus/webp corpus/tiff corpus/gif corpus/heif corpus/bmff corpus/svg corpus/jxl corpus/flac corpus/wav corpus/mp3 corpus/ogg corpus/oggpage corpus/mp4 corpus/detect corpus/ooxml corpus/odf corpus/zip
-cargo +nightly fuzz list                                          # pdf, jpeg, png, webp, tiff, gif, heif, svg, jxl, flac, wav, mp3, tags, ogg, oggpage, mp4, bmff, riff, detect, ooxml, odf, zip
-cargo +nightly fuzz run pdf corpus/pdf seeds/pdf                  # run until stopped
-cargo +nightly fuzz run pdf corpus/pdf seeds/pdf -- -max_total_time=300
-cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg -- -max_total_time=300
-cargo +nightly fuzz run png corpus/png seeds/png -- -max_total_time=300
-cargo +nightly fuzz run webp corpus/webp seeds/webp seeds/webp/malformed -- -max_total_time=300
-cargo +nightly fuzz run tiff corpus/tiff seeds/tiff seeds/tiff/malformed -- -max_total_time=300
-cargo +nightly fuzz run gif corpus/gif seeds/gif seeds/gif/malformed -- -max_total_time=300
-cargo +nightly fuzz run heif corpus/heif seeds/heif seeds/heif/malformed -- -max_total_time=300
-cargo +nightly fuzz run svg corpus/svg seeds/svg seeds/svg/malformed -- -max_total_time=300
-cargo +nightly fuzz run jxl corpus/jxl seeds/jxl seeds/jxl/malformed -- -max_total_time=300
-cargo +nightly fuzz run flac corpus/flac seeds/flac seeds/flac/malformed -- -max_total_time=300
-cargo +nightly fuzz run wav corpus/wav seeds/wav seeds/wav/malformed -- -max_total_time=300
-cargo +nightly fuzz run ogg corpus/ogg seeds/ogg seeds/ogg/malformed -- -max_total_time=300
-cargo +nightly fuzz run oggpage corpus/oggpage seeds/oggpage seeds/oggpage/malformed -- -max_total_time=300  # the page layer alone
-cargo +nightly fuzz run mp4 corpus/mp4 seeds/mp4 -- -max_total_time=300
-cargo +nightly fuzz run riff seeds/riff -- -max_total_time=300   # the walker WebP and WAV share
-cargo +nightly fuzz run bmff corpus/bmff seeds/bmff -- -max_total_time=300
-cargo +nightly fuzz run detect corpus/detect seeds/detect -- -runs=100000
-cargo +nightly fuzz run ooxml corpus/ooxml seeds/ooxml -- -max_total_time=300
-cargo +nightly fuzz run odf corpus/odf seeds/odf -- -max_total_time=300
-cargo +nightly fuzz run zip corpus/zip seeds/zip -- -max_total_time=300
-cargo +nightly fuzz cmin pdf corpus/pdf                           # minimise the corpus
+cargo +nightly fuzz list
+T=pdf; mkdir -p corpus/$T && cargo +nightly fuzz run $T corpus/$T seeds/$T -- -max_total_time=300
+cargo +nightly fuzz run $T artifacts/$T/crash-<hash>   # reproduce a crash
+cargo +nightly fuzz cmin $T corpus/$T                   # minimise
 ```
 
-Two directories, deliberately. **`seeds/<target>/` is the curated corpus and is committed**;
-`corpus/<target>/` is where libFuzzer writes what it discovers, reaches thousands of
-machine-generated files within minutes, and is git-ignored. libFuzzer writes to the first
-directory given and reads the rest.
-
-The PDF, JPEG, PNG, WebP, TIFF, GIF, HEIF, OOXML, and ODF seeds are copies of `corpus/pdf/`,
-`corpus/jpeg/`, `corpus/png/`, `corpus/webp/`, `corpus/tiff/`, `corpus/gif/`, `corpus/heif/`,
-`corpus/ooxml/`, and `corpus/odf/` (including their `malformed/` subdirectories); refresh them
-after regenerating the fixtures.
-
-**Give `corpus/<target>/` first and never `seeds/` first.** libFuzzer writes its discoveries into
-whichever directory it is handed first, so reversing them fills the committed corpus with hundreds
-of hash-named machine-generated files. That happened on 2026-08-27 to `seeds/heif/`, `seeds/bmff/`
-and `seeds/detect/`, and had to be undone by hand.
-
-`seeds/zip/` holds the same packages as `seeds/ooxml/` and `seeds/odf/`, deliberately. The `zip`
-target exercises the container layer on its own (ADR-0028), and its job is to explore *outward*
-from a real archive into malformed ones — a container fuzzer seeded only with hand-written stubs
-never reaches the structures a real producer writes. The ODF packages earn their place there
-beyond variety: they are the only seeds whose first entry is stored and whose others are
-deflated, which is a shape no OOXML package has.
-
-**The `zip` target needs the `fuzzing` feature**, which is why `fuzz/Cargo.toml` enables it. It
-opens a hidden, non-public entry point to the internal ZIP parser (`src/fuzzing.rs`); no
-front-end may use it.
-
-A crash writes its input to `crates/strypt-core/fuzz/artifacts/<target>/`. Reproduce with:
-
-```sh
-cargo +nightly fuzz run pdf artifacts/pdf/crash-<hash>
-```
+**Give `corpus/<target>` first, never `seeds/`.** libFuzzer writes discoveries into the first
+directory; `seeds/` is the committed corpus ([`seeds/README.md`](crates/strypt-core/fuzz/seeds/README.md)),
+`corpus/` is git-ignored. Crash inputs land in `artifacts/<target>/`.
 
 ### Sustained runs
 
-**The commands above are smoke tests, not the Phase 1 exit criterion.** They prove a target
-still builds and runs. Exit criterion 2 in `docs/ROADMAP.md` asks for a sustained run, and
-ADR-0014 asks for two conditions together: a per-handler CPU-hour budget **and** a coverage
-plateau — no new edge coverage in the final 25% of the run. Use the runner, from the
-repository root:
+The certification bar is ADR-0044's: 24 CPU-hours per handler and a saturated coverage curve.
+From the repository root:
 
 ```sh
-./scripts/fuzz-sustained.sh                       # all twenty-two targets, 2h each, in parallel
-./scripts/fuzz-sustained.sh -d 300                # short; exercises the same analysis path
-./scripts/fuzz-sustained.sh -d 28800 pdf          # 8h on PDF alone
-./scripts/fuzz-sustained.sh -d 14400 png webp     # 4h each, in parallel
-./scripts/fuzz-sustained.sh -d 43200 ooxml zip    # 12h each on the Phase 2 container targets
-./scripts/fuzz-sustained.sh -d 43200 tiff detect  # 12h each; group 3 tranche 1's debt, cleared 2026-08-26
-./scripts/fuzz-sustained.sh -d 43200 gif detect   # 12h each; group 3 tranche 2's debt, cleared 2026-08-27
-./scripts/fuzz-sustained.sh -d 43200 heif bmff detect  # 12h each; group 3 tranche 3's debt, cleared 2026-08-27
-./scripts/fuzz-sustained.sh -d 43200 svg detect   # 12h each; group 3 tranche 4's debt, cleared 2026-08-29
-./scripts/fuzz-sustained.sh -d 43200 jxl detect   # 12h each; group 3 tranche 5's debt, cleared 2026-08-30
-./scripts/fuzz-sustained.sh -d 43200 flac detect  # 12h each; group 4 tranche 1's debt, cleared 2026-09-01
-./scripts/fuzz-sustained.sh -d 43200 wav riff webp detect  # 12h each; group 4 tranche 2's debt, cleared 2026-09-02 — webp is here because ADR-0039 moved code out of it
-./scripts/fuzz-sustained.sh -d 43200 mp3 tags flac detect  # 12h each; group 4 tranche 3's debt, cleared 2026-09-03 — flac is here because ADR-0040 changed it
-./scripts/fuzz-sustained.sh -d 43200 ogg oggpage flac detect  # 12h each; group 4 tranche 4's debt, cleared 2026-09-04 — flac is here because ADR-0041 shares its comment reader
-./scripts/fuzz-sustained.sh -d 43200 mp4 bmff heif detect  # 12h each; group 4 tranche 5's debt, cleared 2026-09-05 — bmff and heif are here because ADR-0042 extended the shared container walker
-./scripts/fuzz-sustained.sh -h                    # options
-
-# Detached, so it survives closing the terminal, with the machine held awake:
-nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 43200 pdf jpeg png webp \
-  > /tmp/strypt-fuzz.out 2>&1 &
-./scripts/fuzz-status.sh                          # watch it; Ctrl-C exits the viewer only
-
-# Which handlers certify under ADR-0044, and which owe a run:
-python3 scripts/fuzz-tally.py
-
-# Whether a run's coverage curve saturated or broke through late (ADR-0044):
-python3 scripts/fuzz-plateau.py                   # every recorded curve
-python3 scripts/fuzz-plateau.py ogg pdf           # just these targets
+./scripts/fuzz-sustained.sh -h                    # options; default is every target, 2h each
+./scripts/fuzz-sustained.sh -d 86400 pdf jpeg     # 24h each, in parallel
+nohup caffeinate -ims ./scripts/fuzz-sustained.sh -d 86400 pdf > /tmp/strypt-fuzz.out 2>&1 &
+./scripts/fuzz-status.sh                          # live view; Ctrl-C stops the viewer, not the run
+python3 scripts/fuzz-tally.py                     # which handlers certify, which owe a run
+python3 scripts/fuzz-plateau.py [target...]       # saturated or PUNCTUATED, per curve
 ```
 
-`fuzz-tally.py` is **the certification answer**. It counts only runs since a handler's sources
-last changed — **shared modules included**, which is what showed `odf` and `ooxml` at zero after
-`container/package.rs` changed on 2026-08-28 — and certifies on the most recent complete run of
-24h or longer. Run it before choosing what to fuzz next.
+- On macOS, `caffeinate -ims` on AC power, lid open — a sleeping machine delivers a fraction of
+  the budget silently. If `ELAPSED` in `fuzz-status.sh` stops advancing, the run is void.
+- Quote CPU-hours **delivered**, never budgeted. They differ when a target stops early.
+- Read a `summary.md` from before 2026-09-11 with `fuzz-plateau.py`; its `plateau` column uses
+  ADR-0014's superseded rule.
+- The runner's target list must include every target in `fuzz list`; check after adding one.
 
-`fuzz-plateau.py` is **ADR-0044's curve test**, and a plateau is not to be judged by eye: it
-splits a run into six windows and reports `saturated` or `PUNCTUATED`. The runner calls it to
-fill each summary's `plateau` column. **Summaries written before 2026-09-11 carry ADR-0014's
-superseded rule in that column** — it calls a flat `pdf` "still climbing" and would have passed
-`ogg` at 24 hours — so for those, run the script rather than reading the column.
-
-The default target list is **all twenty-two** — `pdf jpeg png webp tiff gif heif bmff svg jxl flac
-wav mp3 tags ogg oggpage mp4 riff ooxml odf zip detect`. The runner has now failed to know about a new target three times, so check it before
-trusting a run to have covered what you asked for: `ooxml` and `zip` were added on 2026-08-23,
-`odf` with Phase 2 group 2, `tiff` on 2026-08-25, `gif` on 2026-08-26, `heif` and `bmff` on
-2026-08-27, `svg` on 2026-08-29, `jxl` on 2026-08-29, `flac` on 2026-09-01, `wav` and `riff` on 2026-09-02, `mp3` and `tags` the same day, `ogg` and `oggpage` on 2026-09-03, and `mp4` on 2026-09-04. Each was rejected as an unknown name until it was added,
-so **a run predating a target's addition covered fewer targets than its command line suggests**,
-silently.
-
-**On macOS, wrap a long run in `caffeinate -ims`** or the machine will sleep partway through and
-deliver a fraction of the budgeted CPU-hours without saying so — which is the one thing that
-makes a sustained run's headline number a lie, since budget matching delivery is what says
-nothing died (`docs/THREAT_MODEL.md` §7.7). Check `pmset -g`: a default laptop sleeps after a
-minute or two idle, so this is not a corner case. `-i` covers idle sleep, `-m` disk idle sleep,
-and `-s` system sleep — the last **only on AC power**, so keep it plugged in. Passing the script
-to `caffeinate` as its child, as above, ties the assertion to the run's lifetime and releases it
-when the run ends.
-
-**`caffeinate` does not survive closing the lid.** Clamshell sleep overrides it unless the
-machine is on AC with an external display. Leave the lid open, and sanity-check `ELAPSED` in
-`fuzz-status.sh` a minute in: if it is not advancing, the machine slept and the run is void.
-
-Targets run **in parallel, one process each**, so wall time is the `-d` value no matter how
-many targets are selected — but CPU-hours are `-d × targets`, and the script prints that
-**budget** before it starts. It exits non-zero if any target produced a crash artefact.
-
-The summary reports CPU-hours **budgeted** and **delivered** separately, and you want the
-second one. They diverge whenever a target stops early — on a crash, or because you stopped the
-run by hand. The first sustained run was budgeted 40.00 and delivered 37.79, because PDF stopped
-at 5h47m; the second was budgeted 60.00 and delivered **30.42**, because it was ended early and
-PDF had already died at 47 minutes. ADR-0014's criterion is stated in CPU-hours, so quote
-delivered when arguing that a run met it, and never quote the budget.
-
-Each run writes to `target/fuzz-runs/<timestamp>/` (git-ignored):
-
-| File | Contents |
-|---|---|
-| `summary.md` | Per-target `cov`, `ft`, corpus size, exec/s, when coverage last increased, whether ADR-0014's plateau condition holds, and crash count |
-| `cov-<target>.tsv` | The coverage curve — `elapsed_seconds<TAB>cov`, one row per increase |
-| `<target>.log` | Full libFuzzer output, every line prefixed with elapsed seconds |
-
-**The curves are the deliverable, not the duration.** ADR-0014's 100 CPU-hours per handler was
-set before any parser existed and the ADR says so explicitly: it is a hypothesis to be replaced
-by measurement. A target reporting `NO — still climbing` has not failed — it has not yet run
-long enough for its number to be set.
-
-Stopping a run early is safe. libFuzzer writes each discovery to `corpus/<target>/` as it finds
-it, so the next run resumes from what has been found rather than starting over.
-
-### Watching a run in progress
-
-The runner redirects each target to its own log and prints nothing until every target finishes,
-so a twelve-hour run and a hung one look identical from the outside. From a second terminal:
-
-```sh
-./scripts/fuzz-status.sh                          # most recent run, refresh every 10s
-./scripts/fuzz-status.sh -n 30                    # gentler refresh
-./scripts/fuzz-status.sh target/fuzz-runs/<name>  # a specific run
-tail -F target/fuzz-runs/<name>/pdf.log           # raw libFuzzer output for one target
-```
-
-It is a viewer only: Ctrl-C stops watching, not the run, and the run's `summary.md` and exit
-code — not this table — are what answer the exit criterion. Its artefact column counts only
-files newer than the run's `.started` marker, because `artifacts/` still holds triaged findings
-from August 2026 and counting those would flag a long-fixed crash on every run.
-
-## Performance measurement
-
-Produces the numbers in `docs/PRD.md` §9. Needs a **release** binary — the script refuses a
-debug one, because debug Rust is slow enough to understate the tool by an order of magnitude.
-
-```sh
-cargo build --release
-./scripts/measure-performance.sh                  # 10 reps per case, 1000-file batch
-REPS=15 BATCH=3000 ./scripts/measure-performance.sh
-```
-
-Requires ImageMagick, which it uses to synthesise realistically-sized inputs; the fixtures in
-`corpus/` are deliberately tiny and would measure little but process startup. The script warns
-when machine load is high relative to core count — numbers taken under load are pessimistic,
-which is the direction nobody thinks to double-check.
-
-## README images
-
-`docs/assets/demo.svg` is rendered from the real release binary on `corpus/jpeg/exif-gps.jpg`;
-re-run after any change to CLI output. The script then strips both README images with strypt.
-
-```sh
-python3 scripts/render-demo.py
-```
+Each run writes `summary.md`, `cov-<target>.tsv` and `<target>.log` to `target/fuzz-runs/<timestamp>/`.
+Stopping early is safe: discoveries are already in `corpus/`.
 
 ## Test fixtures
 
-```sh
-python3 corpus/tools/make_pdf_fixtures.py        # regenerate; deterministic
-python3 corpus/tools/make_jpeg_fixtures.py       # regenerate; deterministic
-python3 corpus/tools/make_png_fixtures.py        # regenerate; reuses the JPEG tool's TIFF builder
-python3 corpus/tools/make_webp_fixtures.py       # regenerate; reuses the JPEG tool's TIFF builder
-python3 corpus/tools/make_tiff_fixtures.py       # regenerate; deterministic
-python3 corpus/tools/make_gif_fixtures.py        # regenerate; carries its own LZW encoder, so every fixture really decodes
-python3 corpus/tools/make_heif_fixtures.py       # regenerate; embeds one recorded AV1 and one recorded HEVC codestream, so every fixture really decodes
-python3 corpus/tools/make_svg_fixtures.py        # regenerate; every fixture is a real SVG that Rsvg can open
-python3 corpus/tools/make_jxl_fixtures.py        # regenerate; the codestream is a hand-written header stub — no encoder is needed
-python3 corpus/tools/make_flac_fixtures.py       # regenerate; every fixture is real decodable audio, so mat2 and ffmpeg can open it
-python3 corpus/tools/make_wav_fixtures.py        # regenerate; every fixture is real 16-bit PCM, so mat2, ExifTool and ffmpeg can open it
-python3 corpus/tools/make_mp3_fixtures.py        # regenerate; every fixture is real MPEG-1 Layer III, so mat2, ExifTool and ffmpeg can open it
-python3 corpus/tools/make_ogg_fixtures.py        # regenerate; embeds recorded Vorbis, Opus and FLAC packets, so every fixture really decodes
-python3 corpus/tools/make_mp4_fixtures.py        # regenerate; embeds one recorded H.264 video and one AAC recording, so every fixture really decodes
-python3 corpus/tools/make_ooxml_fixtures.py      # regenerate; embeds corpus/jpeg/exif-gps.jpg, so run that tool first
-python3 corpus/tools/make_odf_fixtures.py        # regenerate; embeds the JPEG and PNG fixtures, so run those tools first
-qpdf --check corpus/pdf/info-dictionary.pdf      # confirm a fixture is structurally sound
-magick identify corpus/jpeg/exif-gps.jpg         # confirm a JPEG fixture still decodes
-magick identify corpus/png/exif-gps.png          # confirm a PNG fixture still decodes
-magick identify corpus/webp/all-metadata.webp    # confirm a WebP fixture still decodes
-magick identify corpus/gif/animated-loop.gif     # confirm a GIF fixture still decodes, frames and all
-heif-convert corpus/heif/clean.avif /tmp/x.png   # confirm a HEIF fixture decodes through libheif, not only ImageMagick
-exiftool corpus/jpeg/exif-gps.jpg                # confirm it carries what the manifest says
-unzip -l corpus/ooxml/everything.docx            # confirm an OOXML fixture is a readable package
-unzip -l corpus/odf/everything.odt               # first entry must be a stored `mimetype` (ODF Part 2 §3.3)
-```
-
-Fixtures are generated rather than collected so that the "no real personal data" rule in
-`docs/TESTING_STRATEGY.md` §3 is structural. Every fixture is documented in
-`corpus/MANIFEST.md`.
-
-## Differential testing
-
-Compares strypt against implementations with years of accumulated format knowledge. Run
-before every release; not a per-commit gate.
+Generated, so no fixture carries real personal data ([`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §3).
+Each is documented in [`corpus/MANIFEST.md`](corpus/MANIFEST.md). Refresh the matching `seeds/`
+copies after regenerating.
 
 ```sh
-mkdir -p /tmp/strypt-diff && cp corpus/pdf/*.pdf /tmp/strypt-diff/
-./target/debug/strypt strip /tmp/strypt-diff/*.pdf
-
-# What ExifTool still sees in strypt's output. [File] and [ExifTool] tags are filesystem
-# facts about the copy, not metadata inside it.
-exiftool -s -G /tmp/strypt-diff/*.stripped.pdf | grep -vE '^\[(File|ExifTool)\]'
-
-# What mat2 still sees.
-mat2 --show /tmp/strypt-diff/*.stripped.pdf
+for t in pdf jpeg png webp tiff gif heif svg jxl flac wav mp3 ogg mp4 ooxml odf; do
+  python3 corpus/tools/make_${t}_fixtures.py
+done                                             # ooxml and odf embed JPEG and PNG fixtures, so they run last
+qpdf --check corpus/pdf/info-dictionary.pdf      # structurally sound
+magick identify corpus/gif/animated-loop.gif     # still decodes
+heif-convert corpus/heif/clean.avif /tmp/x.png   # decodes through libheif
+exiftool corpus/jpeg/exif-gps.jpg                # carries what the manifest says
+unzip -l corpus/odf/everything.odt               # first entry must be a stored `mimetype`
 ```
-
-Anything either tool still reports is **either a bug or a documented limitation**, and that
-decision must be explicit and recorded — never made by silence.
-
-### WebP differential
-
-**mat2's WebP path needs a GdkPixbuf WebP loader**, absent on many machines. Where it is
-missing, mat2 fails on the *original* fixtures as well as on strypt's output, so the comparison
-says nothing and must be recorded as not run rather than as a pass. That was the state from
-2026-08-19 until 2026-08-21.
-
-```sh
-brew install webp-pixbuf-loader          # macOS; Debian/Ubuntu: apt install webp-pixbuf
-gdk-pixbuf-query-loaders | grep -i webp  # must print a line, or mat2 cannot read WebP
-
-./scripts/webp-differential.sh                     # the 14 synthetic fixtures
-./scripts/webp-differential.sh /path/to/other/dir  # any directory of .webp files
-```
-
-The script exits 2 without running if the loader is missing — a clean sweep that both tools
-failed identically is worse than no result, because it looks like evidence. Exit 0 means no tag
-mat2 removes survives in strypt's output; exit 1 lists the gaps.
-
-Two expected notes in its output are **not** strypt findings: mat2 re-encodes through GdkPixbuf,
-so it flattens animations to a single frame, and it can expose `ALPH` bitstream parameters the
-input did not have. Both are recorded in `docs/THREAT_MODEL.md` §7.4.
-
-### Office Open XML differential
-
-```sh
-cargo build --release                    # the script refuses to run against a debug binary path
-./scripts/ooxml-differential.sh
-```
-
-Compares **what metadata survives in each tool's output**, not whether the two produce the same
-file. They do not and should not: mat2 rebuilds an OOXML package from a whitelist of parts it
-recognises, while strypt copies through every part it had no reason to change. A byte comparison
-would report a difference on every file and tell you nothing.
-
-Both sides are read with **mat2's own reader**, which takes strypt's report out of the loop
-entirely — a handler that forgot to remove something cannot pass by claiming it did. ExifTool is
-the second opinion and the one that reads into the embedded pictures.
-
-Two fields are excluded from the comparison, each for a stated reason rather than because it was
-inconvenient, and both are values *both* tools normalise to a constant: `date_time` (the ZIP
-entry timestamp) and `create_system` (the host byte — mat2 recognises only 2 and 3, and reports
-strypt's constant 0, which is what Word writes, as "Weird").
-
-Expect one file to be skipped: **mat2 refuses `presentation.pptx`**, because
-`ppt/commentAuthors.xml` is not on its content-type whitelist. That is recorded rather than
-silently passed over (`docs/THREAT_MODEL.md` §7.6).
-
-Last run 2026-08-23 against mat2 0.15.0 and ExifTool 13.55: no gaps across 13 fixtures.
-
-### OpenDocument differential
-
-```sh
-cargo build --release                    # the script refuses to run against a debug binary path
-./scripts/odf-differential.sh
-```
-
-The same shape as the OOXML one and the same two exclusions, against `corpus/odf`. mat2's
-OpenDocument path removes more than its Office one — `meta.xml`, `settings.xml`, `Thumbnails/`,
-`Configurations2/`, `ObjectReplacements/`, and annotations and tracked changes outright — so this
-is the stricter of the two comparisons.
-
-Expect one file to be skipped: **mat2 refuses `embedded-object.ods`**, because its part patterns
-are anchored at the package root and an embedded chart's `Object 1/settings.xml` matches neither
-its keep list nor its omit list. Recorded rather than silently passed over
-(`docs/THREAT_MODEL.md` §7.7).
-
-Last run 2026-08-24 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures.
-
-### TIFF differential
-
-```sh
-cargo build --release
-./scripts/tiff-differential.sh
-```
-
-A different shape from the package-format differentials, because TIFF is the one format strypt
-**rebuilds rather than edits** (ADR-0033). mat2's default TIFF path re-renders the pixels through
-GdkPixbuf while strypt copies the compressed data across, so the two outputs cannot resemble each
-other and a byte comparison would say nothing. What is compared is what metadata survives in each,
-read by ExifTool.
-
-**`-u` is load-bearing** and the script passes it: ExifTool omits tags it does not recognise
-unless asked, and an unrecognised vendor tag is exactly the case the handler's allow-list exists
-to catch. The script also greps the output bytes for the fixtures' `SYNTHETIC` markers and for
-the `PRESERVED-` payload, so a clean result does not depend on either tool's reader alone.
-
-Last run 2026-08-25 against mat2 0.15.0 and ExifTool 13.55: no gaps across 10 fixtures — zero
-tags surviving on either side. Verified able to fail: the same filter over the *unstripped*
-fixtures reports 9, 6, 2, and 1 surviving tags and names the leaked values.
-
-### GIF differential
-
-```sh
-cargo build --release
-./scripts/gif-differential.sh
-```
-
-mat2's GIF path re-renders the image through GdkPixbuf where strypt removes whole blocks and
-copies the rest through, so as with TIFF the outputs cannot resemble each other and what is
-compared is what metadata survives in each.
-
-**Two things in that script are decisions rather than bookkeeping, and both are written into it.**
-The `[File]` group is filtered tag by tag rather than as a whole, because ExifTool files a GIF's
-comment under `[File] Comment` — the blanket exclusion the TIFF script uses would hide this
-format's most common leak. And `AnimationIterations` is excluded because strypt keeps the loop
-count on purpose; the script pairs that exclusion with a check asserting the loop count really
-does survive, so it is a declared choice rather than a softened sweep.
-
-Last run 2026-08-26 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures, zero tags
-surviving strypt. On `plain-text.gif` **strypt removes more than mat2 does** — ExifTool still
-reports the plain-text block in mat2's output. Verified able to fail: the same filter over the
-*unstripped* fixtures reports surviving tags on 8 of the 14, including 3 on `xmp.gif`.
-
-### HEIF and AVIF differential
-
-```sh
-cargo build --release
-./scripts/heif-differential.sh
-```
-
-Three things in that script are decisions rather than bookkeeping, and all three are written into
-it. **mat2's default mode declines HEIC** — "HEIC files can't be thoroughly cleaned. Use lightweight
-mode instead." — so the script falls back to `mat2 -L` and prints which mode ran; comparing against
-a refusal would be comparing against nothing. **`PERL_HASH_SEED` is pinned**, because ExifTool walks
-atoms in Perl hash order and on some fixtures that order decides whether it refuses to write at all,
-making the same bytes pass or fail run to run. And **the ICC check asks ImageMagick, not ExifTool**,
-which reports no ICC profile for either format.
-
-The script runs its own able-to-fail check on every invocation, against the unstripped fixtures,
-and refuses to report a sweep if they do not light the filter up.
-
-Last run 2026-08-27 against mat2 0.15.0 and ExifTool 13.55: no gaps across all 17 fixtures, zero
-tags surviving strypt, every output still decoding through libheif, and **0 differing pixels** on
-every one.
-
-### SVG differential
-
-```sh
-cargo build --release
-./scripts/svg-differential.sh
-```
-
-**SVG inverts the comparison every other format here makes.** mat2 re-renders the document through
-Rsvg, so it removes strictly more — the accessibility text and the script strypt will not touch —
-while destroying ids, grouping, animation and the author's editable structure. The script therefore
-checks both directions: nothing survives strypt that does not survive mat2, and the drawing itself
-crossed strypt byte for byte.
-
-One exclusion in it is a decision rather than bookkeeping: `Title` and `Desc` are filtered out
-because strypt keeps the accessibility text and mat2 removes it, and the exclusion is paired with a
-check asserting both really do survive.
-
-Last run 2026-08-28 against mat2 0.15.0 and ExifTool 13.55: no gaps across 14 fixtures, zero tags
-surviving strypt, `PRESERVED-SHAPE` intact in every output. Verified able to fail: against a
-pass-through binary it reports 19 gaps.
-
-### JPEG XL differential
-
-```sh
-cargo build --release
-./scripts/jxl-differential.sh
-```
-
-Both tools edit the container here rather than re-rendering — mat2's `JXLParser` shells out to
-ExifTool — so the comparison is fair in both directions, and **the reverse direction is the one
-worth reading**. The script walks top-level boxes with its own Python walker, because ExifTool
-names nothing at all for a `jbrd`, a `free`, a `skip` or a `jxli`, and a box that survives one tool
-and not the other would otherwise be invisible.
-
-**No JPEG XL decoder is used or needed**: strypt never enters the codestream, ExifTool does not
-either, and the fixtures' codestream is a header stub. The "still the same image" check is
-therefore structural — the output must still identify as JXL at the dimensions it went in with.
-
-Last run 2026-08-29 against mat2 0.15.0 and ExifTool 13.55: no gaps across 13 fixtures, and
-ExifTool leaving `jumb`, `jbrd`, `jxli`, `free` and `skip` where strypt removes them. Verified able
-to fail: against a pass-through binary it reports 28 gaps.
-
-### FLAC differential
-
-```sh
-cargo build --release
-./scripts/flac-differential.sh
-```
-
-Both tools edit the block list rather than re-encoding, so the comparison is fair in both
-directions, and **the reverse direction is the one worth reading**. The script walks metadata
-blocks with its own Python walker, because ExifTool names nothing at all for an `APPLICATION` block
-or a reserved type, and a block that survives one tool and not the other would otherwise be
-invisible.
-
-**No FLAC decoder is in strypt** — but the fixtures are real audio, so the "still the same
-recording" check is a real one: `ffmpeg` decodes input and output and their MD5s must match.
-`-map 0:a` in that check is load-bearing, because ffmpeg exposes cover art as a video stream.
-Requires `ffmpeg` in addition to mat2, ExifTool and python3.
-
-Last run 2026-09-01 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 10
-fixtures, every output the same audio sample for sample, and mat2 leaving `APPLICATION`, `CUESHEET`
-and reserved block types where strypt removes them. Verified able to fail: against a pass-through
-binary it reports 18 gaps.
-
-### WAV differential
-
-```sh
-cargo build --release
-./scripts/wav-differential.sh
-```
-
-The two tools work differently here, so the script says so rather than scoring one against the
-other: mat2 rebuilds a WAV through ffmpeg, strypt edits its chunk list. It therefore compares three
-things — ExifTool's tags, the chunk list (walked by its own Python walker, because ExifTool names
-nothing for a private chunk), and the `data` payload's hash across input, strypt and mat2.
-
-The payload comparison is the one that produced a result worth reading: **mat2's rebuild reproduces
-16-bit PCM byte for byte**, so re-encoding does not reach the sample values either. Two chunks
-survive strypt and not mat2 — `cue ` and `JUNK` — and both are deliberate keeps reported by name
-(ADR-0039), not gaps. Requires `ffmpeg` in addition to mat2, ExifTool and python3.
-
-Last run 2026-09-01 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 14
-fixtures, no ExifTool tag surviving any output, and every output the same audio sample for sample.
-Verified able to fail: against a pass-through stand-in it reports 43 gaps.
-
-### MP3 differential
-
-```sh
-cargo build --release
-./scripts/mp3-differential.sh
-```
-
-The closest comparison in the project: neither tool re-encodes, so this compares like with like.
-mat2 deletes the ID3 tag through mutagen; strypt deletes every tag at both ends (ADR-0040). Four
-things are checked — ExifTool's tags, an independent Python walk of both ends (ExifTool names
-nothing at all for an APE item or a Lyrics3 field, so a whole tag can survive invisibly), a decode
-comparison, and the frame bytes themselves. Requires `ffmpeg` in addition to mat2, ExifTool and
-python3.
-
-`VBRFrames` and `VBRBytes` are deliberately not filtered out: they come from the `Xing` header frame
-strypt keeps on purpose, and a keep the differential hides is a keep nobody can audit.
-
-Last run 2026-09-02 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 23
-fixtures, no tag surviving either end of any output, and every output the same audio with the frames
-identical byte for byte. Verified able to fail on both its tag walk and its marker sweep, against an
-unstripped pass-through stand-in. The measured difference: a Lyrics3 tag alone on a file survives
-mat2 and does not survive strypt; and strypt refuses files mat2 will still clean, for which mat2 is
-the better recommendation.
-
-### MP4 differential
-
-```sh
-cargo build --release
-./scripts/mp4-differential.sh
-```
-
-mat2 remuxes through ffmpeg where strypt edits the box tree (ADR-0042), so the comparison is about
-what reaches the output. Four things are checked: ExifTool's tags, an independent Python box walk
-that resolves every chunk offset to "which `mdat`, how far in" (ExifTool names nothing at all for a
-chunk offset, and an offset that stopped resolving is a file that stopped playing), a decode
-comparison, and a marker sweep. Requires `ffmpeg` in addition to mat2, ExifTool and python3. **mat2
-does not claim `.m4a`**, so the audio fixtures have no mat2 side; the script records that rather than
-skipping them.
-
-### Ogg differential
-
-```sh
-cargo build --release
-./scripts/ogg-differential.sh
-```
-
-Neither tool re-encodes and both repaginate — mat2 through mutagen, strypt page by page (ADR-0041) —
-so this is the closest comparison in the project. Four things are checked: ExifTool's tags, an
-independent Python page walk (ExifTool names nothing at all for a serial number, and the serial is
-itself an identifier), a decode comparison, and a marker sweep. Requires `ffmpeg` in addition to
-mat2, ExifTool and python3.
-
-`MD5Signature` is deliberately filtered out and `Padding` is not: the first is the Ogg-FLAC audio
-checksum strypt keeps and declares (ADR-0038 decision 4), the second is a keep the differential must
-not hide.
-
-Last run 2026-09-03 against mat2 0.15.0, ExifTool 13.55 and ffmpeg 9.0.1: no gaps across 10 fixtures,
-no serial surviving any output, and every output the same audio. Verified able to fail on both its
-page walk and its marker sweep, against an unstripped pass-through stand-in. The measured
-differences: mat2 keeps the vendor string and the serial number, and strypt clears both; and strypt
-refuses multiplexed, chained and Theora files mat2 will still clean, for which mat2 is the better
-recommendation.
-
-### OpenDocument LibreOffice import validation
-
-```sh
-brew install --cask libreoffice          # macOS; any install putting soffice on PATH will do
-cargo build --release
-./scripts/odf-libreoffice-validation.sh
-```
-
-Answers a different question from the differential. The differential asks *what metadata
-survives*; this asks *does the stripped package still open in the application that writes this
-format* — the check `docs/THREAT_MODEL.md` §7.7 recorded as owed. Each fixture is stripped,
-loaded by LibreOffice, and re-exported to flat XML, which forces a full import of every part
-rather than a header sniff; then the document bodies of the original and the stripped copy are
-compared, to catch a file that opens cleanly but lost content.
-
-**`soffice` exits 0 even when the import fails**, so the script gates on whether an output file
-appeared, never on the exit status. Verified against `corpus/odf/malformed/truncated.odt`.
-
-Point it at other files with `CORPUS=`, which is how the real-producer LibreOffice documents were
-covered:
-
-```sh
-CORPUS=/path/to/odf/files ./scripts/odf-libreoffice-validation.sh
-```
-
-`EXPECT_BODY_DIFF` in the script lists the fixtures whose body is *supposed* to change, each with
-its reason. An unexpected difference fails, and so does an unexpected match — a fixture that
-stopped changing means strypt stopped removing something.
-
-**This is not the GUI repair-prompt check.** Headless import cannot raise a dialog, so opening a
-few stripped files by hand in LibreOffice is a separate, manual step — and it is **re-owed
-whenever the handler changes**, since the script cannot cover it. Last done 2026-08-24: seven
-stripped files opened in LibreOffice 26.2.5.2, none prompting for repair
-(`docs/THREAT_MODEL.md` §7.7).
-
-Last run 2026-08-24 against LibreOffice 26.2.5.2 on macOS/arm64: 14 fixtures and 2 real-producer
-documents, no failures.
 
 ### Real-producer corpus
 
-Files from real cameras, converters and producers, kept **out of this repository** because they
-carry real names, a device serial and live GPS coordinates
-([`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §3). The build script and manifests are
-committed; the files are fetched on demand.
+Real files carrying real names and live GPS, kept out of the repository; only the build script
+and manifests are committed.
 
 ```sh
 cd real-producer-corpus
-python3 build_real_corpus.py                  # 102 fixtures; clones upstreams into .cache/ once
-python3 build_real_corpus.py --with-browser   # + a WebP encoded by the local browser (103)
+python3 build_real_corpus.py                  # 102 fixtures; the first run clones three upstreams
+python3 build_real_corpus.py --with-browser   # + one Chrome-encoded WebP; opt-in, browsers churn
 ```
 
-The first run needs network to clone three public repositories; later runs are offline, since
-`acquire()` only clones what is absent. **This is corpus tooling, not strypt** — ADR-0004's
-no-network rule constrains the shipped dependency graph, not a developer script that fetches
-test data.
+Every crash, hang or OOM needs a regression test and its input in the corpus before the fix is
+accepted ([`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §2.6).
 
-`--with-browser` is opt-in on purpose. It drives headless Chrome through
-`canvas.toDataURL('image/webp')` to get a genuinely browser-encoded file, but browsers
-auto-update, so its bytes would otherwise churn the committed `MANIFEST.csv` on every
-contributor's machine. Without a browser installed it prints `SKIP` and carries on. `prune()`
-never deletes the result, because regenerating it needs a browser the next machine may lack.
+## Differential testing
 
-**Every crash, hang, or OOM requires a regression test and the offending input added to the
-corpus before the fix is accepted** ([`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md)
-§2.6). Hangs and OOMs count as findings, ranked equally with crashes.
+Before every release, not per commit. Build `--release` first; every script defaults to
+`target/release/strypt` (override with `STRYPT=`), refuses to run without its tools, and reports
+what survives each tool's output — a gap is a bug or a documented limitation, never silence.
+
+| Script | Also needs |
+|---|---|
+| `ooxml-differential.sh`, `odf-differential.sh`, `tiff-differential.sh`, `gif-differential.sh`, `svg-differential.sh` | — |
+| `jxl-differential.sh` | python3 |
+| `heif-differential.sh` | libheif's `heif-convert` |
+| `flac-differential.sh`, `wav-differential.sh`, `mp3-differential.sh`, `ogg-differential.sh`, `mp4-differential.sh` | ffmpeg, python3 |
+| `webp-differential.sh [DIR]` | `webpinfo`, and `webp-pixbuf-loader` — without it mat2 cannot read WebP |
+
+```sh
+cargo build --release && ./scripts/mp4-differential.sh
+```
+
+PDF, JPEG and PNG have no script:
+
+```sh
+mkdir -p /tmp/strypt-diff && cp corpus/pdf/*.pdf /tmp/strypt-diff/
+./target/release/strypt strip /tmp/strypt-diff/*.pdf
+exiftool -s -G /tmp/strypt-diff/*.stripped.pdf | grep -vE '^\[(File|ExifTool)\]'
+mat2 --show /tmp/strypt-diff/*.stripped.pdf
+```
+
+### LibreOffice import validation
+
+```sh
+cargo build --release && ./scripts/odf-libreoffice-validation.sh
+CORPUS=/path/to/odf/files ./scripts/odf-libreoffice-validation.sh
+```
+
+Needs `soffice` on PATH. It checks that stripped packages still import, not that no repair
+prompt appears; opening a few by hand is re-owed whenever the handler changes.
 
 ## Supply-chain checks
 
-Every check is a hard merge gate (ADR-0045). CI runs cargo-deny 0.20.2; install the same
-locally with `cargo install cargo-deny --locked --version 0.20.2`.
+Hard merge gates (ADR-0045):
 
 ```sh
-cargo deny check                 # all checks
-cargo deny check advisories      # RustSec advisories and yanked crates
-cargo deny check licenses        # licence compatibility
-cargo deny check bans            # banned crates, duplicates, wildcards
-cargo deny check sources         # crates.io only
+cargo deny check                 # advisories, licenses, bans, sources
+cargo deny check advisories      # or one at a time
+./scripts/check-no-network.sh    # ADR-0004: fails on any networking crate, transitive included
+cargo tree -i reqwest            # who pulls a crate in (expect: nothing)
 ```
 
-A red `advisories` run with no change here means a new advisory or a yank. Fix it, or add a
-reasoned `ignore` to `deny.toml`. Never make the job non-blocking again.
+A red `advisories` run with no change here is a new advisory or yank: fix it, or add a reasoned
+`ignore` to `deny.toml`.
 
-## The no-network gate
-
-The project's most important check (ADR-0004), and the one piece of enforcement that is
-already real:
-
-```sh
-./scripts/check-no-network.sh
-```
-
-It walks the fully resolved dependency graph across all features and fails on any networking
-crate, including transitive ones. To inspect the graph manually:
-
-```sh
-cargo tree                                    # full resolved tree
-cargo tree -i reqwest                         # who pulls in a given crate (expect: nothing)
-cargo tree --prefix none --format '{p}' | sort -u
-```
-
-## Proving the gates fail
+### Proving the gates fail
 
 ```sh
 ./scripts/prove-gates.sh         # ~20s; needs network
 ```
 
-Plants one violation per check in a throwaway copy of the tree — a networking crate, a
-duplicate, a wildcard, a copyleft licence, a git source, a known vulnerability, a yanked
-crate — and requires each gate to fail **with that check's own diagnostic**. Your checkout is
-never touched. CI runs it on every push, so a gate weakened in `deny.toml` or
-`check-no-network.sh` fails the build. Replaces the manual throwaway-branch procedure used
-on 2026-08-19.
-
-If a case fails when you haven't touched the gates, check its external assumption first: the
-yank case needs `chacha20 0.10.1` to still be yanked. Otherwise the gate is broken, and that is
-a priority-one bug.
+Plants one violation per check in a throwaway copy — a networking crate, a duplicate, a
+wildcard, a copyleft licence, a git source, a vulnerability, a yanked crate — and requires each
+gate to fail with its own diagnostic. CI runs it. If a case fails untouched, check its external
+assumption first: the yank case needs `chacha20 0.10.1` still yanked.
 
 ## Filesystem-constraints matrix
 
-Linux only, as a non-root user with passwordless sudo (it loop-mounts). Needs `dosfstools` and
-`exfatprogs`. Cases and contract: [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §2.7.
+Linux, non-root with passwordless sudo, `dosfstools` and `exfatprogs`. Cases:
+[`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §2.7.
 
 ```sh
-cargo build -p strypt && ./scripts/fs-matrix.sh
-./scripts/prove-fs-matrix.sh     # plants five io.rs mutants; each must be caught
+cargo build -p strypt && ./scripts/fs-matrix.sh [BINARY]
+./scripts/prove-fs-matrix.sh     # five io.rs mutants; each must be caught
 ```
 
 On macOS, in Docker:
@@ -811,31 +236,20 @@ docker run --rm --privileged -v "$PWD":/src:ro -w /src -e CARGO_TARGET_DIR=/tmp/
   sh -c 'cargo build -q -p strypt && scripts/fs-matrix.sh /tmp/t/debug/strypt && scripts/prove-fs-matrix.sh'
 ```
 
-## Enabling the local git hooks
+## Performance measurement
 
-Once per clone. Catches edits made outside Claude Code, which the `.claude/` hooks cannot see:
-
-```sh
-git config core.hooksPath .githooks
-```
-
-## Full pre-commit check
-
-What CI runs, in order:
+The numbers in [`docs/PRD.md`](docs/PRD.md) §9. Needs a release binary and ImageMagick.
 
 ```sh
-cargo fmt --check && \
-cargo clippy --all-targets --all-features -- -D warnings && \
-cargo test && \
-./scripts/check-no-network.sh && \
-cargo deny check && \
-./scripts/prove-gates.sh
+cargo build --release && ./scripts/measure-performance.sh
+REPS=15 BATCH=3000 ./scripts/measure-performance.sh
 ```
 
-Plus, on Linux, the [filesystem-constraints matrix](#filesystem-constraints-matrix). If a parser changed:
+## README images
+
+Re-run after any change to CLI output; it renders `docs/assets/demo.svg` from the release binary
+and strips both README images with strypt.
 
 ```sh
-cargo +nightly fuzz run <target> -- -max_total_time=300
+python3 scripts/render-demo.py
 ```
-
-See [`CLAUDE.md`](CLAUDE.md) §9 for the full definition of done.

@@ -12,8 +12,10 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 > [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) before relying on strypt.
 > Phases 0–3 are complete; prebuilt binaries and signing are Phase 4 ([`docs/ROADMAP.md`](docs/ROADMAP.md)).
 
-<!-- Badge placeholders — activate in Phase 4 -->
-<!-- [![CI](…)](…) [![crates.io](…)](…) [![License](…)](…) -->
+[![CI](https://github.com/FadeHack/strypt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/ci.yml)
+[![no-network](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml)
+[![cargo-deny](https://github.com/FadeHack/strypt/actions/workflows/deny.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/deny.yml)
+[![licence](https://img.shields.io/badge/licence-MIT_OR_Apache--2.0-blue)](#licence)
 
 <img src="docs/assets/demo.svg" alt="strypt strip removes a photo's GPS, serial number and author, and strypt show then finds nothing">
 
@@ -35,6 +37,25 @@ as unsupported and never passed through. What each handler removes, keeps, and r
 [ExifTool](https://exiftool.org/)** — both mature, actively maintained, and covering far more
 formats. Where mat2 is the better tool for a file strypt does support,
 [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md#where-mat2-is-the-better-choice) says so.
+
+## Why trust the output
+
+Evidence, not an audit — each point links to where it is checked.
+
+- **It fails closed.** A file strypt cannot fully process produces no output, and an unsupported
+  format is reported as unsupported, never passed through.
+- **It re-reads its own output.** Every stripped file is detected and inspected afresh, and
+  discarded (exit 5) if anything the handler recognises survived. That proves consistency, not
+  omniscience ([`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §4.8).
+- **It cannot phone home.** CI rejects any dependency that can open a network connection,
+  transitive ones included, and [proves that check fails](INSTRUCTIONS.md#proving-the-gates-fail)
+  on every push (ADR-0004).
+- **No `unsafe` in strypt's own code**, enforced by the compiler; dependencies are checked
+  against RustSec advisories on every push and weekly.
+- **Every parser is fuzzed.** 20 of 22 fuzz targets meet the bar of 24 CPU-hours with saturated
+  coverage (ADR-0044); `jxl` and `png` do not yet. All 22 run for a minute on every push.
+- **Every format is compared against mat2 and ExifTool**, and each difference is recorded as a
+  bug or a deliberate choice ([`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7).
 
 ## What strypt will *not* do
 
