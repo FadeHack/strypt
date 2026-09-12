@@ -469,6 +469,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   three phases behind, still cited ADR-0014's superseded fuzzing rule, and omitted CI's
   `--all-features` test run and MSRV build. Differential results live in THREAT_MODEL §7.
 
+- **The CLI's contract is tested end to end** (TESTING_STRATEGY §2.2): exit codes, the JSON schema,
+  stdout and stderr, and that strypt never changes an input, overwrites without `--force`, follows a
+  symlink, or prints values unasked. 21 tests, each safety test shown to fail against a planted bug.
+
 - **Phase 3 — hardening — is complete (ADR-0043; opened 2026-09-05, closed 2026-09-12).** No change to what
   strypt removes: this phase adds no formats. What changed for users is what the project promises
   to verify. **The planned "boot Tails and Qubes-Whonix" validation is replaced by a
