@@ -27,7 +27,7 @@ it knows to look for. No tool can promise more.
   (ADR-0048).
 - **A refused file produces no output.** strypt refuses rather than partly cleans. Where mat2 handles
   a refused file, the table below says so.
-- **Less fuzzing confidence for JPEG XL, Ogg and PNG.** No crash has been found, but those targets
+- **Less fuzzing confidence for JPEG XL and PNG.** No crash has been found, but those targets
   were still finding new code paths late in their 24-hour runs (ADR-0044).
 - **Testing on real files is uneven.** The Phase 1 formats (JPEG, PNG, WebP, PDF) were checked
   against 102 files from real cameras and applications. The later formats were checked mostly

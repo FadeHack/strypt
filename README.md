@@ -175,7 +175,7 @@
 >
 > **What "Phase 1 done" does not mean.** There has been no external audit and no release. No
 > tool can guarantee total metadata removal and strypt does not claim to. Phase 3 hardening is
-> under way: 18 of 22 fuzz targets meet its 24-CPU-hour bar (ADR-0044), and JPEG XL, Ogg and PNG
+> under way: 20 of 22 fuzz targets meet its 24-CPU-hour bar (ADR-0044), and JPEG XL and PNG
 > do not yet. Two limitations are documented rather than fixed: the
 > JPEG `APP14` marker mat2 removes, and a PDF with 19-byte cross-reference entries that strypt
 > refuses and mat2 handles. Performance is one machine; Linux and Windows are unmeasured.

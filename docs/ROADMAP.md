@@ -675,9 +675,10 @@ gates anything else here.
    verdict ADR-0044 itself cites changed. **18 of 22 now certify** (`fuzz-tally.py`), and no
    target owes hours.
 
-   **One item remains open under this deliverable and is not closed by the ADR:**
+   **The item left open under this deliverable closed 2026-09-12; `jxl` and `png` stay punctuated
+   and are carried into deliverable 9:**
 
-   - **`ogg` is recurrently punctuated at 12, 24 and 48 hours**, and `oggpage` on both its runs —
+   - ✅ **`ogg` is recurrently punctuated at 12, 24 and 48 hours**, and `oggpage` on both its runs —
      the same `container/ogg.rs` through a second target. `jxl` and `png` punctuate too, less
      severely. **More hours are not the remedy**: 84 CPU-hours have not made `ogg` converge, and
      the fuzzer is visibly spending most of a run failing to construct a valid page CRC
@@ -688,6 +689,10 @@ gates anything else here.
      leaving one in eight broken so the refusal path stays covered. A 300s seeds-only A/B raised
      coverage from 1221 to 1336 (`ogg`) and from 268 to 305 (`oggpage`). That is a direction, not a
      verdict: both now owe a 24h run, and this item closes only if that run certifies.
+
+     **Both certified on the 24h run ending 2026-09-12**, zero crashes. `ogg` windows 416, 0, 2, 0,
+     2, 0, reaching 2446 edges against 2367 after the old 48h run; `oggpage` 11, then nothing
+     after 2.6h. **20 of 22 now certify.**
 2. ✅ **Continuous fuzzing infrastructure — declined, 2026-09-11, ADR-0046.** No CI job can
    run ADR-0044's 24 hours, and a private repo cannot afford one. Local batches plus
    `fuzz-tally.py` stay the method. OSS-Fuzz is declined until strypt has users.
