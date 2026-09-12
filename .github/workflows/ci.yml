@@ -90,10 +90,17 @@ jobs:
       - run: ./scripts/prove-fs-matrix.sh
 
   fuzz-smoke:
-    name: fuzz smoke
+    name: fuzz smoke (${{ matrix.target }})
     # Linux only: cargo-fuzz supports x86-64 and aarch64 on Unix-like systems and not Windows
     # at all (verified 2026-08-19). Windows is covered by the other layers.
     runs-on: ubuntu-latest
+    # Every target, not just pdf and detect: free on a public repository (ADR-0049). A private
+    # repository pays for 22 runners per push.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [bmff, detect, flac, gif, heif, jpeg, jxl, mp3, mp4, odf, ogg, oggpage, ooxml, pdf,
+                 png, riff, svg, tags, tiff, wav, webp, zip]
     steps:
       - uses: actions/checkout@v5
       # The deliberate second exception to the toolchain pin, alongside `msrv`: libFuzzer's
@@ -115,25 +122,21 @@ jobs:
       # to build the fuzz binary for x86_64-unknown-linux-musl, where the address sanitizer
       # cannot link against a statically linked libc. The failure reads as a missing `core`
       # crate, which points nowhere near the actual cause.
-      - name: Fuzz the PDF handler
+      - name: Fuzz ${{ matrix.target }}
         working-directory: crates/strypt-core/fuzz
         run: |
-          mkdir -p corpus/pdf
-          cargo fuzz run --target x86_64-unknown-linux-gnu pdf corpus/pdf seeds/pdf \
+          mkdir -p "corpus/$T"
+          cargo fuzz run --target x86_64-unknown-linux-gnu "$T" "corpus/$T" "seeds/$T" \
             -- -max_total_time=60 -rss_limit_mb=2048
-      - name: Fuzz format detection
-        working-directory: crates/strypt-core/fuzz
-        run: |
-          mkdir -p corpus/detect
-          cargo fuzz run --target x86_64-unknown-linux-gnu detect corpus/detect seeds/detect \
-            -- -max_total_time=30
+        env:
+          T: ${{ matrix.target }}
       # Any crash, hang, or OOM leaves its input behind. Publishing it makes the finding
       # reproducible by whoever picks it up, rather than a red X with a log that scrolled away.
       - name: Upload any crashing input
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-artifacts
+          name: fuzz-artifacts-${{ matrix.target }}
           path: crates/strypt-core/fuzz/artifacts/
     env:
       RUSTUP_TOOLCHAIN: "nightly"

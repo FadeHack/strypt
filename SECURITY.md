@@ -7,18 +7,15 @@ reports are treated accordingly.
 
 > ## What this policy can and cannot deliver today
 >
-> **This is a single-maintainer project with no external audit.** Be aware of three limits
+> **This is a single-maintainer project with no external audit.** Be aware of two limits
 > before relying on anything below. They are stated here rather than discovered later:
 >
 > - **There is no backup contact.** If the maintainer is unreachable, a report waits. Naming
 >   one is a `docs/ROADMAP.md` Phase 7 exit criterion and it is not met.
-> - **Reports arrive over ordinary email, unencrypted.** No PGP key is published, because a
->   key the maintainer cannot reliably use would be worse than none — a reporter would encrypt
->   a real finding into something unreadable. Assume the mail provider can read what you send,
->   and see the note below on what not to attach.
-> - **GitHub Private Vulnerability Reporting is not available.** GitHub offers it on public
->   repositories only, and this repository is private. It will be enabled if and when that
->   changes, and will become the preferred channel at that point.
+> - **Neither channel is end-to-end encrypted.** GitHub holds private reports; the mail
+>   provider can read email. No PGP key is published, because a key the maintainer cannot
+>   reliably use would be worse than none — a reporter would encrypt a real finding into
+>   something unreadable. See the note below on what not to attach.
 
 ---
 
@@ -26,14 +23,18 @@ reports are treated accordingly.
 
 **Do not open a public issue for a security vulnerability.**
 
-Email **`fadehack.dev@gmail.com`**, with `strypt security` in the subject line.
+**Preferred:** GitHub's private vulnerability reporting — the repository's **Security and
+quality** tab, then **Report a vulnerability**. Only you and the maintainer see the report.
+
+**Without a GitHub account:** email **`fadehack.dev@gmail.com`**, with `strypt security` in
+the subject line. This route was tested end to end on 2026-09-13.
 
 Please include: affected version and platform, what you observed and what you expected, steps
 to reproduce, and a sample file if one is involved — **sanitised of any real personal data**,
 or reproduced synthetically. We will not ask you to send a file containing someone's real
 location or identity.
 
-That request matters more than usual here, because the channel is unencrypted. If a finding
+That request matters more than usual here, because neither channel is encrypted. If a finding
 can only be demonstrated with a file carrying someone's real data, say so in the mail and send
 the description alone; we will work out a safer way to exchange the sample rather than have it
 sitting in two mailboxes.
