@@ -155,7 +155,9 @@ enum Failure {
 impl Outcome {
     fn record(&mut self, error: &StryptError) {
         let severity = match error {
-            StryptError::Io { .. } | StryptError::InputTooLarge { .. } => Failure::Io,
+            StryptError::Io { .. }
+            | StryptError::InputTooLarge { .. }
+            | StryptError::OutputExists => Failure::Io,
             StryptError::UnsupportedFormat { .. } | StryptError::UnrecognisedFormat => {
                 Failure::Unsupported
             }
@@ -243,6 +245,16 @@ fn run_strip(input: &InputArgs, in_place: bool, output_dir: Option<&Path>, force
                     json.push(render::strip_json(&path, &destination, &report));
                 } else {
                     print!("{}", render::strip_text(&path, &destination, &report));
+                }
+            }
+            Err(StryptError::OutputExists) => {
+                outcome.record(&StryptError::OutputExists);
+                eprintln!(
+                    "strypt: {} already exists; pass --force to overwrite it",
+                    destination.display()
+                );
+                if input.json {
+                    json.push(render::error_json(&path, &StryptError::OutputExists));
                 }
             }
             Err(error) => {

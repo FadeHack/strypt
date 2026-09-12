@@ -590,6 +590,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
+- **`strip` now says when its output file already exists.** It refused correctly, exit 3, but said
+  "i/o failure while creating a temporary file". It now names the file and suggests `--force`;
+  `strypt-core` reports the refusal as `StryptError::OutputExists`.
+
 - **A test-only size check that could report a false failure for TIFF files.** No user-facing
   behaviour changed and no file was ever stripped incorrectly — this is a fault in the fuzzing
   harness, recorded because the harness is what the project's safety claims rest on. The GIF,

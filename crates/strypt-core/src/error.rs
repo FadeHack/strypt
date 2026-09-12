@@ -35,6 +35,11 @@ pub enum StryptError {
         source: std::io::Error,
     },
 
+    /// The destination exists and the caller did not ask to replace it. A refusal, not an I/O
+    /// failure: the fix is the caller's, so it must not read as a disk problem.
+    #[error("the output file already exists")]
+    OutputExists,
+
     /// The input exceeds the configured size limit and was not read.
     ///
     /// This is a refusal, not a failure: an unbounded read of an attacker-supplied file is a

@@ -166,7 +166,9 @@ fn an_existing_output_is_kept_without_force() {
     let existing = dir.join("photo.stripped.jpg");
     std::fs::write(&existing, "the user's file").unwrap();
 
-    assert_eq!(strypt(&["strip"], &input).status.code(), Some(3));
+    let out = strypt(&["strip"], &input);
+    assert_eq!(out.status.code(), Some(3));
+    assert!(stderr(&out).contains("already exists; pass --force"));
     assert_eq!(std::fs::read(&existing).unwrap(), b"the user's file");
 
     assert_eq!(strypt(&["strip", "--force"], &input).status.code(), Some(0));

@@ -187,8 +187,8 @@ impl AtomicWrite {
     ///
     /// # Errors
     ///
-    /// [`StryptError::Io`] if the destination exists and `overwrite` is
-    /// [`Overwrite::Refuse`], or if the temporary file cannot be created.
+    /// [`StryptError::OutputExists`] if the destination exists and `overwrite` is
+    /// [`Overwrite::Refuse`]; [`StryptError::Io`] if the temporary file cannot be created.
     pub fn begin(
         destination: &Path,
         overwrite: Overwrite,
@@ -201,13 +201,7 @@ impl AtomicWrite {
         // honest position is that this is a courtesy check; the atomicity that matters is
         // that the destination is never *partially* written.
         if overwrite == Overwrite::Refuse && destination.exists() {
-            return Err(StryptError::Io {
-                action: IoAction::CreatingTemporary,
-                source: std::io::Error::new(
-                    std::io::ErrorKind::AlreadyExists,
-                    "destination exists",
-                ),
-            });
+            return Err(StryptError::OutputExists);
         }
 
         let temporary = temporary_path_for(destination);
@@ -513,7 +507,7 @@ mod tests {
         std::fs::write(&dest, b"the user's file").unwrap();
 
         let err = AtomicWrite::begin(&dest, Overwrite::Refuse, Permissions::OwnerOnly).unwrap_err();
-        assert!(matches!(err, StryptError::Io { .. }));
+        assert!(matches!(err, StryptError::OutputExists));
         assert_eq!(
             std::fs::read(&dest).unwrap(),
             b"the user's file",
