@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="663" height="458" viewBox="0 0 663 458" role="img" aria-labelledby="t">
+<svg xmlns="http://www.w3.org/2000/svg" width="849" height="498" viewBox="0 0 849 498" role="img" aria-labelledby="t">
 <title id="t">strypt strip removes 12 metadata fields from a photo, and strypt show then finds none</title>
-<rect width="663" height="458" rx="10" fill="#0d1117"/>
-<rect width="663" height="36" rx="10" fill="#161b22"/><rect y="26" width="663" height="10" fill="#161b22"/><circle cx="20" cy="18" r="6" fill="#ff5f57"/><circle cx="38" cy="18" r="6" fill="#febc2e"/><circle cx="56" cy="18" r="6" fill="#28c840"/>
+<rect width="849" height="498" rx="10" fill="#0d1117"/>
+<rect width="849" height="36" rx="10" fill="#161b22"/><rect y="26" width="849" height="10" fill="#161b22"/><circle cx="20" cy="18" r="6" fill="#ff5f57"/><circle cx="38" cy="18" r="6" fill="#febc2e"/><circle cx="56" cy="18" r="6" fill="#28c840"/>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="14" fill="#c9d1d9" xml:space="preserve">
 <text x="24" y="72"><tspan fill="#7ee787">$</tspan> <tspan fill="#f0f6fc" font-weight="600">strypt strip photo.jpg</tspan></text>
 <text x="24" y="92">photo.jpg -&gt; photo.stripped.jpg  [JPEG]</text>
@@ -18,8 +18,10 @@
 <text x="24" y="312">  removed !! location — APP1 (Exif) GPS IFD /GPSLongitudeRef</text>
 <text x="24" y="332">  removed !! location — APP1 (Exif) GPS IFD /GPSLongitude</text>
 <text x="24" y="352">  kept APP0 (JFIF) (removing it would have altered the file&#x27;s contents)</text>
-<text x="24" y="392"><tspan fill="#7ee787">$</tspan> <tspan fill="#f0f6fc" font-weight="600">strypt show photo.stripped.jpg</tspan></text>
-<text x="24" y="412">photo.stripped.jpg  [JPEG]</text>
-<text x="24" y="432">  no removable metadata found</text>
+<text x="24" y="372">strypt: filenames, folder names, and anything visible in the document itself are not touched.</text>
+<text x="24" y="412"><tspan fill="#7ee787">$</tspan> <tspan fill="#f0f6fc" font-weight="600">strypt show photo.stripped.jpg</tspan></text>
+<text x="24" y="432">photo.stripped.jpg  [JPEG]</text>
+<text x="24" y="452">  no removable metadata found</text>
+<text x="24" y="472">strypt: filenames, folder names, and anything visible in the document itself are not touched.</text>
 </g>
 </svg>

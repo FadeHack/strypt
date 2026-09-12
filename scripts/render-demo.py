@@ -72,8 +72,10 @@ def main():
         lines = session(pathlib.Path(tmp).resolve())
     (ASSETS / "demo.svg").write_text(svg(lines))
     for name in ("banner.svg", "demo.svg"):
-        subprocess.run([BIN, "strip", "--in-place", ASSETS / name], check=True,
-                       stdout=subprocess.DEVNULL)
+        run = subprocess.run([BIN, "strip", "--in-place", ASSETS / name], capture_output=True,
+                             text=True)
+        if run.returncode != 0:
+            sys.exit(f"stripping {name} failed:\n{run.stderr}")
     print(f"wrote {ASSETS / 'demo.svg'}; stripped banner.svg and demo.svg")
 
 
