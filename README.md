@@ -68,6 +68,17 @@ Evidence, not an audit — each point links to where it is checked.
 - **No tool can guarantee complete metadata removal from complex formats.** strypt will never
   claim otherwise.
 
+## Before you publish
+
+1. **Rename the file.** strypt keeps the name you gave it, plus `.stripped`.
+2. **Look at what is visible**: faces, screens, reflections, street signs, and the text itself.
+3. **Check the stripped copy** with `strypt show`, and read what `strip` said it kept.
+4. **Upload only the stripped copy.** A platform may store the file you send even when it shows a
+   re-encoded one.
+
+**If strypt calls a file clean and it still carries metadata, that is a security vulnerability.**
+Report it privately through [`SECURITY.md`](SECURITY.md), not in a public issue.
+
 ## Install
 
 ```sh
@@ -76,6 +87,9 @@ cargo install strypt    # requires a Rust toolchain
 
 That is the only install path until Phase 4. `strypt-cli` on crates.io is the same tool under
 its original name, yanked on 2026-08-23 (ADR-0026); replace it with `strypt`.
+
+Tested in CI on Linux, macOS and Windows. On Windows, output takes the permissions of the folder
+it is written to ([`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md#everywhere)).
 
 ## Usage
 
@@ -89,6 +103,13 @@ strypt show --json --recursive ./docs  # machine-readable output for scripting
 
 A failure is loud: a file strypt cannot fully process produces no output. Commands and exit
 codes: [`INSTRUCTIONS.md`](INSTRUCTIONS.md).
+
+`show` exits non-zero when anything is left to deal with, so a publishing script or CI job can
+refuse to ship metadata:
+
+```sh
+strypt show --recursive public/images > /dev/null   # 1: metadata found; 4: a file strypt cannot check
+```
 
 ## Documentation
 

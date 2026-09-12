@@ -1,4 +1,4 @@
-# INSTRUCTIONS.md — build, test, and lint
+# INSTRUCTIONS.md - build, test, and lint
 
 The source of truth for commands. Update it in the same commit as any change to a command.
 Why a rule exists lives in [`docs/DECISIONS.md`](docs/DECISIONS.md); results live in
@@ -6,15 +6,15 @@ Why a rule exists lives in [`docs/DECISIONS.md`](docs/DECISIONS.md); results liv
 
 ## Prerequisites
 
-| Tool | Needed for |
-|---|---|
-| rustup | everything. `rust-toolchain.toml` pins the compiler and rustup installs it on first use; the MSRV is `rust-version` in `Cargo.toml` (ADR-0013) |
-| Rust nightly, `cargo install cargo-fuzz` | fuzzing. Linux and macOS only |
-| `cargo install cargo-deny --locked --version 0.20.2` | supply-chain checks; the version CI runs |
-| Python 3 | fixtures, fuzz analysis, README images |
-| mat2, ExifTool | differential testing. **Never runtime dependencies** |
-| ffmpeg, libheif, `webpinfo`, `webp-pixbuf-loader`, LibreOffice | individual differentials; see [Differential testing](#differential-testing) |
-| ImageMagick, `qpdf` | performance measurement and fixture checks |
+| Tool                                                              | Needed for                                                                                                                                          |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| rustup                                                            | everything. `rust-toolchain.toml` pins the compiler and rustup installs it on first use; the MSRV is `rust-version` in `Cargo.toml` (ADR-0013) |
+| Rust nightly, `cargo install cargo-fuzz`                         | fuzzing. Linux and macOS only                                                                                                                       |
+| `cargo install cargo-deny --locked --version 0.20.2`            | supply-chain checks; the version CI runs                                                                                                            |
+| Python 3                                                          | fixtures, fuzz analysis, README images                                                                                                              |
+| mat2, ExifTool                                                    | differential testing. **Never runtime dependencies**                                                                                           |
+| ffmpeg, libheif, `webpinfo`, `webp-pixbuf-loader`, LibreOffice | individual differentials; see [Differential testing](#differential-testing)                                                                           |
+| ImageMagick, `qpdf`                                              | performance measurement and fixture checks                                                                                                          |
 
 ## Build, test, lint
 
@@ -49,14 +49,14 @@ strypt strip --max-bytes 1048576 FILE  # refuse larger inputs
 
 Stable across releases; scripts depend on them. When a batch hits several, the most serious wins.
 
-| Code | Meaning |
-|---|---|
-| 0 | Success, and `show` found nothing removable |
-| 1 | `show` found metadata, or `strip` had a file fail |
-| 2 | Usage error |
-| 3 | A file could not be read or written |
-| 4 | A file's format has no handler |
-| 5 | Output failed post-strip verification and was discarded — report it as a bug |
+| Code | Meaning                                                                       |
+| ---- | ----------------------------------------------------------------------------- |
+| 0    | Success, and `show` found nothing removable                                  |
+| 1    | `show` found metadata, or `strip` had a file fail                         |
+| 2    | Usage error                                                                   |
+| 3    | A file could not be read or written                                           |
+| 4    | A file's format has no handler                                                |
+| 5    | Output failed post-strip verification and was discarded — report it as a bug |
 
 ## Full pre-commit check
 
@@ -71,8 +71,7 @@ cargo deny check && \
 ./scripts/prove-gates.sh
 ```
 
-CI also builds at the MSRV (`rustup toolchain install 1.95`, then `cargo +1.95 build
---all-features`), runs the [filesystem matrix](#filesystem-constraints-matrix) on Linux, and
+CI also builds at the MSRV (`rustup toolchain install 1.95`, then `cargo +1.95 build --all-features`), runs the [filesystem matrix](#filesystem-constraints-matrix) on Linux, and
 fuzzes every target for 60 seconds. Enable the local pre-commit hook once per clone:
 
 ```sh
@@ -156,13 +155,13 @@ Before every release, not per commit. Build `--release` first; every script defa
 `target/release/strypt` (override with `STRYPT=`), refuses to run without its tools, and reports
 what survives each tool's output — a gap is a bug or a documented limitation, never silence.
 
-| Script | Also needs |
-|---|---|
-| `ooxml-differential.sh`, `odf-differential.sh`, `tiff-differential.sh`, `gif-differential.sh`, `svg-differential.sh` | — |
-| `jxl-differential.sh` | python3 |
-| `heif-differential.sh` | libheif's `heif-convert` |
-| `flac-differential.sh`, `wav-differential.sh`, `mp3-differential.sh`, `ogg-differential.sh`, `mp4-differential.sh` | ffmpeg, python3 |
-| `webp-differential.sh [DIR]` | `webpinfo`, and `webp-pixbuf-loader` — without it mat2 cannot read WebP |
+| Script                                                                                                                         | Also needs                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `ooxml-differential.sh`, `odf-differential.sh`, `tiff-differential.sh`, `gif-differential.sh`, `svg-differential.sh` | —                                                                           |
+| `jxl-differential.sh`                                                                                                        | python3                                                                      |
+| `heif-differential.sh`                                                                                                       | libheif's `heif-convert`                                                    |
+| `flac-differential.sh`, `wav-differential.sh`, `mp3-differential.sh`, `ogg-differential.sh`, `mp4-differential.sh`   | ffmpeg, python3                                                              |
+| `webp-differential.sh [DIR]`                                                                                                 | `webpinfo`, and `webp-pixbuf-loader` — without it mat2 cannot read WebP |
 
 ```sh
 cargo build --release && ./scripts/mp4-differential.sh
