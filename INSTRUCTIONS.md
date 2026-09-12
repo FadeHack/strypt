@@ -253,6 +253,8 @@ The numbers in [`docs/PRD.md`](docs/PRD.md) §9. Needs a release binary and Imag
 ```sh
 cargo build --release && ./scripts/measure-performance.sh
 REPS=15 BATCH=3000 ./scripts/measure-performance.sh
+BIN=path/to/strypt ./scripts/measure-performance.sh   # any other build
+gh workflow run perf.yml                              # musl against glibc on Linux (ADR-0050)
 ```
 
 ## README images

@@ -1,0 +1,36 @@
+name: perf
+
+# musl's allocator against glibc's on the same runner (ADR-0050 decision 2). Alternated, so drift
+# on a shared runner shows as spread rather than as a difference. Not a gate.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    name: perf (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, os: ubuntu-24.04 }
+          - { arch: aarch64, os: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y imagemagick time >/dev/null
+          # Ubuntu ships ImageMagick 6, which has no `magick`.
+          command -v magick || { printf '#!/bin/sh\nexec convert "$@"\n' | sudo tee /usr/local/bin/magick; sudo chmod +x /usr/local/bin/magick; }
+      - name: Build
+        run: |
+          bash scripts/build-release.sh ${{ matrix.arch }}-unknown-linux-musl out
+          cargo build --release --locked -p strypt
+      - name: Measure
+        run: |
+          for i in 1 2; do
+            for bin in target/release/strypt out/*; do BIN=$PWD/$bin ./scripts/measure-performance.sh; done
+          done
