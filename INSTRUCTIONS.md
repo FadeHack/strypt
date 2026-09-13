@@ -263,6 +263,9 @@ brew update && brew upgrade fadehack/strypt/strypt && brew test fadehack/strypt/
 brew audit --strict --online fadehack/strypt/strypt
 ```
 
+5. `gh workflow run install.yml` runs README's install steps on fresh runners. Update the file
+   names in its matrix first.
+
 ## Performance measurement
 
 The numbers in [`docs/PRD.md`](docs/PRD.md) §9. Needs a release binary and ImageMagick.

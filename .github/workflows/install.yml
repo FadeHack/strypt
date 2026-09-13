@@ -1,0 +1,147 @@
+name: install
+
+# Runs README's install steps, read from README at this commit, on fresh runners (ADR-0049 item 10).
+# Linux runs in a bare debian:13 container; the macOS and Windows images come with Homebrew and gh.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+  attestations: read
+
+env:
+  README: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/README.md
+
+jobs:
+  brew-macos:
+    name: brew (macos-15-intel)
+    runs-on: macos-15-intel
+    steps:
+      - run: |
+          brew --version
+          curl -fsSL "$README" | grep '^brew install ' > steps.sh
+          cat steps.sh && sh -ex steps.sh
+          strypt --version && brew test fadehack/strypt/strypt
+
+  brew-linux:
+    name: brew (debian:13 on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    container: debian:13
+    strategy:
+      fail-fast: false
+      matrix: { os: [ubuntu-24.04, ubuntu-24.04-arm] }
+    steps:
+      # Homebrew's documented prerequisites, and a user: its installer refuses root.
+      - run: |
+          apt-get update -qq && apt-get install -y -qq build-essential procps curl file git sudo >/dev/null
+          useradd -m u && echo 'u ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/u
+      - run: su u -c 'NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+      - run: |
+          curl -fsSL "$README" | grep '^brew install ' > /tmp/steps.sh && chmod 644 /tmp/steps.sh
+          su - u -c 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew --version && cat /tmp/steps.sh &&
+            sh -ex /tmp/steps.sh && strypt --version && brew test fadehack/strypt/strypt'
+
+  curl-macos:
+    name: curl (${{ matrix.file }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, file: strypt-0.1.0-aarch64-apple-darwin }
+          - { os: macos-15-intel, file: strypt-0.1.0-x86_64-apple-darwin }
+    env: { FILE: "${{ matrix.file }}" }
+    steps:
+      - name: README's download block, with F set from its table
+        run: |
+          curl -fsSL "$README" -o README.md
+          sed -n '/^F=strypt-/,/^```/p' README.md | sed '$d' | sed "1s/^F=[^ ]*/F=$FILE/" > steps.sh
+          cat steps.sh && sh -ex steps.sh
+      - name: README's gh line, signed out, then with a token
+        if: always()
+        env: { TOKEN: "${{ github.token }}" }
+        run: |
+          { echo "F=$FILE"; grep -o 'gh attestation verify [^`]*' README.md; } > gh.sh && cat gh.sh
+          if sh gh.sh; then echo "signed out: passed"; else echo "signed out: failed"; fi
+          GH_TOKEN=$TOKEN sh -e gh.sh
+
+  curl-linux:
+    name: curl (${{ matrix.file }} in debian:13)
+    runs-on: ${{ matrix.os }}
+    container: debian:13
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, file: strypt-0.1.0-x86_64-unknown-linux-musl }
+          - { os: ubuntu-24.04-arm, file: strypt-0.1.0-aarch64-unknown-linux-musl }
+    env: { FILE: "${{ matrix.file }}" }
+    defaults: { run: { working-directory: /w } }
+    steps:
+      - working-directory: /
+        run: mkdir /w && apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null
+      - name: README's download block, with F set from its table
+        run: |
+          curl -fsSL "$README" -o README.md
+          sed -n '/^F=strypt-/,/^```/p' README.md | sed '$d' | sed "1s/^F=[^ ]*/F=$FILE/" > steps.sh
+          cat steps.sh && sh -ex steps.sh
+      - name: Debian's own gh
+        if: always()
+        run: |
+          apt-get install -y -qq gh >/dev/null && gh --version
+          if gh attestation --help >/dev/null 2>&1; then echo "has gh attestation"; else echo "no gh attestation"; fi
+      - name: gh from cli.github.com's Debian instructions
+        if: always()
+        run: |
+          mkdir -p -m 755 /etc/apt/keyrings
+          curl -fsSLo /etc/apt/keyrings/githubcli-archive-keyring.gpg https://cli.github.com/packages/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list
+          apt-get update -qq && apt-get install -y -qq gh >/dev/null && gh --version
+      - name: README's gh line, signed out, then with a token
+        if: always()
+        env: { TOKEN: "${{ github.token }}" }
+        run: |
+          { echo "F=$FILE"; grep -o 'gh attestation verify [^`]*' README.md; } > gh.sh && cat gh.sh
+          if sh gh.sh; then echo "signed out: passed"; else echo "signed out: failed"; fi
+          GH_TOKEN=$TOKEN sh -e gh.sh
+
+  windows:
+    name: Get-FileHash (windows-2025)
+    runs-on: windows-2025
+    defaults: { run: { shell: powershell } }
+    env: { TOKEN: "${{ github.token }}" }
+    steps:
+      # README gives no download command on Windows, so this stands in for a browser.
+      - name: Download, then README's Get-FileHash and gh lines
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $readme = (Invoke-WebRequest -UseBasicParsing $env:README).Content
+          $F = [regex]::Match($readme, 'Get-FileHash ([^\s`]+)').Groups[1].Value
+          $base = [regex]::Match($readme, 'curl -LO (\S+)/\$F').Groups[1].Value
+          Invoke-WebRequest -UseBasicParsing "$base/$F" -OutFile $F
+          Invoke-WebRequest -UseBasicParsing "$base/SHA256SUMS" -OutFile SHA256SUMS
+          Get-FileHash $F | Format-List
+          $line = (Select-String -SimpleMatch $F SHA256SUMS).Line; $line
+          if ($line -notmatch "^$((Get-FileHash $F).Hash) ") { throw "hash mismatch" }
+          & ".\$F" --version; if ($LASTEXITCODE) { throw "--version failed" }
+          $gh = [regex]::Match($readme, 'gh attestation verify [^`]+').Value; $gh
+          Invoke-Expression $gh; "signed out: exit $LASTEXITCODE"
+          $env:GH_TOKEN = $env:TOKEN
+          Invoke-Expression $gh; if ($LASTEXITCODE) { throw "gh attestation verify failed" }
+
+  tails:
+    name: Tails Persistent Storage mount options
+    runs-on: ubuntu-24.04
+    env:
+      V: "7.12"
+      SUM: 67ac6d61ea1ab936191048274ccefab439c5cadb1e14258aa445565e4eca49be # tails.net latest.json
+    steps:
+      - name: Read them from the Tails ISO
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq squashfs-tools libarchive-tools >/dev/null
+          curl -fsSLo t.iso "https://download.tails.net/tails/stable/tails-amd64-$V/tails-amd64-$V.iso"
+          echo "$SUM  t.iso" | sha256sum -c
+          bsdtar -xf t.iso live/filesystem.squashfs && rm t.iso
+          unsquashfs -l live/filesystem.squashfs | grep -E '/tps/|udisks2|fstab|\.mount$' | head -80 || true
+          sudo unsquashfs -q -d root live/filesystem.squashfs etc usr/lib/python3/dist-packages/tps usr/lib/systemd/system || true
+          sudo grep -rnE 'noexec|nosuid|nodev|nosymfollow' root/etc root/usr/lib/systemd/system root/usr/lib/python3/dist-packages/tps || true
+          sudo grep -rnE 'mount|bind' root/usr/lib/python3/dist-packages/tps --include='*.py' | head -150 || true

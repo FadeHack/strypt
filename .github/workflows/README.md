@@ -10,6 +10,7 @@ CI is the project's real enforcement layer (`CLAUDE.md` §6), and every gate is 
 | `deny.yml` | `cargo deny check`, and `prove-gates.sh` (ADR-0045) | push to `main`, pull requests, weekly |
 | `release.yml` | five targets built twice, failing unless each pair is byte-identical; a tag attests them and drafts a GitHub Release (ADR-0050) | tags, manual |
 | `perf.yml` | nothing: times the musl build against glibc on Linux (ADR-0050 decision 2) | manual |
+| `install.yml` | README's install steps, run on fresh runners, Linux in `debian:13` (ADR-0049 item 10) | manual |
 
 A push or pull request that changes only `**.md` and `docs/**` skips the first three, since no build
 or test reads those files.
