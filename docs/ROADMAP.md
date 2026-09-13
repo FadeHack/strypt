@@ -158,6 +158,8 @@ do not themselves undermine the trust model.
   Tails and Qubes-Whonix are Debian-based — but confirm at phase start that this transfers
   cleanly to the actual distribution path (Debian proper has its own packaging process and
   timelines, and inclusion in a derivative is not automatic).
+  *Declined by ADR-0052: Tails keeps only packages from Debian's repositories, so the static musl
+  binary is the Tails and Whonix path, and Debian proper moves to Phase 7.*
 - **The README finalised for a public audience** — install paths, checksum verification, and the
   status line brought up to date with what this phase delivers. Add a banner and a `strypt show`
   demo made from synthetic fixtures, both stripped by strypt before committing.
@@ -278,6 +280,8 @@ rely on it — rather than a well-built tool nobody uses.
   interpreter or C-library chain, permissive licensing — not as a replacement for a tool
   that is not in fact dead. Pitching it as a replacement would be both inaccurate and a poor
   first impression with maintainers who know the landscape better than we do.
+- **Debian packaging explored** (ADR-0052): the only route by which Tails's Additional Software
+  would keep strypt.
 - A deliberate **decision on localisation**, made rather than defaulted, given an
   international user base. Record it as an ADR either way.
 

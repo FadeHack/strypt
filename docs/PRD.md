@@ -292,7 +292,7 @@ Not a commercial product; metrics are about trustworthiness and reach.
 
 **Reach (secondary):**
 - crates.io downloads and GitHub stars, tracked but not optimised for.
-- Packaged in at least one mainstream Linux distribution (Phase 4).
+- Packaged in at least one mainstream Linux distribution (Phase 7, ADR-0052).
 - **Stretch:** substantive engagement with Tails and/or Qubes-Whonix maintainers about
   inclusion (Phase 7). Note this is a *conversation* metric, not an inclusion promise — and
   given mat2's active maintenance, inclusion as an *addition* is more plausible than

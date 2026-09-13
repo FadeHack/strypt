@@ -3335,3 +3335,49 @@ identity versus maintainer privacy" risk.
   weakening the user's defaults.
 - **Revisitable.** A Developer ID can be added later without affecting earlier releases, if the
   maintainer's situation changes.
+
+---
+
+## ADR-0052 — No `.deb`: the static binary is the Tails and Whonix path, and Debian waits for Phase 7
+
+**Status:** Accepted (2026-09-13)
+
+Discharges ADR-0049 decision 5 item 8. **Revises** `docs/ROADMAP.md` Phase 4's native-package
+deliverable and `docs/PRD.md` §10's distribution metric.
+
+**Context.** ROADMAP chose `.deb` because Tails and Qubes-Whonix are Debian-based, and asked
+whether that transfers to their real install paths. Verified 2026-09-13:
+
+- **Tails** keeps software across reboots only through Additional Software. Its docs cover packages
+  installed with APT from Debian's repositories, after setting an admin password at the Welcome
+  Screen. They describe no way to keep a downloaded `.deb`, and warn that extra APT repositories
+  "might break the security built into Tails".
+- **Tails ships mat2 and Metadata Cleaner** by default.
+- **Whonix** prefers a third-party APT repository, then Flatpak, then a verified standalone binary
+  in the home folder. In Qubes-Whonix, APT in an app qube lasts one session. Persistent packages go
+  in the template.
+- A `.deb` without an APT repository gets no updates. A repository needs a signing key to hold and
+  rotate.
+
+**Decision.**
+
+1. **No `.deb` is built.** A downloaded `.deb` reaches neither system: Tails does not keep it, and
+   Whonix ranks it below a binary. It would wrap the same musl binary that ADR-0050 already ships.
+2. **The static musl binary is the documented path** for both. It needs no root and no package
+   manager, and on Qubes-Whonix it persists in the app qube's home without touching the template.
+   The README (item 9) says mat2 ships with Tails, as ADR-0012 requires.
+3. **No APT repository.** A signing key is a long-lived secret and hosting is a permanent
+   obligation, for Whonix's top-ranked route alone.
+4. **Debian proper moves to Phase 7**, beside the Tails and Qubes-Whonix outreach. Inclusion is
+   the only route by which Tails's Additional Software would keep strypt. The PRD's "packaged in a
+   mainstream distribution" metric moves with it.
+
+**Consequences.**
+
+- **Phase 4's exit criteria are unchanged.** Criterion 1 never needed a `.deb`.
+- **Unverified: running the binary from Tails 7's Persistent Storage.** The only evidence is
+  Electrum's Tails 4 guide. If Persistent Storage is `noexec`, the README's Tails steps change.
+  ADR-0043 binds: nothing here has been run on Tails.
+- **Debian and Ubuntu desktop users get no `/usr/bin` install or clean uninstall.** They use the
+  binary, Homebrew on Linux, or `cargo install`.
+- **Revisitable** if strypt enters Debian, or a target community asks for a `.deb`.
