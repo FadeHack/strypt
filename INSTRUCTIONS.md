@@ -32,6 +32,8 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ## Running strypt
 
+Installing a release without Rust: [README](README.md#install).
+
 ```sh
 cargo run -p strypt -- show corpus/pdf/info-dictionary.pdf
 strypt show FILE...                    # report metadata; never writes
@@ -244,6 +246,21 @@ and fails unless the two match. A local release build embeds your home directory
 scripts/build-release.sh aarch64-apple-darwin   # -> target/release-artifacts/strypt-<version>-<target>
 gh workflow run release.yml                      # the gate on all five targets; publishes nothing
 gh workflow run release.yml -f prove=true        # drops a remap; each job passes only if the gate catches it
+```
+
+Cutting a release:
+
+1. Bump `version` in `Cargo.toml` and the `strypt-core` requirement in `crates/strypt/Cargo.toml`,
+   refresh both `Cargo.lock`s (the fuzz crate has its own), date CHANGELOG's `[Unreleased]`, and
+   update the version in README's install section.
+2. Push the tag `v<version>`. `release.yml` drafts the release; review it, then publish it.
+3. `cargo publish -p strypt-core`, then `cargo publish -p strypt`.
+4. In [homebrew-strypt](https://github.com/FadeHack/homebrew-strypt), set the four URLs and SHA256s
+   in `Formula/strypt.rb` from `SHA256SUMS`, push, then:
+
+```sh
+brew update && brew upgrade fadehack/strypt/strypt && brew test fadehack/strypt/strypt
+brew audit --strict --online fadehack/strypt/strypt
 ```
 
 ## Performance measurement

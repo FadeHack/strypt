@@ -163,6 +163,8 @@ do not themselves undermine the trust model.
 - **The README finalised for a public audience** — install paths, checksum verification, and the
   status line brought up to date with what this phase delivers. Add a banner and a `strypt show`
   demo made from synthetic fixtures, both stripped by strypt before committing.
+  *Install and verification steps written 2026-09-13, and run only on macOS arm64. Item 10 tests
+  them on clean machines, and Tails's Persistent Storage is unverified (ADR-0052).*
 - **The repository made public.**
 
 **Inputs to the Phase 4 opening ADR** — all three settled by ADR-0049.
