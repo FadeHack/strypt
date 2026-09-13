@@ -3381,3 +3381,81 @@ whether that transfers to their real install paths. Verified 2026-09-13:
 - **Debian and Ubuntu desktop users get no `/usr/bin` install or clean uninstall.** They use the
   binary, Homebrew on Linux, or `cargo install`.
 - **Revisitable** if strypt enters Debian, or a target community asks for a `.deb`.
+
+---
+
+## ADR-0053 — Install steps tested on fresh runners, and Phase 4 closes
+
+**Status:** Proposed (2026-09-14)
+
+Discharges ADR-0049 decision 5 item 10 and ROADMAP Phase 4 exit criterion 4, and settles ADR-0052's
+open question on Tails's Persistent Storage.
+
+**Context.** No clean machine is available. `install.yml`, a manual workflow, reads README's install
+steps from README at the commit under test and runs them:
+
+| Path | Where | Image |
+|---|---|---|
+| Homebrew | macOS 15 arm64 and Intel; `debian:13` on Linux x86_64 and aarch64 | macos-15-arm64 20260907.0337.1; macos-15 20260824.0482.1; ubuntu24 20260907.300.1; ubuntu24-arm64 20260907.118.1 |
+| `curl`, `sha256sum`, `gh attestation verify` | the same four | as above |
+| `Get-FileHash`, `gh attestation verify` | Windows Server 2025, Windows PowerShell 5.1 | win25-vs2026 20260907.229.1 |
+| `cargo install strypt` | `debian:13` on Linux x86_64 | as above |
+
+The Linux containers start with nothing but Debian. Only the documented prerequisites are installed:
+`curl`, Homebrew's own list, `gh` from cli.github.com, and Rust from rustup.rs. The macOS and
+Windows images are fresh virtual machines but not clean: Homebrew, `gh` and other taps come preinstalled, and the Intel image's
+hashicorp tap printed an import error during `brew install`. Nothing was downloaded in a browser, so
+Gatekeeper and SmartScreen are untested.
+
+**Findings.** [Run 34779376160](https://github.com/FadeHack/strypt/actions/runs/34779376160) ran
+README as of `a1029ec`, and three steps failed as written:
+
+- `shasum` is not in `debian:13`, since it ships with the full `perl` package. `sha256sum` is present
+  on every Linux and on macOS 15 and later, and handles `--ignore-missing`.
+- `gh attestation verify` exits 4 until `gh` is signed in, on every platform
+  ([cli/cli#11803](https://github.com/cli/cli/issues/11803), open). Debian 13's own `gh` is 2.46,
+  and the command arrived in 2.49.
+- On Windows, `Get-FileHash` prints the hash in capitals and `SHA256SUMS` in lower case.
+
+[Run 34781311172](https://github.com/FadeHack/strypt/actions/runs/34781311172), which added cargo,
+found a fourth: Debian 13's `cargo` is 1.85.1, and refuses strypt's `rust-version` of 1.95. Through
+rustup, `cargo install strypt` built and ran.
+
+Two passed but proved less than they appeared to. A fresh Linux Homebrew install was 7.0.1, while
+README said "Homebrew 6". Signed in, `gh attestation verify` printed nothing without a terminal, so
+the workflow prints the commit it verified. `52fab40` and this ADR's commit fixed README. Run
+34781311172 ran `1be9f5d` and passed every job; the later rewording changes no command. Each
+binary's attestation named `c2f4403`, v0.1.0's commit.
+
+**Tails 7.12.** Its ISO, checked against tails.net's SHA256, was unpacked and read. `tps/device.py`
+mounts the Persistent Storage partition with `mount -o acl`. `tps/configuration/binding.py`
+binds the Persistent folder, then remounts it `nosymfollow` and `x-gvfs-hide`, a file-manager hint.
+No `noexec` appears in `tps`, `/etc`, any systemd unit, `/usr/local` or live-boot. The workflow
+mounts an ext4 image the same way (`rw,relatime,nosymfollow`), and the x86_64 binary ran and
+stripped a file from it.
+
+**Decision.**
+
+1. **Fresh GitHub runners stand in for clean machines**, with Linux in `debian:13`. This ADR says so,
+   and README and KNOWN_LIMITATIONS do not say "clean machine".
+2. **README is corrected as above.** Linux and macOS use `sha256sum`, and `shasum` stays as a
+   fallback for older macOS. The attestation step names `gh auth login` and `gh` 2.49, and the
+   cargo line names Rust 1.95.
+3. **Tails's Persistent Storage allows running the binary**, as far as code and a reproduction on
+   Linux can show. ADR-0043 binds: it has not been run on Tails.
+4. **`install.yml` is re-run for each release** (`INSTRUCTIONS.md`). It is not a gate.
+5. **Phase 4 closes.** Its exit criteria:
+   1. Met. Homebrew and the release download need no Rust. They are two channels for one artefact, so
+      a bad release breaks both.
+   2. Met. Every binary is attested to its commit, and byte-reproducible on its runner image
+      (ADR-0050).
+   3. Met. `SHA256SUMS` covers all five binaries, and is itself attested. Whether a non-expert can
+      follow the steps is untested.
+   4. Met on fresh runners, within decision 1's limits.
+
+**Consequences.**
+
+- **Browser downloads, Gatekeeper and SmartScreen are untested**, as is anyone's own machine.
+- **Verifying provenance needs a GitHub account** until cli/cli#11803 lands. Checksums need none.
+- **ADR-0049 decision 4's OSS-Fuzz deferral ends with the phase.** It is not decided here.
+- **SignPath (ADR-0051 decision 2) is still owed**, and does not hold the phase open.

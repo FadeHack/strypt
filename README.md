@@ -10,8 +10,8 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 
 > **Status: `0.1.0`, the first release. No external audit.** Read
 > [`docs/KNOWN_LIMITATIONS.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/KNOWN_LIMITATIONS.md) before relying on strypt.
-> Phases 0–3 are complete. Phase 4 ships binaries and a Homebrew tap; install tests on clean
-> machines are still to come ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
+> Phases 0–3 are complete. Phase 4 ships binaries and a Homebrew tap; install steps are tested on
+> fresh CI runners ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
 
 [![CI](https://github.com/FadeHack/strypt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/ci.yml)
 [![no-network](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml)
@@ -111,13 +111,12 @@ chmod +x $F && ./$F --version                # then rename it strypt, in a direc
 ```
 
 The checksum catches a damaged download, but it comes from the same page as the binary. To check
-that the binary was built by this repository's CI from a public commit, sign in to the
-[GitHub CLI](https://cli.github.com/) with `gh auth login`, then run
-`gh attestation verify $F -R FadeHack/strypt`. It needs a GitHub account and `gh` 2.49 or later;
-Debian's own `gh` package is older.
+that the binary was built by this repository's CI from a public commit, use the
+[GitHub CLI](https://cli.github.com/) 2.49 or later, signed in with `gh auth login`:
+`gh attestation verify $F -R FadeHack/strypt`.
 
 On Windows, compare `Get-FileHash strypt-0.1.0-x86_64-pc-windows-msvc.exe` in PowerShell with its
-line in `SHA256SUMS`. PowerShell prints the hash in capitals, which does not matter.
+line in `SHA256SUMS` (case does not matter).
 
 The binaries are not code-signed ([ADR-0051](https://github.com/FadeHack/strypt/blob/HEAD/docs/DECISIONS.md)). Windows may show a SmartScreen
 warning. On macOS, a file downloaded in a browser must be allowed once in System Settings →
@@ -125,11 +124,11 @@ Privacy & Security; one fetched with `curl` does not. Never turn Gatekeeper off 
 
 **Tails and Qubes-Whonix**: use the static Linux x86_64 binary. There is no `.deb`, because Tails
 keeps only packages from Debian (ADR-0052). On Qubes-Whonix, keep the binary in the app qube's home
-folder. On Tails, keep it in the Persistent folder: Tails 7 mounts it without `noexec`, which was
-read from Tails's code and reproduced on Linux, not tried on Tails itself. Tails already includes
+folder. On Tails, it runs from the Persistent folder (checked against Tails 7's code, not on Tails
+itself). Tails already includes
 mat2 and Metadata Cleaner, which cover more formats than strypt.
 
-With a Rust toolchain, `cargo install strypt` builds it instead. `strypt-cli` on crates.io is the
+With Rust 1.95 or later (not Debian 13's), `cargo install strypt` builds it instead. `strypt-cli` on crates.io is the
 same tool under its original name, yanked on 2026-08-23 (ADR-0026); replace it with `strypt`.
 
 Tested in CI on Linux, macOS and Windows. On Windows, output takes the permissions of the folder

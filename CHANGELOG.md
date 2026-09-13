@@ -26,10 +26,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
-- **README install steps**, found by running them on fresh machines: the checksum command now works
-  on a minimal Linux, where `shasum` is absent; `gh attestation verify` is said to need
-  `gh auth login` and `gh` 2.49 or later; Tails's Persistent Storage is shown to allow running the
-  binary.
+- **README install steps**, run on fresh machines: the checksum command works where `shasum` is
+  absent, and the steps name what `gh attestation verify` and `cargo install` need.
 
 ## [0.1.0] - 2026-09-13
 

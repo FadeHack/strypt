@@ -151,9 +151,8 @@ do not themselves undermine the trust model.
   runner image.*
 - A Homebrew formula.
   *Done: [FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt), 2026-09-13, a
-  project tap (ADR-0049) installing the 0.1.0 release binaries. `brew install` and `brew test`
-  passed on macOS arm64. Intel macOS and both Linux targets resolve to the right binary and hash, but
-  are uninstalled until item 10.*
+  project tap (ADR-0049) installing the 0.1.0 release binaries; tested on all four targets
+  (ADR-0053).*
 - At least one native Linux package format. **`.deb` is the leading candidate** because both
   Tails and Qubes-Whonix are Debian-based — but confirm at phase start that this transfers
   cleanly to the actual distribution path (Debian proper has its own packaging process and
@@ -163,8 +162,7 @@ do not themselves undermine the trust model.
 - **The README finalised for a public audience** — install paths, checksum verification, and the
   status line brought up to date with what this phase delivers. Add a banner and a `strypt show`
   demo made from synthetic fixtures, both stripped by strypt before committing.
-  *Install and verification steps written 2026-09-13, and run only on macOS arm64. Item 10 tests
-  them on clean machines, and Tails's Persistent Storage is unverified (ADR-0052).*
+  *Written 2026-09-13; tested and corrected by ADR-0053, which also settles Tails.*
 - **The repository made public.**
 
 **Inputs to the Phase 4 opening ADR** — all three settled by ADR-0049.
