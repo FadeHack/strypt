@@ -474,7 +474,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   provenance record and a SHA256 checksum. macOS binaries will not carry an Apple Developer ID;
   Windows signing through SignPath Foundation follows the first release. `scripts/build-release.sh`
   and the `release` workflow implement the build and its gate. The gate's first run caught Windows
-  stamping the link time into the binary.
+  stamping the link time into the binary. A tag drafts a GitHub Release with the binaries,
+  `SHA256SUMS`, and the runner image and linker that built each. The static Linux (musl) builds
+  measured no slower than glibc builds.
 
 - **The CLI's contract is tested end to end** (TESTING_STRATEGY §2.2): exit codes, the JSON schema,
   stdout and stderr, and that strypt never changes an input, overwrites without `--force`, follows a

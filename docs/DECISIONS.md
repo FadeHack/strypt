@@ -3283,6 +3283,11 @@ Verified 2026-09-13:
 - **A verifier needs the release's toolchain, not only its commit.** A local build on macOS 26 with ld-1230
   differed from CI's ld-1167 build: every section had the same size, but the data was laid out in a
   different order. Each release must name its runner image and linker version.
+- **musl measured no slower than glibc** (2026-09-13,
+  [perf run 34720383086](https://github.com/FadeHack/strypt/actions/runs/34720383086)). On both
+  Linux runners, alternating with a glibc build of the same commit, musl matched or beat it in every
+  case. A 3.3 MB JPEG was stripped in 8.7–9.8 ms against 9.6–10.9 ms. A 1,000-file batch peaked at
+  1.1–1.3 MB RSS against 2.5–3.0 MB. mimalloc stays declined.
 
 ---
 

@@ -133,6 +133,7 @@ do not themselves undermine the trust model.
   subsequent version bump.
 - GitHub Releases with prebuilt binaries: Linux x86_64 and aarch64, macOS Intel and Apple
   Silicon, Windows x86_64.
+  *A tag drafts one from `release.yml` (ADR-0049 item 6); none published yet.*
 - **SHA256 checksums for every artefact**, published alongside the release.
 - **Binary signing** investigated and adopted if a reasonably low-friction option exists at
   phase start — verify current status, cost, and requirements rather than assuming any

@@ -107,13 +107,14 @@ done
 # is the number that matters, not throughput.
 echo
 echo "Batch: $BATCH files, one process"
+batch_failed() { echo "error: the batch failed, so its numbers measure nothing" >&2; exit 1; }
 if /usr/bin/time -l true >/dev/null 2>&1; then
-  /usr/bin/time -l "$BIN" strip --force "$WORK/batch" -r >/dev/null 2>"$WORK/time.txt" || true
+  /usr/bin/time -l "$BIN" strip --force "$WORK/batch" -r >/dev/null 2>"$WORK/time.txt" || batch_failed
   wall=$(awk '/real/{print $1}' "$WORK/time.txt" | head -1)
   rss=$(awk '/maximum resident set size/{printf "%.1f", $1/1048576}' "$WORK/time.txt")
   echo "  wall: ${wall}s   peak RSS: ${rss} MB   per file: $(python3 -c "print(f'{float('$wall')*1000/$BATCH:.2f} ms')")"
 else
-  /usr/bin/time -v "$BIN" strip --force "$WORK/batch" -r >/dev/null 2>"$WORK/time.txt" || true
+  /usr/bin/time -v "$BIN" strip --force "$WORK/batch" -r >/dev/null 2>"$WORK/time.txt" || batch_failed
   grep -E "Elapsed|Maximum resident" "$WORK/time.txt" | sed 's/^/  /'
 fi
 

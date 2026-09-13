@@ -84,7 +84,7 @@ jobs:
         if: env.PROVE != 'true'
         run: |
           case $T in
-            *-apple-darwin) l=$(ld -v 2>&1 | head -1) ;;
+            *-apple-darwin) l=$(ld -v 2>&1 | sed -n '1s/.*PROJECT://p') ;;
             *-linux-*) l=$(ld --version | head -1) ;;
             *) l="Visual Studio $("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property catalog_productDisplayVersion)" ;;
           esac
