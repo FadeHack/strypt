@@ -121,7 +121,7 @@ jobs:
             echo "Built from \`$GITHUB_SHA\` by \`scripts/build-release.sh\`; each binary was built twice, byte-identical."
             echo
             echo '```sh'
-            echo "sha256sum -c SHA256SUMS --ignore-missing"
+            echo "shasum -a 256 -c SHA256SUMS --ignore-missing"
             echo "gh attestation verify <file> -R $GITHUB_REPOSITORY"
             echo '```'
             echo
