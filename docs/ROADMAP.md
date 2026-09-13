@@ -131,6 +131,8 @@ do not themselves undermine the trust model.
   `cargo install strypt` now works, so the honesty of the README's status block is load-
   bearing in a way it was not while the project was unpublished. Re-verify it before every
   subsequent version bump.
+
+  *Both crates published at `0.1.0` with the release, 2026-09-13.*
 - GitHub Releases with prebuilt binaries: Linux x86_64 and aarch64, macOS Intel and Apple
   Silicon, Windows x86_64.
   *Done: [0.1.0](https://github.com/FadeHack/strypt/releases/tag/v0.1.0), 2026-09-13, drafted from a tag by `release.yml`.*
