@@ -10,7 +10,9 @@ name: cargo-deny
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
   schedule:
     # Advisories and yanks appear independently of commits, so check on a schedule too.
     - cron: "0 6 * * 1"

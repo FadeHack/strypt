@@ -12,7 +12,9 @@ name: no-network
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
 
 permissions:
   contents: read
