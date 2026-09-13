@@ -14,8 +14,11 @@ env:
 
 jobs:
   brew-macos:
-    name: brew (macos-15-intel)
-    runs-on: macos-15-intel
+    name: brew (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: { os: [macos-15, macos-15-intel] }
     steps:
       - run: |
           brew --version
@@ -111,6 +114,24 @@ jobs:
           d=$(GH_TOKEN=$TOKEN gh attestation verify "$FILE" -R FadeHack/strypt --format json --jq '.[].verificationResult.signature.certificate.sourceRepositoryDigest')
           echo "built from $d" && [ "$d" = "$BUILT_FROM" ]
 
+  cargo:
+    name: cargo install (debian:13)
+    runs-on: ubuntu-24.04
+    container: debian:13
+    steps:
+      - name: Debian's own cargo
+        run: |
+          apt-get update -qq && apt-get install -y -qq cargo curl >/dev/null && cargo --version
+          if cargo install strypt; then echo "Debian's cargo: installed"; else echo "Debian's cargo: failed"; fi
+      # rustup.rs's installer; rustup needs a C linker, which Debian's cargo brought in.
+      - name: rustup, then README's cargo line
+        run: |
+          apt-get remove -y -qq cargo rustc >/dev/null && apt-get install -y -qq gcc libc6-dev >/dev/null
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          . "$HOME/.cargo/env" && cargo --version
+          curl -fsSL "$README" | grep -o 'cargo install strypt' | head -1 > steps.sh
+          cat steps.sh && sh -ex steps.sh && strypt --version
+
   windows:
     name: Get-FileHash (windows-2025)
     runs-on: windows-2025
@@ -152,8 +173,10 @@ jobs:
           bsdtar -xf t.iso live/filesystem.squashfs && rm t.iso
           unsquashfs -l live/filesystem.squashfs | grep -E '/tps/|udisks2|fstab|\.mount$' | head -80 || true
           sudo unsquashfs -q -d root live/filesystem.squashfs etc usr/lib/python3/dist-packages/tps usr/lib/systemd/system || true
+          sudo unsquashfs -q -d root -f live/filesystem.squashfs usr/local usr/lib/live || true
           sudo grep -rnE 'noexec|nosuid|nodev|nosymfollow' root/etc root/usr/lib/systemd/system root/usr/lib/python3/dist-packages/tps || true
-          sudo grep -nE 'check_call|"mount"|--bind|"-o"' root/usr/lib/python3/dist-packages/tps/configuration/binding.py || true
+          sudo grep -rnIl noexec root/usr/local root/usr/lib/live || echo "no noexec in usr/local or live-boot"
+          sudo grep -nE -A4 'def (apply|_bind_mount|_mount)|\["mount"|"mount",' root/usr/lib/python3/dist-packages/tps/configuration/binding.py || true
       # Tails 7's tps/device.py mounts the partition with `-o acl`; tps/configuration/binding.py
       # bind-mounts the Persistent folder, then remounts it `nosymfollow`.
       - name: Mount an image as Tails does, and run the binary from its Persistent folder

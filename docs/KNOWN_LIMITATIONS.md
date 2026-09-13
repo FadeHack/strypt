@@ -32,7 +32,10 @@ it knows to look for. No tool can promise more.
 - **Testing on real files is uneven.** The Phase 1 formats (JPEG, PNG, WebP, PDF) were checked
   against 102 files from real cameras and applications. The later formats were checked mostly
   against generated test files.
-- **No external audit and no release.** Performance has been measured on one macOS machine.
+- **No external audit, and the binaries are not code-signed** (ADR-0051). Performance has been
+  measured on one macOS machine and on GitHub's Linux runners.
+- **Install steps were tested on GitHub's fresh runners, not on anyone's own machine**, and never on
+  Tails itself (ADR-0053).
 
 ## Where mat2 is the better choice
 
