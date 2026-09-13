@@ -133,8 +133,9 @@ do not themselves undermine the trust model.
   subsequent version bump.
 - GitHub Releases with prebuilt binaries: Linux x86_64 and aarch64, macOS Intel and Apple
   Silicon, Windows x86_64.
-  *A tag drafts one from `release.yml` (ADR-0049 item 6); none published yet.*
-- **SHA256 checksums for every artefact**, published alongside the release.
+  *Done: [0.1.0](https://github.com/FadeHack/strypt/releases/tag/v0.1.0), 2026-09-13, drafted from a tag by `release.yml`.*
+- **SHA256 checksums for every artefact**, published alongside the release. *Done in 0.1.0; README
+  verification steps are item 9.*
 - **Binary signing** investigated and adopted if a reasonably low-friction option exists at
   phase start — verify current status, cost, and requirements rather than assuming any
   particular service. macOS notarisation and Windows Authenticode have real cost and
@@ -144,7 +145,8 @@ do not themselves undermine the trust model.
 - **Reproducible builds**: every published binary traceable to the exact source commit, ideally
   byte-reproducible. For a tool asking to be trusted by at-risk users, "you can verify this
   binary came from this source" is a core feature, not packaging polish.
-  *ADR-0050's gate first ran green on all five targets 2026-09-13. Delivered when a release ships.*
+  *Done in 0.1.0 (ADR-0050): each binary attested, and byte-identical across two builds on its
+  runner image.*
 - A Homebrew formula.
 - At least one native Linux package format. **`.deb` is the leading candidate** because both
   Tails and Qubes-Whonix are Debian-based — but confirm at phase start that this transfers

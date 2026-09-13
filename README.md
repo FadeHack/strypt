@@ -1,8 +1,8 @@
-<img src="docs/assets/banner.svg" alt="strypt — remove hidden metadata from files before you share them" width="100%">
+<img src="docs/assets/banner.svg" alt="strypt: remove hidden metadata from files before you share them" width="100%">
 
 Photos carry GPS coordinates and camera serial numbers. PDFs carry author names, organisation
 names, and editing timestamps. Word documents carry all of that plus the editing sessions they
-were written in — and the photographs pasted into them arrive with their own GPS still attached.
+were written in, and the photographs pasted into them arrive with their own GPS still attached.
 None of it is visible in a normal viewer, and all of it survives to publication. strypt finds it
 and strips it out.
 
@@ -34,13 +34,13 @@ as unsupported and never passed through. What each handler removes, keeps, and r
 [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) §7.
 
 **For other formats, use [mat2](https://github.com/jvoisin/mat2) or
-[ExifTool](https://exiftool.org/)** — both mature, actively maintained, and covering far more
+[ExifTool](https://exiftool.org/)**: both mature, actively maintained, and covering far more
 formats. Where mat2 is the better tool for a file strypt does support,
 [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md#where-mat2-is-the-better-choice) says so.
 
 ## Why trust the output
 
-Evidence, not an audit — each point links to where it is checked.
+Evidence, not an audit: each point links to where it is checked.
 
 - **It fails closed.** A file strypt cannot fully process produces no output, and an unsupported
   format is reported as unsupported, never passed through.
@@ -63,7 +63,7 @@ Evidence, not an audit — each point links to where it is checked.
 - It does not change what your document *says*, or anonymise your writing style.
 - It does not clean filenames, and `budget_final_jsmith_home.pdf` identifies you regardless.
 - It does not protect against metadata a platform adds after you upload.
-- It cannot defeat fingerprinting — encoder quirks and camera sensor noise can identify a
+- It cannot defeat fingerprinting. Encoder quirks and camera sensor noise can identify a
   device from pixel data alone, with no metadata present at all.
 - **No tool can guarantee complete metadata removal from complex formats.** strypt will never
   claim otherwise.
