@@ -3,65 +3,40 @@
 Thanks for considering it. Please read this first — strypt has a few expectations that differ
 from a typical Rust CLI project, because of who relies on it.
 
-**Current status: Phases 1 and 2 complete (2026-08-22, 2026-09-05); Phase 3 — hardening —
-opened 2026-09-05.** Twenty-two formats are handled and every other format is reported as
-unsupported rather than passed through; `strypt` is installable from crates.io at `0.0.1`.
-There has been no external audit, **none of Phase 3 is delivered yet**, and `0.0.1` is not a
-release — see the [README status block](README.md) for what that does and does not mean.
+**Status: `0.1.0`, the first release (2026-09-13).** Phases 0–3 are complete and Phase 4,
+distribution, is under way. There has been no external audit; the [README status block](README.md)
+says what that means.
 
-**Phase 3 adds no formats, and the scope stays locked** by
-[ADR-0043](docs/DECISIONS.md) and [ADR-0042](docs/DECISIONS.md) until a superseding ADR opens
-it deliberately. A pull request adding a new format is therefore likely to be declined on
-scope regardless of its quality — please open an issue first.
+**The format list is closed.** [ADR-0027](docs/DECISIONS.md) fixed it and
+[ADR-0043](docs/DECISIONS.md) keeps it closed, so a pull request adding a format is likely to be
+declined on scope regardless of its quality. Please open an issue first.
 
 The most valuable contributions right now are adversarial: review of
 [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md), attempts to find metadata that survives a
 strip, and fuzzing findings. A file strypt reports as clean that still carries identifying
-data is the most valuable bug report this project can receive.
+data is the most valuable bug report this project can receive. Reports of a release binary
+failing to install or run on your platform are welcome too.
 
 ---
 
-## Development process: AI-assisted, under constraints
+## How strypt is developed
 
-**strypt is developed with substantial use of Claude Code, an AI coding agent.** Disclosed
-because a tool asking at-risk people to trust its output should not be quiet about how it is
-built — and because the failure mode is specific here: an agent asserts a library's behaviour
-from stale training data, the parser misses a field, and the tool reports success to someone
-who then publishes.
-
-The response is to constrain the process rather than trust the output, and all of it is
-verifiable in the repository:
-
-- **Hard invariants in [`CLAUDE.md`](CLAUDE.md) §3** applying to every session, and a standing
-  requirement to verify claims against primary sources rather than recall them — which has
-  already caught the project's founding premise about mat2 ([`docs/PRD.md`](docs/PRD.md) §0).
-- **Enforcement that does not depend on an agent behaving well:** CI gates over the resolved
-  dependency graph and the `unsafe` ban, each proven to fail when deliberately violated.
-  [`.claude/HOOKS.md`](.claude/HOOKS.md) states what the editor hooks *cannot* catch.
-- **[`docs/DECISIONS.md`](docs/DECISIONS.md)** records why, not just what. ADR-0015 and
-  ADR-0016 exist because two CI gates were caught passing while testing nothing.
-
-**None of this makes AI-written code trustworthy, and it is not offered as an argument that
-it does.** Constraints catch categories of error, not individual bugs; they do not verify that
-a parser handles a malformed JPEG APP1 segment. Human review of every line of parsing logic
-and an external audit do not yet exist. If that is disqualifying for your use, it is a
-reasonable conclusion to reach.
-
-Contributions from humans and AI-assisted humans are held to the same standard: parsing
-changes get extra scrutiny, and "an agent wrote it and the tests pass" is not a review.
+strypt is developed with the help of an AI coding agent, and nothing is trusted on that basis.
+CI gates over the dependency graph and the `unsafe` ban are each proven to fail, and
+[`docs/DECISIONS.md`](docs/DECISIONS.md) records why each decision was made. Every contribution,
+however it was written, is held to the same standard: passing tests are not a review.
 
 ## Before you start
 
 - **Security vulnerabilities do not go in issues or pull requests.** Follow
   [`SECURITY.md`](SECURITY.md).
 - **Read [`CLAUDE.md`](CLAUDE.md).** Despite the name it is the working agreement for all
-  contributors, human or AI. The hard constraints in §3 are non-negotiable.
+  contributors. The hard constraints in §3 are non-negotiable.
 - **Read [`docs/DECISIONS.md`](docs/DECISIONS.md)** before proposing an architectural change.
   Most "why is it like this?" questions are answered there, and a proposal that engages with
   the recorded reasoning will get a much better reception than one that does not.
-- **Open an issue before a large change.** Especially for a new format handler — scope is
-  phase-locked and an unsolicited handler for an out-of-phase format is likely to be declined
-  however good it is. That is a scoping decision, not a judgement of the work.
+- **Open an issue before a large change.** Especially for a new format handler — the format
+  list is closed, and a handler outside it is likely to be declined however good it is. That is a scoping decision, not a judgement of the work.
 
 ## The constraints that will get a pull request rejected
 
@@ -93,7 +68,7 @@ If a change is urgent and correct but the review is slow, that trade is delibera
 ## Pull request checklist
 
 - [ ] `cargo test` passes on your platform
-- [ ] `cargo clippy --all-targets -- -D warnings` is clean
+- [ ] `cargo clippy --all-targets --all-features -- -D warnings` is clean
 - [ ] `cargo fmt` has been run
 - [ ] New tests cover the change, including error paths
 - [ ] Fuzz corpus updated if a parser changed

@@ -19,7 +19,16 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-13
+
 ### Added
+
+- **Prebuilt binaries**: Linux x86_64 and aarch64 (static, musl), macOS Apple Silicon and Intel, and
+  Windows x86_64, on the GitHub release page with `SHA256SUMS` and a signed provenance record
+  (ADR-0050). CI builds each binary twice and releases none unless every pair is byte-identical; the
+  release notes name the runner image and linker needed to rebuild one. No binary is code-signed
+  (ADR-0051): no Apple Developer ID, and Windows signing through SignPath Foundation is applied for
+  after this release.
 
 - **MP4 and M4A support — `.mp4`, `.m4v`, `.m4a`, `.m4b`.** The fifth and last tranche of Phase 2's
   fourth format group (ADR-0037), decided in ADR-0042.
@@ -468,15 +477,6 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - **`INSTRUCTIONS.md` rewritten as a command reference**, 841 lines to about 250. It had fallen
   three phases behind, still cited ADR-0014's superseded fuzzing rule, and omitted CI's
   `--all-features` test run and MSRV build. Differential results live in THREAT_MODEL §7.
-
-- **How release binaries will be built and signed is decided (ADR-0050, ADR-0051).** No release
-  yet. CI will build each binary twice and publish it only if the two builds match, with a signed
-  provenance record and a SHA256 checksum. macOS binaries will not carry an Apple Developer ID;
-  Windows signing through SignPath Foundation follows the first release. `scripts/build-release.sh`
-  and the `release` workflow implement the build and its gate. The gate's first run caught Windows
-  stamping the link time into the binary. A tag drafts a GitHub Release with the binaries,
-  `SHA256SUMS`, and the runner image and linker that built each. The static Linux (musl) builds
-  measured no slower than glibc builds.
 
 - **The CLI's contract is tested end to end** (TESTING_STRATEGY §2.2): exit codes, the JSON schema,
   stdout and stderr, and that strypt never changes an input, overwrites without `--force`, follows a
@@ -1037,9 +1037,5 @@ Read these before relying on the tool. They are limitations, not bugs, and each 
   unpublishable to crates.io. Now versioned explicitly.
 - Bumped `actions/checkout` to v5; v4 targets a deprecated Node runtime.
 
-### Notes
-
-- No software has been released. There is nothing installable yet, and no version has been
-  tagged. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what Phase 1 will contain.
-
-[Unreleased]: https://github.com/FadeHack/strypt/commits/main
+[Unreleased]: https://github.com/FadeHack/strypt/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/FadeHack/strypt/releases/tag/v0.1.0

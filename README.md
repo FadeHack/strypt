@@ -8,9 +8,9 @@ and strips it out.
 
 A single self-contained binary. Memory-safe Rust. **No network access in any code path.**
 
-> **Status: `0.0.1`, not a release. No external audit.** Read
+> **Status: `0.1.0`, the first release. No external audit.** Read
 > [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) before relying on strypt.
-> Phases 0–3 are complete; prebuilt binaries and signing are Phase 4 ([`docs/ROADMAP.md`](docs/ROADMAP.md)).
+> Phases 0–3 are complete; packaging is Phase 4 ([`docs/ROADMAP.md`](docs/ROADMAP.md)).
 
 [![CI](https://github.com/FadeHack/strypt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/ci.yml)
 [![no-network](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml)
@@ -81,12 +81,25 @@ Report it privately through [`SECURITY.md`](SECURITY.md), not in a public issue.
 
 ## Install
 
+Download the binary for your platform from the
+[latest release](https://github.com/FadeHack/strypt/releases/latest), with `SHA256SUMS`, and check
+it before running it:
+
 ```sh
-cargo install strypt    # requires a Rust toolchain
+shasum -a 256 -c SHA256SUMS --ignore-missing                  # prints OK for your file
+gh attestation verify strypt-0.1.0-<target> -R FadeHack/strypt  # built by this repository's CI
+chmod +x strypt-0.1.0-<target>                                 # Linux and macOS
 ```
 
-That is the only install path until Phase 4. `strypt-cli` on crates.io is the same tool under
-its original name, yanked on 2026-08-23 (ADR-0026); replace it with `strypt`.
+On Windows, compare `Get-FileHash strypt-0.1.0-x86_64-pc-windows-msvc.exe` in PowerShell with its
+line in `SHA256SUMS`.
+
+The binaries are not code-signed ([ADR-0051](docs/DECISIONS.md)). Windows may show a SmartScreen
+warning. On macOS, a file downloaded in a browser must be allowed once in System Settings →
+Privacy & Security; one fetched with `curl` does not.
+
+With a Rust toolchain, `cargo install strypt` builds it instead. `strypt-cli` on crates.io is the
+same tool under its original name, yanked on 2026-08-23 (ADR-0026); replace it with `strypt`.
 
 Tested in CI on Linux, macOS and Windows. On Windows, output takes the permissions of the folder
 it is written to ([`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md#everywhere)).
@@ -122,7 +135,7 @@ strypt show --recursive public/images > /dev/null   # 1: metadata found; 4: a fi
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phases, deliverables, exit criteria |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architecture decision records |
 | [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | How correctness is verified |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute, and how development is [AI-assisted under constraints](CONTRIBUTING.md#development-process-ai-assisted-under-constraints) |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute, and [how strypt is developed](CONTRIBUTING.md#how-strypt-is-developed) |
 | [`SECURITY.md`](SECURITY.md) | Reporting vulnerabilities |
 | [`INSTRUCTIONS.md`](INSTRUCTIONS.md) | Build, test, and lint commands |
 
