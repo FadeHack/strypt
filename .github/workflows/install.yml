@@ -10,6 +10,7 @@ permissions:
 
 env:
   README: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/README.md
+  BUILT_FROM: c2f44034500368129df43ae1e7aca86fd37e8936 # v0.1.0
 
 jobs:
   brew-macos:
@@ -63,6 +64,9 @@ jobs:
           { echo "F=$FILE"; grep -o 'gh attestation verify [^`]*' README.md; } > gh.sh && cat gh.sh
           if sh gh.sh; then echo "signed out: passed"; else echo "signed out: failed"; fi
           GH_TOKEN=$TOKEN sh -e gh.sh
+          # Silent on success without a terminal, so print what it verified.
+          d=$(GH_TOKEN=$TOKEN gh attestation verify "$FILE" -R FadeHack/strypt --format json --jq '.[].verificationResult.signature.certificate.sourceRepositoryDigest')
+          echo "built from $d" && [ "$d" = "$BUILT_FROM" ]
 
   curl-linux:
     name: curl (${{ matrix.file }} in debian:13)
@@ -103,6 +107,9 @@ jobs:
           { echo "F=$FILE"; grep -o 'gh attestation verify [^`]*' README.md; } > gh.sh && cat gh.sh
           if sh gh.sh; then echo "signed out: passed"; else echo "signed out: failed"; fi
           GH_TOKEN=$TOKEN sh -e gh.sh
+          # Silent on success without a terminal, so print what it verified.
+          d=$(GH_TOKEN=$TOKEN gh attestation verify "$FILE" -R FadeHack/strypt --format json --jq '.[].verificationResult.signature.certificate.sourceRepositoryDigest')
+          echo "built from $d" && [ "$d" = "$BUILT_FROM" ]
 
   windows:
     name: Get-FileHash (windows-2025)
@@ -127,6 +134,8 @@ jobs:
           Invoke-Expression $gh; "signed out: exit $LASTEXITCODE"
           $env:GH_TOKEN = $env:TOKEN
           Invoke-Expression $gh; if ($LASTEXITCODE) { throw "gh attestation verify failed" }
+          $d = gh attestation verify $F -R FadeHack/strypt --format json --jq '.[].verificationResult.signature.certificate.sourceRepositoryDigest'
+          "built from $d"; if ($d -ne $env:BUILT_FROM) { throw "unexpected source commit" }
 
   tails:
     name: Tails Persistent Storage mount options
@@ -144,4 +153,18 @@ jobs:
           unsquashfs -l live/filesystem.squashfs | grep -E '/tps/|udisks2|fstab|\.mount$' | head -80 || true
           sudo unsquashfs -q -d root live/filesystem.squashfs etc usr/lib/python3/dist-packages/tps usr/lib/systemd/system || true
           sudo grep -rnE 'noexec|nosuid|nodev|nosymfollow' root/etc root/usr/lib/systemd/system root/usr/lib/python3/dist-packages/tps || true
-          sudo grep -rnE 'mount|bind' root/usr/lib/python3/dist-packages/tps --include='*.py' | head -150 || true
+          sudo grep -nE 'check_call|"mount"|--bind|"-o"' root/usr/lib/python3/dist-packages/tps/configuration/binding.py || true
+      # Tails 7's tps/device.py mounts the partition with `-o acl`; tps/configuration/binding.py
+      # bind-mounts the Persistent folder, then remounts it `nosymfollow`.
+      - name: Mount an image as Tails does, and run the binary from its Persistent folder
+        run: |
+          T=/live/persistence/TailsData_unlocked P=/home/amnesia/Persistent
+          truncate -s 64M tps.img && mkfs.ext4 -q tps.img
+          sudo mkdir -p $T $P && sudo mount -o acl tps.img $T
+          sudo mkdir $T/Persistent && sudo chown "$USER" $T/Persistent
+          sudo mount --bind $T/Persistent $P && sudo mount -o remount,nosymfollow $P
+          findmnt -no OPTIONS $T && findmnt -no OPTIONS $P
+          curl -fsSLo $P/strypt "https://github.com/FadeHack/strypt/releases/download/v0.1.0/strypt-0.1.0-x86_64-unknown-linux-musl"
+          chmod +x $P/strypt && cd $P && ./strypt --version
+          echo '<svg xmlns="http://www.w3.org/2000/svg"><metadata>x</metadata></svg>' > t.svg
+          ./strypt strip t.svg && ! grep -q metadata t.stripped.svg

@@ -24,6 +24,13 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - **Homebrew tap**: `brew install fadehack/strypt/strypt` installs the 0.1.0 release binary on
   macOS and Linux ([FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt)).
 
+### Fixed
+
+- **README install steps**, found by running them on fresh machines: the checksum command now works
+  on a minimal Linux, where `shasum` is absent; `gh attestation verify` is said to need
+  `gh auth login` and `gh` 2.49 or later; Tails's Persistent Storage is shown to allow running the
+  binary.
+
 ## [0.1.0] - 2026-09-13
 
 ### Added

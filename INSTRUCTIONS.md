@@ -264,7 +264,7 @@ brew audit --strict --online fadehack/strypt/strypt
 ```
 
 5. `gh workflow run install.yml` runs README's install steps on fresh runners. Update the file
-   names in its matrix first.
+   names and `BUILT_FROM` in it first.
 
 ## Performance measurement
 

@@ -88,7 +88,7 @@ Report it privately through [`SECURITY.md`](https://github.com/FadeHack/strypt/b
 brew install fadehack/strypt/strypt
 ```
 
-Naming the formula in full is how Homebrew 6 trusts a third-party tap. The
+Naming the formula in full is how Homebrew 6 and later trust a third-party tap. The
 [formula](https://github.com/FadeHack/homebrew-strypt/blob/main/Formula/strypt.rb) installs the
 release binary below, checked against its SHA256.
 
@@ -106,16 +106,18 @@ release binary below, checked against its SHA256.
 F=strypt-0.1.0-x86_64-unknown-linux-musl    # your file from the table
 curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.0/$F
 curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.0/SHA256SUMS
-shasum -a 256 -c SHA256SUMS --ignore-missing  # must print "<file>: OK"; on Linux, sha256sum also works
+sha256sum -c SHA256SUMS --ignore-missing     # must print "<file>: OK"; older macOS: shasum -a 256 -c
 chmod +x $F && ./$F --version                # then rename it strypt, in a directory on your PATH
 ```
 
 The checksum catches a damaged download, but it comes from the same page as the binary. To check
-that the binary was built by this repository's CI from a public commit, use the
-[GitHub CLI](https://cli.github.com/): `gh attestation verify $F -R FadeHack/strypt`.
+that the binary was built by this repository's CI from a public commit, sign in to the
+[GitHub CLI](https://cli.github.com/) with `gh auth login`, then run
+`gh attestation verify $F -R FadeHack/strypt`. It needs a GitHub account and `gh` 2.49 or later;
+Debian's own `gh` package is older.
 
 On Windows, compare `Get-FileHash strypt-0.1.0-x86_64-pc-windows-msvc.exe` in PowerShell with its
-line in `SHA256SUMS`.
+line in `SHA256SUMS`. PowerShell prints the hash in capitals, which does not matter.
 
 The binaries are not code-signed ([ADR-0051](https://github.com/FadeHack/strypt/blob/HEAD/docs/DECISIONS.md)). Windows may show a SmartScreen
 warning. On macOS, a file downloaded in a browser must be allowed once in System Settings →
@@ -123,7 +125,8 @@ Privacy & Security; one fetched with `curl` does not. Never turn Gatekeeper off 
 
 **Tails and Qubes-Whonix**: use the static Linux x86_64 binary. There is no `.deb`, because Tails
 keeps only packages from Debian (ADR-0052). On Qubes-Whonix, keep the binary in the app qube's home
-folder. Running it from Tails's Persistent Storage has not been tested yet. Tails already includes
+folder. On Tails, keep it in the Persistent folder: Tails 7 mounts it without `noexec`, which was
+read from Tails's code and reproduced on Linux, not tried on Tails itself. Tails already includes
 mat2 and Metadata Cleaner, which cover more formats than strypt.
 
 With a Rust toolchain, `cargo install strypt` builds it instead. `strypt-cli` on crates.io is the
