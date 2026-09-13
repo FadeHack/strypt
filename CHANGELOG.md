@@ -19,6 +19,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+### Added
+
+- **Homebrew tap**: `brew install fadehack/strypt/strypt` installs the 0.1.0 release binary on
+  macOS and Linux ([FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt)).
+
 ## [0.1.0] - 2026-09-13
 
 ### Added

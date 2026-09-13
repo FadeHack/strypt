@@ -150,6 +150,10 @@ do not themselves undermine the trust model.
   *Done in 0.1.0 (ADR-0050): each binary attested, and byte-identical across two builds on its
   runner image.*
 - A Homebrew formula.
+  *Done: [FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt), 2026-09-13, a
+  project tap (ADR-0049) installing the 0.1.0 release binaries. `brew install` and `brew test`
+  passed on macOS arm64. Intel macOS and both Linux targets resolve to the right binary and hash, but
+  are uninstalled until item 10.*
 - At least one native Linux package format. **`.deb` is the leading candidate** because both
   Tails and Qubes-Whonix are Debian-based — but confirm at phase start that this transfers
   cleanly to the actual distribution path (Debian proper has its own packaging process and
