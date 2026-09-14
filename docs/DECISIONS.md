@@ -3459,3 +3459,41 @@ stripped a file from it.
 - **Verifying provenance needs a GitHub account** until cli/cli#11803 lands. Checksums need none.
 - **ADR-0049 decision 4's OSS-Fuzz deferral ends with the phase.** It is not decided here.
 - **SignPath (ADR-0051 decision 2) is still owed**, and does not hold the phase open.
+
+---
+
+## ADR-0054 — A CycloneDX SBOM per release binary, from `cargo-cyclonedx`
+
+**Status:** Proposed (2026-09-14)
+
+Settles ARCHITECTURE §6's "pick one in Phase 4". Not a Phase 4 exit criterion, so ADR-0053 stands.
+
+**Context.** Verified 2026-09-14: `cargo-cyclonedx` 0.5.9 (2026-03-19) honours `SOURCE_DATE_EPOCH`,
+dropping the clock time and the random serial number. `cargo-sbom` 0.10.0 (2025-06-17) writes the
+current time. `actions/attest` v4 takes an `sbom-path`.
+
+Measured the same day with 0.5.9: an SBOM names each workspace crate by its checkout's absolute path,
+percent-encoded, so two checkouts differ. With those paths mapped to `/strypt`, two checkouts at
+different paths wrote identical bytes. One macOS host wrote every target's SBOM, since it reads
+`Cargo.lock` through `cargo metadata` and builds nothing. The Windows SBOM lists 71 components against
+68 elsewhere, the three extra being `windows-sys` and its kin.
+
+**Decision.**
+
+1. **`cargo-cyclonedx`, CycloneDX 1.5 JSON, one SBOM per target**, named `<binary>.cdx.json`.
+   Build dependencies are left out. Proc-macro crates stay in: they run at build time and are not in
+   the binary, and a scanner may flag them anyway.
+2. **`scripts/sbom.sh` writes them**, in `release.yml`'s release job, with `cargo-cyclonedx` pinned
+   by version and `--locked`. It maps checkout paths to `/strypt` and fails if any other local path
+   remains. Deleting the mapping was shown to fail it.
+3. **Provenance through `SHA256SUMS`**, which lists the SBOMs and is already attested. No
+   `sbom-path` attestation: it would add a signing step per binary and prove nothing the checksum
+   does not.
+4. **First shipped with the next release.** 0.1.0 is not retrofitted.
+
+**Consequences.**
+
+- **The SBOM is `Cargo.lock` restated**, per target and in a standard format. It adds nothing a
+  verifier with the commit could not derive, and is described no more broadly.
+- **It is not compared across two runs** as the binaries are. Determinism rests on
+  `SOURCE_DATE_EPOCH` and the path check.

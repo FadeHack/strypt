@@ -108,20 +108,32 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { pattern: "meta-*", path: meta, merge-multiple: true }
 
+      # SBOMs read Cargo.lock and build nothing, so one host writes all five (ADR-0054).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: a, persist-credentials: false }
+      - name: SBOMs
+        run: |
+          cargo install cargo-cyclonedx --version 0.5.9 --locked
+          bash a/scripts/sbom.sh dist x86_64-unknown-linux-musl aarch64-unknown-linux-musl \
+            aarch64-apple-darwin x86_64-apple-darwin x86_64-pc-windows-msvc
+
       - name: Checksums and notes
         run: |
           cd dist
-          [ "$(ls | wc -l)" = 5 ] || { echo "::error::expected five binaries"; exit 1; }
+          bins=$(ls | grep -v '\.cdx\.json$')
+          [ "$(echo "$bins" | wc -l)" = 5 ] || { echo "::error::expected five binaries"; exit 1; }
+          for b in $bins; do [ -f "${b%.exe}.cdx.json" ] || { echo "::error::no SBOM for $b"; exit 1; }; done
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             v=${GITHUB_REF_NAME#v}
-            [ "$(ls strypt-"$v"-* | wc -l)" = 5 ] || { echo "::error::$GITHUB_REF_NAME does not match the crate version"; exit 1; }
+            [ "$(ls strypt-"$v"-* | wc -l)" = 10 ] || { echo "::error::$GITHUB_REF_NAME does not match the crate version"; exit 1; }
           fi
           sha256sum -- * > ../SHA256SUMS && mv ../SHA256SUMS .
           {
             echo "Built from \`$GITHUB_SHA\` by \`scripts/build-release.sh\`; each binary was built twice, byte-identical."
+            echo "Each has a CycloneDX SBOM, \`<file>.cdx.json\`, listed in \`SHA256SUMS\`."
             echo
             echo '```sh'
-            echo "shasum -a 256 -c SHA256SUMS --ignore-missing"
+            echo "sha256sum -c SHA256SUMS --ignore-missing"
             echo "gh attestation verify <file> -R $GITHUB_REPOSITORY"
             echo '```'
             echo
@@ -148,4 +160,5 @@ jobs:
           name: release-preview
           path: |
             dist/SHA256SUMS
+            dist/*.cdx.json
             notes.md

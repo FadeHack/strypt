@@ -401,10 +401,8 @@ work out whether files they already published need re-checking.
 - **Minimise dependencies** (ADR-0008). Each direct dependency is justified in §4. A new one
   needs an ADR, and "it is convenient" is not sufficient.
 - **`Cargo.lock` is committed.** strypt ships binaries; reproducibility beats float.
-- **SBOM at release time** via `cargo-cyclonedx` (CycloneDX; sources from both `Cargo.lock`
-  and `cargo metadata`, so it can honour feature selections and record per-component
-  licences) or `cargo-sbom` (emits both SPDX and CycloneDX). Verified as the current standard
-  options 2026-08-19; pick one in Phase 4 and record it as an ADR.
+- **A CycloneDX SBOM per release binary**, from `cargo-cyclonedx` via `scripts/sbom.sh`, listed
+  in the attested `SHA256SUMS` (ADR-0054).
 - **Release artefacts** carry SHA256 checksums and are traceable to the exact source commit
   (Phase 4 exit criterion).
 

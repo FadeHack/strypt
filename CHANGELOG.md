@@ -23,6 +23,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 - **Homebrew tap**: `brew install fadehack/strypt/strypt` installs the 0.1.0 release binary on
   macOS and Linux ([FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt)).
+- **An SBOM for each release binary**, `<file>.cdx.json` in CycloneDX: every crate built into it,
+  with version and licence, and a checksum for each from crates.io, so a scanner can check a binary against advisories published
+  after its release. Listed in `SHA256SUMS`; from the next release (ADR-0054).
 
 ### Changed
 
