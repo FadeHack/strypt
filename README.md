@@ -10,7 +10,7 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 
 > **Status: `0.1.0`, the first release. No external audit.** Read
 > [`docs/KNOWN_LIMITATIONS.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/KNOWN_LIMITATIONS.md) before relying on strypt.
-> Phases 0–3 are complete. Phase 4 ships binaries and a Homebrew tap; install steps are tested on
+> Phases 0–4 are complete: binaries, a Homebrew tap and crates.io, with install steps tested on
 > fresh CI runners ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
 
 [![CI](https://github.com/FadeHack/strypt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/ci.yml)

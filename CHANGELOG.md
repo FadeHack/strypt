@@ -24,6 +24,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - **Homebrew tap**: `brew install fadehack/strypt/strypt` installs the 0.1.0 release binary on
   macOS and Linux ([FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt)).
 
+### Changed
+
+- **Phase 4 — distribution — is complete (ADR-0053; opened 2026-09-12, closed 2026-09-14).** No
+  change to what strypt removes. The install steps were tested on fresh CI runners, not on anyone's
+  own machine: browser downloads, Gatekeeper and SmartScreen are untested.
+
 ### Fixed
 
 - **README install steps**, run on fresh machines: the checksum command works where `shasum` is

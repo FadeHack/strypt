@@ -3,8 +3,8 @@
 Thanks for considering it. Please read this first — strypt has a few expectations that differ
 from a typical Rust CLI project, because of who relies on it.
 
-**Status: `0.1.0`, the first release (2026-09-13).** Phases 0–3 are complete and Phase 4,
-distribution, is under way. There has been no external audit; the [README status block](README.md)
+**Status: `0.1.0`, the first release (2026-09-13).** Phases 0–4 are complete, the last
+being distribution. There has been no external audit; the [README status block](README.md)
 says what that means.
 
 **The format list is closed.** [ADR-0027](docs/DECISIONS.md) fixed it and

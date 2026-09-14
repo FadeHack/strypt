@@ -3386,7 +3386,7 @@ whether that transfers to their real install paths. Verified 2026-09-13:
 
 ## ADR-0053 — Install steps tested on fresh runners, and Phase 4 closes
 
-**Status:** Proposed (2026-09-14)
+**Status:** Accepted (2026-09-14)
 
 Discharges ADR-0049 decision 5 item 10 and ROADMAP Phase 4 exit criterion 4, and settles ADR-0052's
 open question on Tails's Persistent Storage.

@@ -1,6 +1,6 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–3 complete; **Phase 4 open** (ADR-0049) · **Last updated:** 2026-09-13
+**Status:** Phases 0–4 complete; **Phase 5 not opened** · **Last updated:** 2026-09-14
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -104,90 +104,29 @@ permanent. Criteria 1, 2 and 6 stay met only while the next batch and those CI j
 
 ---
 
-## Phase 4 — Distribution *(open; opened 2026-09-12)*
+## Phase 4 — Distribution *(complete; opened 2026-09-12, closed 2026-09-14)*
 
-Opened by ADR-0049, which settles the three inputs below and sets the deliverable order: the public
-repository first, reproducible builds before any binary ships.
+Opened by ADR-0049, closed by ADR-0053. The repository went public, and
+[0.1.0](https://github.com/FadeHack/strypt/releases/tag/v0.1.0) shipped 2026-09-13.
 
-**Goal.** A person can install and run strypt without a Rust toolchain, through channels that
-do not themselves undermine the trust model.
+| # | Deliverable | Outcome |
+|---|---|---|
+| 1 | crates.io | `strypt` and `strypt-core` at 0.1.0. Names held since 0.0.1 (2026-08-23); `strypt-cli` renamed and yanked (ADR-0026) |
+| 2 | Prebuilt binaries | Five targets, drafted from a tag by `release.yml` |
+| 3 | Checksums | `SHA256SUMS` for every binary, itself attested |
+| 4 | Signing | ADR-0051: no Apple Developer ID; Windows through SignPath, still owed |
+| 5 | Reproducible builds | ADR-0050: each binary attested, byte-identical across two builds on its runner image |
+| 6 | Homebrew | [FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt), a project tap |
+| 7 | Native Linux package | Declined, ADR-0052: the static musl binary is the Tails and Whonix path; Debian proper moves to Phase 7 |
+| 8 | README for a public audience | Tested on fresh runners and corrected, ADR-0053 |
+| 9 | Repository public | ADR-0049 |
 
-**Deliverables.**
-- ~~`strypt-cli` (and `strypt-core`) published to crates.io.~~ **Partly done ahead of this
-  phase, 2026-08-23: `strypt` and `strypt-core` published at `0.0.1`.** Names are not
-  reservable in advance, and crates.io policy prohibits a crate that "exists only to reserve a
-  name... without having any genuine functionality" — so the choice was to publish the real
-  code early or risk the names. The real code went up.
-
-  All three names are held. The CLI crate was renamed `strypt-cli` → `strypt` the same day
-  (ADR-0026) so that `cargo install strypt` — the command matching the binary, and the one a
-  user will guess — resolves to this project rather than to whoever registered it first.
-  `strypt-cli` `0.0.1` is published and yanked: yanking keeps the name and stops anyone
-  installing a version that will never be updated.
-
-  **Publishing is not releasing, and the version says so.** A `0.0.1` on crates.io does not
-  mean this phase's remaining deliverables — binaries, checksums, signing, reproducible
-  builds — are met, and it does not mean Phase 3 happened. What it does mean is that
-  `cargo install strypt` now works, so the honesty of the README's status block is load-
-  bearing in a way it was not while the project was unpublished. Re-verify it before every
-  subsequent version bump.
-
-  *Both crates published at `0.1.0` with the release, 2026-09-13.*
-- GitHub Releases with prebuilt binaries: Linux x86_64 and aarch64, macOS Intel and Apple
-  Silicon, Windows x86_64.
-  *Done: [0.1.0](https://github.com/FadeHack/strypt/releases/tag/v0.1.0), 2026-09-13, drafted from a tag by `release.yml`.*
-- **SHA256 checksums for every artefact**, published alongside the release. *Done in 0.1.0; README
-  verification steps are item 9.*
-- **Binary signing** investigated and adopted if a reasonably low-friction option exists at
-  phase start — verify current status, cost, and requirements rather than assuming any
-  particular service. macOS notarisation and Windows Authenticode have real cost and
-  identity requirements that may conflict with a pseudonymous maintainer; if signing is not
-  adopted, document why and make checksum verification prominent instead.
-  *Settled by ADR-0051: no Apple Developer ID; Windows through SignPath after the first release.*
-- **Reproducible builds**: every published binary traceable to the exact source commit, ideally
-  byte-reproducible. For a tool asking to be trusted by at-risk users, "you can verify this
-  binary came from this source" is a core feature, not packaging polish.
-  *Done in 0.1.0 (ADR-0050): each binary attested, and byte-identical across two builds on its
-  runner image.*
-- A Homebrew formula.
-  *Done: [FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt), 2026-09-13, a
-  project tap (ADR-0049) installing the 0.1.0 release binaries; tested on all four targets
-  (ADR-0053).*
-- At least one native Linux package format. **`.deb` is the leading candidate** because both
-  Tails and Qubes-Whonix are Debian-based — but confirm at phase start that this transfers
-  cleanly to the actual distribution path (Debian proper has its own packaging process and
-  timelines, and inclusion in a derivative is not automatic).
-  *Declined by ADR-0052: Tails keeps only packages from Debian's repositories, so the static musl
-  binary is the Tails and Whonix path, and Debian proper moves to Phase 7.*
-- **The README finalised for a public audience** — install paths, checksum verification, and the
-  status line brought up to date with what this phase delivers. Add a banner and a `strypt show`
-  demo made from synthetic fixtures, both stripped by strypt before committing.
-  *Written 2026-09-13; tested and corrected by ADR-0053, which also settles Tails.*
-- **The repository made public.**
-
-**Inputs to the Phase 4 opening ADR** — all three settled by ADR-0049.
-- A privacy check of git history and commit author emails before the repository goes public.
-- `SECURITY.md`'s reporting channel — confirm it works for a public repository.
-- Revisiting ADR-0046: an all-targets CI fuzz job becomes affordable once the repository is public.
-
-**Exit criteria.**
-1. A person with no Rust toolchain can go from never having heard of strypt to running it via
-   **at least two independent install paths**.
-2. Every published binary is traceable to its exact source commit.
-3. Checksums published for every artefact, with verification instructions in the README that
-   a non-expert can follow.
-4. Install instructions in `README.md` and `INSTRUCTIONS.md` tested on a clean machine per
-   platform — not assumed to work.
-
-**Risks.**
-- *Packaging-format completionism.* Every additional package format is a permanent
-  maintenance obligation. Prioritise ruthlessly by where target users actually are.
-- *Signing identity versus maintainer privacy.* A project for at-risk users may have
-  maintainers with their own safety considerations, and code-signing generally requires
-  verified legal identity. This tension is real; resolve it deliberately and document the
-  outcome rather than letting it stall the phase.
-- *An unsigned binary download is itself a supply-chain risk for exactly this user base.*
-  Mitigation: make checksum and provenance verification easy and prominent.
+**Exit criteria — all four met 2026-09-14** (ADR-0053 decision 5): two install paths with no Rust
+toolchain; every binary traced to its commit; checksums with README steps; install steps tested.
+"Tested" means fresh CI runners, not clean machines: browser downloads, Gatekeeper, SmartScreen and
+whether a non-expert can follow the steps are untested. Criterion 4 stays met only while
+`install.yml` is re-run for each release, and the README status block is re-verified before every
+version bump. OSS-Fuzz, declined until this phase closed (ADR-0049), is undecided.
 
 ---
 
