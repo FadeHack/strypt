@@ -3464,7 +3464,7 @@ stripped a file from it.
 
 ## ADR-0054 — A CycloneDX SBOM per release binary, from `cargo-cyclonedx`
 
-**Status:** Proposed (2026-09-14)
+**Status:** Accepted (2026-09-14)
 
 Settles ARCHITECTURE §6's "pick one in Phase 4". Not a Phase 4 exit criterion, so ADR-0053 stands.
 
@@ -3497,3 +3497,6 @@ different paths wrote identical bytes. One macOS host wrote every target's SBOM,
   verifier with the commit could not derive, and is described no more broadly.
 - **It is not compared across two runs** as the binaries are. Determinism rests on
   `SOURCE_DATE_EPOCH` and the path check.
+- **First run green on 2026-09-14**, at `3b55416`
+  ([run 34818678470](https://github.com/FadeHack/strypt/actions/runs/34818678470)). All five SBOMs
+  were byte-identical to ones written on macOS arm64 from the same commit, checked by hand once.
