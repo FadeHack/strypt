@@ -162,8 +162,8 @@ jobs:
     name: Tails Persistent Storage mount options
     runs-on: ubuntu-24.04
     env:
-      V: "7.12"
-      SUM: 67ac6d61ea1ab936191048274ccefab439c5cadb1e14258aa445565e4eca49be # tails.net latest.json
+      V: "7.13"
+      SUM: cacb025f452ad010257dd5d3ba7bf7cb1bdfde50e8e583670d604d0bb6336682 # tails.net latest.json
     steps:
       - name: Read them from the Tails ISO
         run: |
