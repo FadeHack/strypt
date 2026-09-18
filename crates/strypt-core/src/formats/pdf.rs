@@ -26,6 +26,7 @@
 
 use lopdf::{Dictionary, Document, Object, ObjectId};
 
+use crate::container::package::{self, Embedded};
 use crate::detect::Format;
 use crate::error::{MalformedDetail, ResourceLimit, Result, StryptError};
 use crate::formats::xmp::name_of;
@@ -536,7 +537,62 @@ fn scrub(
         });
     }
 
+    strip_embedded_images(doc, &object_ids, options, limits, &mut findings, &mut notes)?;
+
     Ok(Scrubbed { findings, notes })
+}
+
+/// Strip the JPEGs a PDF carries, through the JPEG handler (ADR-0056, extending ADR-0029).
+///
+/// A `DCTDecode`-only stream is a JPEG file byte for byte (ISO 32000-1 §7.4.8), Exif included, so
+/// it needs no decoding to reach. Keyed on the filter rather than `/Subtype /Image` so that page
+/// thumbnails (`/Thumb`, §12.3.4) are covered too. JPEG 2000 and filter chains ending in a JPEG
+/// are copied with a note: reaching them means a JPX parser or inflating first.
+fn strip_embedded_images(
+    doc: &mut Document,
+    object_ids: &[ObjectId],
+    options: &InspectOptions,
+    limits: &ParseLimits,
+    findings: &mut Vec<Finding>,
+    notes: &mut Vec<Note>,
+) -> Result<()> {
+    for id in object_ids {
+        let Some(Object::Stream(stream)) = doc.objects.get_mut(id) else {
+            continue;
+        };
+        let Ok(filters) = stream.filters() else {
+            continue;
+        };
+        let name = format!("image object {}", id.0);
+        let is_jpeg = matches!(filters.as_slice(), [b"DCTDecode"])
+            && package::embedded_image_format(&stream.content) == Some(Format::Jpeg);
+        if !is_jpeg {
+            if filters
+                .iter()
+                .any(|f| *f == b"DCTDecode" || *f == b"JPXDecode")
+            {
+                notes.push(Note::UnparsedRegion {
+                    location: name,
+                    bytes: as_u64(stream.content.len()),
+                });
+            }
+            continue;
+        }
+        match package::strip_embedded_image(Format::Jpeg, &stream.content, &name, options, limits)?
+        {
+            Embedded::Unchanged => {}
+            Embedded::Stripped {
+                bytes,
+                findings: image_findings,
+                notes: image_notes,
+            } => {
+                findings.extend(image_findings);
+                notes.extend(image_notes);
+                stream.set_content(bytes);
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Resolve a reference held in the trailer, if it is one.

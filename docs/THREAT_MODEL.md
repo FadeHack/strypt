@@ -211,7 +211,8 @@ ever defined — applications invent their own freely, and a custom key is no le
 for being non-standard. XMP metadata packets at document and object level. The trailer `/ID`.
 `/PieceInfo`, which is a scratch area where an application may store whatever private state
 it likes between editing sessions. `/LastModified`. Markup-annotation authorship (`/T`),
-dates, and identifiers. Embedded-file parameter dates and checksums.
+dates, and identifiers. Embedded-file parameter dates and checksums. The Exif, XMP and other
+segments of every JPEG image and page thumbnail, through the JPEG handler (ADR-0056).
 
 **Objects left behind by incremental updates are the finding that shaped the design.** A PDF
 saved more than once contains every earlier version of itself: the old bytes stay, and a new
@@ -230,6 +231,9 @@ rather than rewriting it leaves them there while reporting the file clean.
 - **Form field names.** `/T` on a `/Widget` annotation is the field name that the form's logic
   and its saved data depend on, not a person's name. It is kept. Breaking a user's document to
   protect them is not a trade this tool makes silently.
+- **JPEG 2000 images, JPEGs inside another filter, and inline images are not opened** (ADR-0056).
+  The first two are named in the report; inline images are not. 0.1.0 opened no image at all, and
+  reported a placed photo's GPS as clean.
 - **Embedded attachments are not opened.** Their parameter metadata goes; whatever is inside
   them is untouched, and the report says so. Recursing into nested files is a zip-bomb-shaped
   problem that Phase 2 has to decide about explicitly, with a depth and expansion limit.

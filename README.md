@@ -30,7 +30,7 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 | Documents | PDF; Office Open XML (`.docx`, `.xlsx`, `.pptx`); OpenDocument (`.odt`, `.ods`, `.odp`) |
 | Audio and video | FLAC, WAV, MP3, Ogg (`.ogg`, `.opus`, `.oga`), MP4/M4A (`.mp4`, `.m4v`, `.m4a`, `.m4b`) |
 
-Photographs inside a document are stripped by the image handlers. Every other format is reported
+Photographs inside a document are stripped by the image handlers (in a PDF, JPEGs only). Every other format is reported
 as unsupported and never passed through. What each handler removes, keeps, and refuses:
 [`docs/THREAT_MODEL.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/THREAT_MODEL.md) §7.
 

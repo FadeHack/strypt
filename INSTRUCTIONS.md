@@ -174,7 +174,7 @@ PDF, JPEG and PNG have no script:
 ```sh
 mkdir -p /tmp/strypt-diff && cp corpus/pdf/*.pdf /tmp/strypt-diff/
 ./target/release/strypt strip /tmp/strypt-diff/*.pdf
-exiftool -s -G /tmp/strypt-diff/*.stripped.pdf | grep -vE '^\[(File|ExifTool)\]'
+exiftool -s -G -ee /tmp/strypt-diff/*.stripped.pdf   # -ee: without it, a PDF's images go unread | grep -vE '^\[(File|ExifTool)\]'
 mat2 --show /tmp/strypt-diff/*.stripped.pdf
 ```
 

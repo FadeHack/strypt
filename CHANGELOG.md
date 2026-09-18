@@ -45,6 +45,15 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   absent, and the steps name what `gh attestation verify` and `cargo install` need.
 - **SECURITY.md's supported versions** still said there had been no release.
 
+### Security
+
+- **PDF: photos kept their Exif while strypt reported the file clean.** A JPEG placed in a PDF, or
+  used as a page thumbnail, kept its GPS position, camera serial number, author and capture time;
+  `show` found nothing and `strip` said "nothing to remove". **Affects 0.1.0.** If you published a
+  PDF containing photos after stripping it with strypt, check it with `exiftool -ee`. Those JPEGs are
+  now cleaned; JPEG 2000 images and JPEGs inside another compression are named in the report as not
+  opened (ADR-0056).
+
 ## [0.1.0] - 2026-09-13
 
 ### Added

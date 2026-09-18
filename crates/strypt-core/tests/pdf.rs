@@ -46,6 +46,8 @@ const ALL_FIXTURES: &[&str] = &[
     "embedded-file.pdf",
     "clean.pdf",
     "negative-zero-real.pdf",
+    "embedded-jpeg.pdf",
+    "unexamined-images.pdf",
 ];
 
 #[test]
@@ -248,6 +250,69 @@ fn an_attachment_is_flagged_as_something_strypt_does_not_open() {
         !contains(&out, "D:20200105000000Z"),
         "attachment CreationDate survived"
     );
+}
+
+#[test]
+fn a_photos_exif_inside_a_pdf_is_removed_from_the_page_and_its_thumbnail() {
+    // Regression test (ADR-0056): 0.1.0 reported this file clean
+    // while the placed photo and the page thumbnail both kept their GPS, serial and artist.
+    let input = fixture("embedded-jpeg.pdf");
+    let report = inspect_bytes(&input, &InspectOptions::names_only()).unwrap();
+    let located = report
+        .findings
+        .iter()
+        .filter(|f| f.kind == MetadataKind::Location)
+        .count();
+    assert_eq!(
+        located, 8,
+        "GPS not reported for both images: {:?}",
+        report.findings
+    );
+
+    let out = strip("embedded-jpeg.pdf");
+    for marker in [
+        "SYNTHETIC-ARTIST-0004",
+        "SYNTHETIC-BODY-SERIAL-0005",
+        "Exif\0\0",
+    ] {
+        assert!(
+            !contains(&out, marker),
+            "{marker} survived inside an embedded JPEG"
+        );
+    }
+}
+
+#[test]
+fn an_embedded_jpeg_is_stripped_by_the_same_handler_as_a_loose_one() {
+    // ADR-0029's rule, which ADR-0056 carries into PDF: no second, weaker JPEG path.
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/jpeg/exif-gps.jpg");
+    let loose = strip_bytes(&std::fs::read(path).unwrap(), &StripOptions::default())
+        .unwrap()
+        .bytes;
+    let out = strip("embedded-jpeg.pdf");
+    assert!(
+        out.windows(loose.len()).any(|w| w == loose.as_slice()),
+        "the PDF's JPEG differs from the loose JPEG handler's output"
+    );
+}
+
+#[test]
+fn images_strypt_cannot_open_are_copied_with_a_note() {
+    // JPEG 2000 needs a parser strypt does not have, and a Flate-wrapped JPEG needs inflating.
+    // Neither is reported clean without saying so.
+    let input = fixture("unexamined-images.pdf");
+    let report = inspect_bytes(&input, &InspectOptions::names_only()).unwrap();
+    let unparsed = report
+        .notes
+        .iter()
+        .filter(|n| matches!(n, Note::UnparsedRegion { .. }))
+        .count();
+    assert_eq!(unparsed, 2, "{:?}", report.notes);
+    assert!(contains(
+        &strip("unexamined-images.pdf"),
+        "SYNTHETIC-JPX-0013"
+    ));
 }
 
 #[test]

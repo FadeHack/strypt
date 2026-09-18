@@ -3545,3 +3545,45 @@ the project, which Phase 5's criterion 3 and all of Phase 7 need.
   phase is judged when it opens.
 
 ---
+
+## ADR-0056 — A PDF's JPEGs go through the JPEG handler
+
+**Status:** Accepted (2026-09-18)
+
+Extends ADR-0029's one-level, images-only descent from ZIP packages to PDF. It does not descend
+*into* a PDF, which ADR-0029 still refuses.
+
+**Context.** Found 2026-09-18, from a question on a public announcement: 0.1.0 reported a PDF clean
+while the photo on its page kept its GPS, body serial and artist. A `DCTDecode` stream is a JPEG file
+byte for byte (ISO 32000-1 §7.4.8), and producers such as pdfLaTeX embed a camera's JPEG unchanged;
+`real-producer-corpus/…/003-pdflatex-image.pdf` carries a camera make, model and capture date that
+way. The handler read only dictionaries, and ADR-0029 covered only ZIP packages.
+
+Every check missed it. ExifTool reads a PDF's embedded images only with `-ee`, and no differential
+passed it. mat2 re-renders a PDF's pages, so its output had nothing to compare against.
+
+**Decision.**
+
+1. **A stream whose only filter is `DCTDecode` and whose bytes sniff as JPEG goes through
+   `package::strip_embedded_image`**, the handler a loose JPEG uses. Keyed on the filter, not on
+   `/Subtype /Image`, so page thumbnails (§12.3.4) are covered.
+2. **Nothing is inflated.** JPEG 2000, and filter chains ending in a JPEG, are copied with a note.
+   Refusing would refuse every such PDF; a note is how OOXML treats a part it cannot read.
+3. **A JPEG the handler refuses refuses the PDF.**
+4. **Inline images are not reached**, because content streams are not parsed. Recorded in
+   KNOWN_LIMITATIONS.
+5. **The PDF differential runs ExifTool with `-ee`** (`INSTRUCTIONS.md`).
+
+**Consequences.**
+
+- **A security fix for 0.1.0**, disclosed under `Security` in CHANGELOG.
+- **Rendering is unchanged as far as Poppler shows:** `pdftoppm` renders all 124 pages of three
+  affected PDFs with no differing pixel, one of them losing its JPEGs' ICC profiles. The image
+  dictionary, not the JPEG, sets a PDF image's colour space and placement.
+- **Fuzzing:** a five-minute `pdf` run was clean, with the new fixtures as seeds. ADR-0044's 24-hour
+  run is owed again before `pdf` is described as certified.
+- **Found on the way:** 0.1.0 refuses `003-pdflatex-image.pdf` as not round-trippable, although the
+  Phase 1 sweep (THREAT_MODEL §7.5) processed it. A refusal leaks nothing; it is a capability gap
+  introduced after that sweep, not fixed here.
+
+---

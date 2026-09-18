@@ -58,6 +58,8 @@ Kept items are listed in each strip report as retained, so you can see them.
 **PDF**
 - Kept: comment text (not its author or date), and form field names.
 - Not opened: embedded attachments. Their dates go, but their contents stay as they are.
+- Not opened: JPEG 2000 images and JPEGs inside another compression, which the report names, and
+  small images drawn inline in a page, which it does not. Ordinary JPEG photos are cleaned.
 - Refused: encrypted documents, and files with no document root.
 - Every run rewrites the file, so its layout carries strypt's fingerprint instead of the original
   producer's.

@@ -18,6 +18,7 @@ changing in ``git diff`` means someone changed this script.
 from __future__ import annotations
 
 import pathlib
+import zlib
 
 OUT = pathlib.Path(__file__).resolve().parents[1] / "pdf"
 
@@ -248,6 +249,37 @@ def main() -> None:
     #
     #     Refusing costs nothing real — a PDF this broken cannot be published either way.
     write("malformed/no-root-trailer.pdf", build(page_objects(), b"/t 1 0 R"))
+
+    # 12. A photograph placed on the page and as its thumbnail. A DCTDecode stream is a JPEG file
+    #     byte for byte, so the camera's Exif rides along; 0.1.0 reported this file clean (ADR-0056).
+    jpeg = (OUT.parent / "jpeg" / "exif-gps.jpg").read_bytes()
+    image = b"<< /Type /XObject /Subtype /Image /Width 16 /Height 16 /ColorSpace /DeviceRGB "
+    image += b"/BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n" % len(jpeg)
+    image += jpeg + b"\nendstream"
+    draw = b"q 16 0 0 16 0 0 cm /Im0 Do Q"
+    objs = page_objects(b"/Thumb 7 0 R ")
+    objs[3] = objs[3].replace(b"/Font << /F1 5 0 R >>", b"/Font << /F1 5 0 R >> /XObject << /Im0 6 0 R >>")
+    objs[4] = b"<< /Length %d >>\nstream\n" % (len(CONTENT) + len(draw) + 1) + CONTENT + b"\n" + draw + b"\nendstream"
+    objs[6] = image
+    objs[7] = image.replace(b"/Type /XObject /Subtype /Image ", b"")
+    write("embedded-jpeg.pdf", build(objs, b"/Root 1 0 R"))
+
+    # 13. Images strypt cannot reach without a JPEG 2000 parser or inflating first. Copied, with a
+    #     note that says so.
+    # A bare codestream: the JP2 signature box contains CR LF, which the checkout test forbids.
+    jpx = b"\xff\x4f\xff\x51SYNTHETIC-JPX-0013"
+    objs = page_objects()
+    objs[3] = objs[3].replace(b"/Font << /F1 5 0 R >>", b"/Font << /F1 5 0 R >> /XObject << /Im0 6 0 R /Im1 7 0 R >>")
+    objs[6] = (
+        b"<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /Filter /JPXDecode /Length %d >>\nstream\n"
+        % len(jpx) + jpx + b"\nendstream"
+    )
+    wrapped = zlib.compress(b"\xff\xd8\xff\xfeSYNTHETIC-COMMENT-0014\xff\xd9", 9)
+    objs[7] = (
+        b"<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 "
+        b"/Filter [/FlateDecode /DCTDecode] /Length %d >>\nstream\n" % len(wrapped) + wrapped + b"\nendstream"
+    )
+    write("unexamined-images.pdf", build(objs, b"/Root 1 0 R"))
 
 
 if __name__ == "__main__":

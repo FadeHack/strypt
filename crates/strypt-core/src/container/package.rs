@@ -5,7 +5,8 @@
 //! into. Those four things are here rather than in either handler, for one reason above the
 //! others: **the one-level, images-only descent of ADR-0029 must exist exactly once.** A second
 //! copy of it in the `OpenDocument` handler would be a second place for the depth to grow, and the
-//! ADR fixes the depth in the type system precisely so that it cannot.
+//! ADR fixes the depth in the type system precisely so that it cannot. The PDF handler uses the
+//! same descent for its JPEGs (ADR-0056).
 //!
 //! What is *not* here is anything about where a format keeps its metadata. `docProps/core.xml`
 //! and `meta.xml` are not two spellings of one idea — see ADR-0031 — and pretending otherwise
