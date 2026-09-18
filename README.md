@@ -119,7 +119,7 @@ On Windows, compare `Get-FileHash strypt-0.1.0-x86_64-pc-windows-msvc.exe` in Po
 line in `SHA256SUMS` (case does not matter).
 
 The binaries are not code-signed ([ADR-0051](https://github.com/FadeHack/strypt/blob/HEAD/docs/DECISIONS.md)). Windows may show a SmartScreen
-warning. On macOS, a file downloaded in a browser must be allowed once in System Settings →
+warning, and Smart App Control, where it is on, may block the file outright. On macOS, a file downloaded in a browser must be allowed once in System Settings →
 Privacy & Security; one fetched with `curl` does not. Never turn Gatekeeper off to run it.
 
 **Tails and Qubes-Whonix**: use the static Linux x86_64 binary. There is no `.deb`, because Tails

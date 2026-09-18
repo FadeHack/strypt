@@ -36,7 +36,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - **Phase 4 — distribution — is complete (ADR-0053; opened 2026-09-12, closed 2026-09-14).** No
   change to what strypt removes. The install steps were tested on fresh CI runners, not on anyone's
   own machine: browser downloads, Gatekeeper and SmartScreen are untested.
-- **Windows binaries stay unsigned.** SignPath declined the project as too new (ADR-0055).
+- **Windows binaries stay unsigned.** SignPath declined the project as too new (ADR-0055). README now
+  says Smart App Control may block them, not only warn.
 
 ### Fixed
 
