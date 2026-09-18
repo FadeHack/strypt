@@ -19,6 +19,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-18
+
 ### Added
 
 - **Homebrew tap**: `brew install fadehack/strypt/strypt` installs the 0.1.0 release binary on
@@ -1072,5 +1074,6 @@ Read these before relying on the tool. They are limitations, not bugs, and each 
   unpublishable to crates.io. Now versioned explicitly.
 - Bumped `actions/checkout` to v5; v4 targets a deprecated Node runtime.
 
-[Unreleased]: https://github.com/FadeHack/strypt/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/FadeHack/strypt/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/FadeHack/strypt/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/FadeHack/strypt/releases/tag/v0.1.0

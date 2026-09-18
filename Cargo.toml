@@ -5,7 +5,7 @@ members = ["crates/strypt-core", "crates/strypt"]
 [workspace.package]
 # 0.0.x deliberately: the crates.io names are held by real code, not a stub (docs/ROADMAP.md
 # Phase 4), but Phase 3 hardening has not happened and the version must not imply otherwise.
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 # MSRV policy: current stable minus two releases. House policy, NOT an industry norm —
 # see docs/DECISIONS.md ADR-0013 before citing it anywhere.

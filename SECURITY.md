@@ -92,7 +92,7 @@ requests for anonymity are honoured without question or explanation.
 
 ## Supported versions
 
-Only the latest release receives fixes; 0.1.0 is the first. `0.0.1` on crates.io held the names and
+Only the latest release receives fixes. `0.0.1` on crates.io held the names and
 was never a release. A support policy for older releases will be defined at v1.0.
 
 ## Scope

@@ -8,7 +8,8 @@ and strips it out.
 
 A single self-contained binary. Memory-safe Rust. **No network access in any code path.**
 
-> **Status: `0.1.0`, the first release. No external audit.** Read
+> **Status: `0.1.1`. No external audit.** 0.1.0 left the Exif of photos inside PDFs; see
+> [`CHANGELOG.md`](https://github.com/FadeHack/strypt/blob/HEAD/CHANGELOG.md). Read
 > [`docs/KNOWN_LIMITATIONS.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/KNOWN_LIMITATIONS.md) before relying on strypt.
 > Phases 0–4 are complete: binaries, a Homebrew tap and crates.io, with install steps tested on
 > fresh CI runners ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
@@ -96,16 +97,16 @@ release binary below, checked against its SHA256.
 
 | Platform | File |
 |---|---|
-| Linux x86_64 (static) | `strypt-0.1.0-x86_64-unknown-linux-musl` |
-| Linux arm64 (static) | `strypt-0.1.0-aarch64-unknown-linux-musl` |
-| macOS, Apple Silicon | `strypt-0.1.0-aarch64-apple-darwin` |
-| macOS, Intel | `strypt-0.1.0-x86_64-apple-darwin` |
-| Windows x86_64 | `strypt-0.1.0-x86_64-pc-windows-msvc.exe` |
+| Linux x86_64 (static) | `strypt-0.1.1-x86_64-unknown-linux-musl` |
+| Linux arm64 (static) | `strypt-0.1.1-aarch64-unknown-linux-musl` |
+| macOS, Apple Silicon | `strypt-0.1.1-aarch64-apple-darwin` |
+| macOS, Intel | `strypt-0.1.1-x86_64-apple-darwin` |
+| Windows x86_64 | `strypt-0.1.1-x86_64-pc-windows-msvc.exe` |
 
 ```sh
-F=strypt-0.1.0-x86_64-unknown-linux-musl    # your file from the table
-curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.0/$F
-curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.0/SHA256SUMS
+F=strypt-0.1.1-x86_64-unknown-linux-musl    # your file from the table
+curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.1/$F
+curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.1/SHA256SUMS
 sha256sum -c SHA256SUMS --ignore-missing     # must print "<file>: OK"; older macOS: shasum -a 256 -c
 chmod +x $F && ./$F --version                # then rename it strypt, in a directory on your PATH
 ```
@@ -115,7 +116,7 @@ that the binary was built by this repository's CI from a public commit, use the
 [GitHub CLI](https://cli.github.com/) 2.49 or later, signed in with `gh auth login`:
 `gh attestation verify $F -R FadeHack/strypt`.
 
-On Windows, compare `Get-FileHash strypt-0.1.0-x86_64-pc-windows-msvc.exe` in PowerShell with its
+On Windows, compare `Get-FileHash strypt-0.1.1-x86_64-pc-windows-msvc.exe` in PowerShell with its
 line in `SHA256SUMS` (case does not matter).
 
 The binaries are not code-signed ([ADR-0051](https://github.com/FadeHack/strypt/blob/HEAD/docs/DECISIONS.md)). Windows may show a SmartScreen
