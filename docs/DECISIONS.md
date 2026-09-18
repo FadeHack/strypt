@@ -3500,3 +3500,48 @@ different paths wrote identical bytes. One macOS host wrote every target's SBOM,
 - **First run green on 2026-09-14**, at `3b55416`
   ([run 34818678470](https://github.com/FadeHack/strypt/actions/runs/34818678470)). All five SBOMs
   were byte-identical to ones written on macOS arm64 from the same commit, checked by hand once.
+
+---
+
+## ADR-0055 — SignPath declines, and four Phase 7 deliverables come before Phase 5
+
+**Status:** Accepted (2026-09-18)
+
+Settles ADR-0051 decision 2. Opens no phase.
+
+**Context.** SignPath Foundation declined strypt by email on 2026-09-16: the
+project is too new to have community attention, and could be reconsidered once it has. Every other
+route to a trusted signature needs the maintainer's legal name (ADR-0051).
+
+Checked 2026-09-18: Windows 11's Smart App Control, where enabled, blocks an unsigned app without
+reputation outright, not with SmartScreen's click-through. A command at the top level of the
+Windows 11 Explorer menu must come from a package signed by a CA-trusted certificate; unsigned
+registry verbs appear only under "Show more options". A macOS browser download that is not
+notarised needs approval in System Settings.
+
+So Phase 5's GUI and Phase 6's Explorer integration can be built unsigned, but exit criterion 3 of
+Phase 5, usable by someone who has never opened a terminal, is at risk on Windows and macOS. Linux,
+including Tails and Whonix, is unaffected. There is no evidence yet of anyone using strypt outside
+the project, which Phase 5's criterion 3 and all of Phase 7 need.
+
+**Decision.**
+
+1. **Windows stays unsigned.** SignPath is applied to again once there is traction to show.
+   ADR-0051 decision 1 is unchanged.
+2. **Four Phase 7 deliverables are done now:** the contribution pipeline (templates, response
+   norms, curated good-first issues), a security-triage process exercised by a drill, one public
+   announcement framed per ADR-0012, and applications for an independent audit or funding.
+3. **Phase 7 is not opened.** Outreach to Tails and Qubes-Whonix waits for outside users and
+   ideally an audit, since mat2 already ships in Tails and a first impression cannot be retaken.
+   Debian packaging and the localisation ADR wait with it.
+4. **Phase 5 does not wait for traction**, which has no end condition. Its opening ADR must say how
+   Windows and macOS are distributed unsigned, or scope them out.
+
+**Consequences.**
+
+- **Choosing between signing and pseudonymity is the maintainer's to make**, and would unblock
+  Windows and macOS sooner than traction.
+- **Phase 7's exit criteria are not met by this work** except where it happens to meet them; the
+  phase is judged when it opens.
+
+---

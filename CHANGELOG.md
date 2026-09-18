@@ -26,17 +26,21 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - **An SBOM for each release binary**, `<file>.cdx.json` in CycloneDX: every crate built into it,
   with version and licence, and a checksum for each from crates.io, so a scanner can check a binary against advisories published
   after its release. Listed in `SHA256SUMS`; from the next release (ADR-0054).
+- **Issue forms and a pull request template.** A leak or a crash still goes to private reporting;
+  a report of running strypt on your own machine now has its own form.
 
 ### Changed
 
 - **Phase 4 — distribution — is complete (ADR-0053; opened 2026-09-12, closed 2026-09-14).** No
   change to what strypt removes. The install steps were tested on fresh CI runners, not on anyone's
   own machine: browser downloads, Gatekeeper and SmartScreen are untested.
+- **Windows binaries stay unsigned.** SignPath declined the project as too new (ADR-0055).
 
 ### Fixed
 
 - **README install steps**, run on fresh machines: the checksum command works where `shasum` is
   absent, and the steps name what `gh attestation verify` and `cargo install` need.
+- **SECURITY.md's supported versions** still said there had been no release.
 
 ## [0.1.0] - 2026-09-13
 

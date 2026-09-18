@@ -1,6 +1,7 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–4 complete; **Phase 5 not opened** · **Last updated:** 2026-09-14
+**Status:** Phases 0–4 complete; **Phase 5 not opened**; four Phase 7 deliverables in progress
+(ADR-0055) · **Last updated:** 2026-09-18
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -114,7 +115,7 @@ Opened by ADR-0049, closed by ADR-0053. The repository went public, and
 | 1 | crates.io | `strypt` and `strypt-core` at 0.1.0. Names held since 0.0.1 (2026-08-23); `strypt-cli` renamed and yanked (ADR-0026) |
 | 2 | Prebuilt binaries | Five targets, drafted from a tag by `release.yml` |
 | 3 | Checksums | `SHA256SUMS` for every binary, itself attested |
-| 4 | Signing | ADR-0051: no Apple Developer ID; Windows through SignPath, still owed |
+| 4 | Signing | ADR-0051: no Apple Developer ID. SignPath declined, so Windows stays unsigned (ADR-0055) |
 | 5 | Reproducible builds | ADR-0050: each binary attested, byte-identical across two builds on its runner image |
 | 6 | Homebrew | [FadeHack/homebrew-strypt](https://github.com/FadeHack/homebrew-strypt), a project tap |
 | 7 | Native Linux package | Declined, ADR-0052: the static musl binary is the Tails and Whonix path; Debian proper moves to Phase 7 |
@@ -206,6 +207,9 @@ this tool's audience actually encounters and uses it.
 
 **Goal.** strypt becomes a credible, trusted option in the communities that would actually
 rely on it — rather than a well-built tool nobody uses.
+
+ADR-0055 brings four deliverables ahead of Phase 5: the contribution pipeline, the triage process,
+one announcement, and audit or funding applications. The phase itself is not open.
 
 **Deliverables.**
 - Contribution pipeline maturity: issue and pull-request templates, an actively curated

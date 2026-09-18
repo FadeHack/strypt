@@ -14,8 +14,10 @@ declined on scope regardless of its quality. Please open an issue first.
 The most valuable contributions right now are adversarial: review of
 [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md), attempts to find metadata that survives a
 strip, and fuzzing findings. A file strypt reports as clean that still carries identifying
-data is the most valuable bug report this project can receive. Reports of a release binary
-failing to install or run on your platform are welcome too.
+data is the most valuable bug report this project can receive. No Rust is needed for the other
+thing the project lacks: reports of installing and running strypt on your own machine, working or
+not. Issues labelled [good first issue](https://github.com/FadeHack/strypt/labels/good%20first%20issue)
+say what is missing.
 
 ---
 
@@ -67,18 +69,7 @@ If a change is urgent and correct but the review is slow, that trade is delibera
 
 ## Pull request checklist
 
-- [ ] `cargo test` passes on your platform
-- [ ] `cargo clippy --all-targets --all-features -- -D warnings` is clean
-- [ ] `cargo fmt` has been run
-- [ ] New tests cover the change, including error paths
-- [ ] Fuzz corpus updated if a parser changed
-- [ ] A regression test exists if this fixes a bug, with the triggering input in the corpus
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`
-- [ ] An ADR added for any new dependency, `unsafe` block, or architectural change
-- [ ] `docs/THREAT_MODEL.md` updated if a format handler was added or changed
-- [ ] `INSTRUCTIONS.md` updated if any command changed
-
-Exact commands: [`INSTRUCTIONS.md`](INSTRUCTIONS.md). Full testing expectations:
+The [pull request template](.github/pull_request_template.md) carries it. Exact commands: [`INSTRUCTIONS.md`](INSTRUCTIONS.md). Full testing expectations:
 [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md).
 
 ## Test files must not contain real personal data

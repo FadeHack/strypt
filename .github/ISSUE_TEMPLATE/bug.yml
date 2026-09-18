@@ -1,0 +1,36 @@
+name: Something went wrong
+description: A failure to install or run, a refusal you think is wrong, confusing output, or a docs error.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Not here:** metadata surviving a strip, or a crash, hang or runaway memory on some file. Those are security reports, sent privately ([SECURITY.md](https://github.com/FadeHack/strypt/blob/main/SECURITY.md)).
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `strypt --version`.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and install method
+      placeholder: e.g. Windows 11 24H2, release zip from a browser download
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: Paste the command and its output. Output names fields, not their values, unless you passed `--show-values`. Check it before posting.
+    validations:
+      required: true
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Personal data
+      options:
+        - label: Nothing attached or pasted carries real personal data ([why](https://github.com/FadeHack/strypt/blob/main/CONTRIBUTING.md#test-files-must-not-contain-real-personal-data)).
+          required: true

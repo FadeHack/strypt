@@ -91,10 +91,8 @@ requests for anonymity are honoured without question or explanation.
 
 ## Supported versions
 
-There have been no releases. `strypt` and `strypt-core` are published on crates.io at `0.0.1`,
-which exists to hold the names and is not a release — see the [README](README.md) status block.
-Only the latest published version receives fixes; a support policy for older releases will be
-defined at v1.0.
+Only the latest release receives fixes; 0.1.0 is the first. `0.0.1` on crates.io held the names and
+was never a release. A support policy for older releases will be defined at v1.0.
 
 ## Scope
 

@@ -1,0 +1,40 @@
+name: It worked (or didn't) on my machine
+description: Report installing or running strypt on your own machine. Successes are wanted too.
+labels: [platform report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Install steps have only been tested on fresh CI runners ([ADR-0053](https://github.com/FadeHack/strypt/blob/main/docs/DECISIONS.md)). A report from a real machine, especially a browser download on Windows or macOS, or a run on Tails, is evidence the project does not have.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `strypt --version`.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and version
+      placeholder: e.g. macOS 15.6 arm64, Tails 7.12
+    validations:
+      required: true
+  - type: dropdown
+    id: method
+    attributes:
+      label: Install method
+      options:
+        - Release download in a browser
+        - Release download with curl
+        - Homebrew
+        - cargo install
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you saw
+      description: Each warning or prompt the OS showed (SmartScreen, Smart App Control, Gatekeeper), what you clicked, and whether checksum and attestation verification worked.
+    validations:
+      required: true

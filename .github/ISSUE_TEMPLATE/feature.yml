@@ -1,0 +1,19 @@
+name: Suggest a change
+description: A change to behaviour, output or docs.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two limits before you write: the format list is closed ([ADR-0027](https://github.com/FadeHack/strypt/blob/main/docs/DECISIONS.md)), and nothing that touches the network is accepted, including update checks and telemetry ([ADR-0004](https://github.com/FadeHack/strypt/blob/main/docs/DECISIONS.md)).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you were trying to do, and what got in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would change
