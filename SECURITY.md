@@ -75,6 +75,7 @@ a single maintainer and no backup contact, so a holiday or an illness is the rea
 mode for the acknowledgement window — not a decision about your report. If you have not heard
 back within it, please chase; assume an unread message rather than a judgement.
 
+The maintainer's steps are in [`INSTRUCTIONS.md`](INSTRUCTIONS.md#handling-a-security-report).
 Every accepted security fix ships with a regression test and its triggering input in the test
 corpus, per [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) §2.6.
 

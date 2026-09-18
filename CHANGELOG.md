@@ -28,6 +28,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   after its release. Listed in `SHA256SUMS`; from the next release (ADR-0054).
 - **Issue forms and a pull request template.** A leak or a crash still goes to private reporting;
   a report of running strypt on your own machine now has its own form.
+- **The maintainer's steps for a security report**, linked from `SECURITY.md` and tried once on a
+  drill.
 
 ### Changed
 

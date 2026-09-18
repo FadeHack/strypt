@@ -269,6 +269,39 @@ brew audit --strict --online fadehack/strypt/strypt
 5. `gh workflow run install.yml` runs README's install steps on fresh runners. Update the file
    names and `BUILT_FROM` in it first.
 
+## Handling a security report
+
+[`SECURITY.md`](SECURITY.md) is the reporter's side and its targets bind. Everything stays in the
+advisory until step 6: no public issue, commit, branch or CI run.
+
+1. **Acknowledge** within 72 hours, as a comment on the report; it needs no acceptance first. An
+   emailed report becomes a draft advisory: **Security and quality** tab, **New draft security
+   advisory**.
+2. **Grade it** within 7 days:
+   - **Critical:** silent incomplete removal, or any network connection.
+   - **High:** leakage through strypt's own output, logs or temp files; memory corruption.
+   - **Medium:** panic, crash, hang or runaway memory on a crafted file.
+3. **Find what is affected:** run a synthetic reproduction through each released binary, and record
+   the versions and formats. The reporter's file never enters the repository. Judge the output with
+   ExifTool and a byte search, not `strypt show`, which is what is under suspicion:
+
+   ```sh
+   gh release download v<version> -R FadeHack/strypt -p 'strypt-<version>-<target>' -p SHA256SUMS
+   sha256sum --ignore-missing -c SHA256SUMS
+   ```
+
+   If it reproduces, **Accept and open as draft**; the advisory's affected versions come from here.
+   If not, ask for the file's structure, never the file, and close the report only once the reporter
+   agrees or stops replying.
+4. **Fix in the advisory's temporary private fork.** CI does not run there, so run the full loop
+   above locally. The fix carries a regression test and the synthetic input in the corpus.
+5. **If a Critical fix will miss 30 days**, publish the advisory with a mitigation: the affected
+   formats, and mat2 where it handles them (ADR-0012). Add it to KNOWN_LIMITATIONS.
+6. **Release:** merge the fork, cut a release as above with a `Security` entry naming versions and
+   formats, request a CVE from the advisory, publish it, and credit the reporter as they chose.
+   File the RustSec advisory ([rustsec/advisory-db](https://github.com/rustsec/advisory-db)) for
+   `strypt-core`.
+
 ## Performance measurement
 
 The numbers in [`docs/PRD.md`](docs/PRD.md) §9. Needs a release binary and ImageMagick.

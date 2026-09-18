@@ -211,6 +211,11 @@ rely on it — rather than a well-built tool nobody uses.
 ADR-0055 brings four deliverables ahead of Phase 5: the contribution pipeline, the triage process,
 one announcement, and audit or funding applications. The phase itself is not open.
 
+- **Triage process:** [`INSTRUCTIONS.md`](../INSTRUCTIONS.md#handling-a-security-report). Drilled
+  2026-09-18 through private reporting from a second account the maintainer holds: acknowledged in
+  about five minutes, found not to reproduce on 0.1.0, closed unpublished, and the runbook corrected.
+  There is no backup contact, so criterion 2's "more than the maintainer" is not met.
+
 **Deliverables.**
 - Contribution pipeline maturity: issue and pull-request templates, an actively curated
   "good first issue" label, and documented response-time norms in `CONTRIBUTING.md`.
