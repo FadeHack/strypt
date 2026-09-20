@@ -19,6 +19,13 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+### Fixed
+
+- **PDF: a document whose page tree names one object more than once is now refused.** Rewriting
+  such a file dropped an object — in the file that found this, its only page — and strypt reported
+  success. Affects every release up to and including `0.1.1`. A refused file is unchanged, so no
+  output was ever wrong; the risk was a saved copy missing a page (ADR-0057).
+
 ## [0.1.1] - 2026-09-18
 
 ### Added

@@ -250,6 +250,16 @@ fn renumber_stably(doc: &mut Document) -> Result<()> {
 
         doc.renumber_objects();
 
+        // A page tree naming one object twice makes lopdf's page permutation map two ids onto
+        // one, dropping an object — in the file that found this, the document's only /Page.
+        if doc.objects.len() < ids_before.len() {
+            return Err(StryptError::Malformed {
+                format: Format::Pdf,
+                offset: None,
+                detail: MalformedDetail::NotRoundTrippable,
+            });
+        }
+
         let ids_after: Vec<ObjectId> = doc.objects.keys().copied().collect();
         let pages_after: Vec<ObjectId> = doc.page_iter().collect();
 

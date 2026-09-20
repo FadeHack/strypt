@@ -715,6 +715,33 @@ fn output_that_does_not_read_back_as_written_is_refused_not_returned() {
 }
 
 #[test]
+fn a_page_tree_that_renumbering_would_shrink_is_refused() {
+    // Regression test. Found by the pdf fuzz target at 64213s on 2026-09-20, again through the
+    // idempotence assertion. The page tree names object 2 twice, so lopdf's page permutation maps
+    // two ids onto one and drops an object — here the document's only /Page. 0.1.1 wrote that
+    // file and reported success; stripping the output then dropped the orphan it had left.
+    let input = fixture("malformed/duplicate-kids.pdf");
+    assert_eq!(detect(&input).unwrap(), Format::Pdf);
+
+    let err = strip_bytes(&input, &StripOptions::default()).unwrap_err();
+    assert!(
+        matches!(
+            err,
+            StryptError::Malformed {
+                format: Format::Pdf,
+                detail: MalformedDetail::NotRoundTrippable,
+                ..
+            }
+        ),
+        "expected a refusal, got {err:?}"
+    );
+    assert!(
+        err.to_string().contains("nothing was written"),
+        "refusal does not say the output was withheld: {err}"
+    );
+}
+
+#[test]
 fn an_unknown_offset_is_not_rendered_as_debug_syntax() {
     // The Malformed message used to format its Option offset with {:?}, so a refusal with no
     // known position read "malformed PDF at byte offset None". That is debug syntax shown to

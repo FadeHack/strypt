@@ -3587,3 +3587,34 @@ passed it. mat2 re-renders a PDF's pages, so its output had nothing to compare a
   introduced after that sweep, not fixed here.
 
 ---
+
+## ADR-0057 — Renumbering that would shrink a PDF refuses it
+
+**Status:** Accepted (2026-09-20)
+
+**Context.** The `pdf` fuzz target's idempotence assertion fired at 64213s of a 24-hour run on
+2026-09-20. `lopdf::renumber_objects` permutes page objects so that page order matches ascending
+ids before numbering them sequentially (0.44.0 `src/processor.rs`). A page tree that names the same
+object more than once — `/Kids [2 0 R 2 0 R 2 0 R]`, with object 2 itself a `/Page` — maps two old
+ids onto one new one, and the object that loses is gone from the document.
+
+0.1.1 wrote such a file, without its only real page, and reported success. `verify_round_trip` did
+not see it: the loss happens before serialising, so the written and reloaded documents agree. The
+visible symptom was the second strip dropping the orphan the first had left.
+
+**Decision.** `renumber_stably` compares the object count across each round and refuses the document
+as `NotRoundTrippable` if it fell. Counting is enough — renumbering is a bijection or it is a bug —
+and it costs one comparison per round.
+
+**Consequences.**
+
+- **A file already stripped by 0.1.1 or earlier may be missing a page.** Nothing leaked, so this is
+  not a metadata disclosure; a user whose only copy is the stripped one has lost content. Under
+  `Fixed` in CHANGELOG, not `Security`.
+- **Documents of this shape are refused, not repaired.** Consistent with ADR-0018, and a viewer
+  cannot resolve a page tree that lists one page three times either.
+- **Fuzzing:** ADR-0044's 24-hour run is owed again for `pdf`; the run that found this ended at
+  17.8 of its 24 hours.
+- `malformed/duplicate-kids.pdf` carries the case, in the corpus and in the `pdf` fuzz seeds.
+
+---

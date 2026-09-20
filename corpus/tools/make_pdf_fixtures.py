@@ -281,6 +281,16 @@ def main() -> None:
     )
     write("unexamined-images.pdf", build(objs, b"/Root 1 0 R"))
 
+    # 14. A page tree listing the same object three times, and itself a /Page. lopdf's renumbering
+    #     permutes page objects first, so two ids map onto one and an object is dropped: 0.1.1 lost
+    #     this file's only real page and reported success. The pdf fuzz target found it at 64213s.
+    objs = page_objects()
+    objs[2] = (
+        b"<< /Type /Page /Parent 2 0 R /Kids [3 0 R 2 0 R 2 0 R] /Count 3 "
+        b"/MediaBox [0 0 200 200] >>"
+    )
+    write("malformed/duplicate-kids.pdf", build(objs, b"/Root 1 0 R"))
+
 
 if __name__ == "__main__":
     main()
