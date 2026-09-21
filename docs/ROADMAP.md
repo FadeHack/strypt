@@ -84,7 +84,7 @@ Windows permission debt was added, and no formats were added.
 
 | # | Deliverable | Outcome |
 |---|---|---|
-| 1 | Fuzzing budget as a number | ADR-0044: 24 CPU-hours per handler, plateau as a windowed curve shape. 20 of 22 targets certify (`scripts/fuzz-tally.py`); `jxl` and `png` stay punctuated. `ogg`/`oggpage` certified 2026-09-12 after a CRC-fixing mutator |
+| 1 | Fuzzing budget as a number | ADR-0044: 24 CPU-hours per handler, plateau as a windowed curve shape. 19 of 22 targets certify (`scripts/fuzz-tally.py`); `jxl`, `pdf` and `png` stay punctuated. `pdf`'s 2026-09-21 run was clean on 24 CPU-hours but punctuated (ADR-0057). `ogg`/`oggpage` certified 2026-09-12 after a CRC-fixing mutator |
 | 2 | Continuous fuzzing | Declined, ADR-0046 |
 | 3 | Findings triaged to zero | 2026-09-11: six failures, all fixed with regression tests |
 | 4 | `cargo-deny` as a hard gate | ADR-0045; `scripts/prove-gates.sh` runs in CI, green on `9bbfd41` |
