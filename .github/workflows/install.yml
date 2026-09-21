@@ -10,7 +10,7 @@ permissions:
 
 env:
   README: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/README.md
-  BUILT_FROM: 14b8af59e5405681a4581048da3786f13e68ddf7 # v0.1.1
+  BUILT_FROM: 2f8c933137fa13f5213aa89e4761bfb0d957a50d # v0.1.2
 
 jobs:
   brew-macos:
@@ -51,8 +51,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-15, file: strypt-0.1.1-aarch64-apple-darwin }
-          - { os: macos-15-intel, file: strypt-0.1.1-x86_64-apple-darwin }
+          - { os: macos-15, file: strypt-0.1.2-aarch64-apple-darwin }
+          - { os: macos-15-intel, file: strypt-0.1.2-x86_64-apple-darwin }
     env: { FILE: "${{ matrix.file }}" }
     steps:
       - name: README's download block, with F set from its table
@@ -79,8 +79,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-24.04, file: strypt-0.1.1-x86_64-unknown-linux-musl }
-          - { os: ubuntu-24.04-arm, file: strypt-0.1.1-aarch64-unknown-linux-musl }
+          - { os: ubuntu-24.04, file: strypt-0.1.2-x86_64-unknown-linux-musl }
+          - { os: ubuntu-24.04-arm, file: strypt-0.1.2-aarch64-unknown-linux-musl }
     env: { FILE: "${{ matrix.file }}" }
     defaults: { run: { working-directory: /w } }
     steps:
@@ -187,7 +187,7 @@ jobs:
           sudo mkdir $T/Persistent && sudo chown "$USER" $T/Persistent
           sudo mount --bind $T/Persistent $P && sudo mount -o remount,nosymfollow $P
           findmnt -no OPTIONS $T && findmnt -no OPTIONS $P
-          curl -fsSLo $P/strypt "https://github.com/FadeHack/strypt/releases/download/v0.1.1/strypt-0.1.1-x86_64-unknown-linux-musl"
+          curl -fsSLo $P/strypt "https://github.com/FadeHack/strypt/releases/download/v0.1.2/strypt-0.1.2-x86_64-unknown-linux-musl"
           chmod +x $P/strypt && cd $P && ./strypt --version
           echo '<svg xmlns="http://www.w3.org/2000/svg"><metadata>x</metadata></svg>' > t.svg
           ./strypt strip t.svg && ! grep -q metadata t.stripped.svg
