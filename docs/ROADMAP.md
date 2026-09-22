@@ -1,7 +1,7 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–4 complete; **Phase 5 not opened**; four Phase 7 deliverables in progress
-(ADR-0055) · **Last updated:** 2026-09-18
+**Status:** Phases 0–4 complete; **Phase 5 open** (ADR-0058); four Phase 7 deliverables in
+progress (ADR-0055) · **Last updated:** 2026-09-23
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -136,10 +136,9 @@ version bump. OSS-Fuzz, declined until this phase closed (ADR-0049), is undecide
 **Goal.** Non-technical users — Marcus and Devi from `docs/PRD.md` §5 — get the same
 protection CLI users have, with no lower-trust code path.
 
-**Framework:** Tauri v2. Verified 2026-08-19: stable at v2.10.1 (2026-03-04), independently
-audited by Radically Open Security during its beta/RC cycle, dual MIT/Apache-2.0 — which
-aligns with strypt's own licensing. **Re-verify all of this at phase start**; this is many
-phases away and the security posture of the framework is load-bearing.
+**Framework:** `eframe`/`egui` 0.36.2, with `links` off and AccessKit on (ADR-0058, 2026-09-23).
+**Tauri is rejected:** it resolves `reqwest` into the graph and needs WebKit2GTK on Linux. Re-verify
+at each release, not once: the framework's security posture is load-bearing.
 
 **Deliverables.**
 - `strypt-gui` calling **directly into `strypt-core`**. It must not re-implement stripping
@@ -150,28 +149,28 @@ phases away and the security posture of the framework is load-bearing.
   out has grounds to believe the tool, and a user who sees an empty diff on a file they
   expected to be dirty has learned something important.
 - Safe defaults matching the CLI: copy-out, never in-place without explicit action.
-- **Verified absence of network capability.** Tauri grants capabilities explicitly through
-  its permissions system, so this is auditable — and must be audited, not assumed.
+- **Verified absence of network capability**, by the per-crate no-network gate of ADR-0058
+  decision 3 — audited, not assumed.
 
 **Exit criteria.**
 1. GUI produces **byte-identical** output to the CLI for every file in the test corpus.
    This is the proof that no logic was duplicated or has drifted (ADR-0003).
-2. A capability and permissions audit confirms **zero** network access, with the audit method
-   documented so it can be repeated each release.
+2. `scripts/check-no-network.sh` confirms **zero** HTTP, TLS or DNS crates in `strypt-gui`'s
+   graph, and that only the AT-SPI accessibility crates of ADR-0058 are admitted there.
 3. The GUI is usable by someone who has never opened a terminal — validated with an actual
-   non-technical person, not assumed by the developer.
+   non-technical person, not assumed by the developer. Judged on Linux and macOS; Windows is
+   scoped out while the binary is unsigned (ADR-0058 decision 4).
 4. No new `unsafe` and no new dependency without an ADR.
 
 **Risks.**
 - *"Nice to have" network features* — update checks, telemetry, crash reporting, remote
   fonts — are exactly the scope creep that would break ADR-0004. Any such proposal is an ADR
-  discussion, never a quick addition. A web-technology GUI makes accidental network access
-  unusually easy: a single remote font or CDN stylesheet reference would violate the
-  invariant silently.
+  discussion, never a quick addition. ADR-0058 removes the webview's silent routes to one; it
+  does not remove the temptation.
 - *Front-end divergence.* Mitigated structurally by exit criterion 1, which is why it is a
   byte-identity check rather than a spot check.
-- *GUI framework churn* over the long gap between now and this phase. Re-evaluate rather than
-  assuming Tauri is still the right answer.
+- *The Tails and Whonix path stays with the CLI.* A windowing stack rules out the static musl
+  binary, so the GUI does not inherit ADR-0052's route; a spike settles whether it has one.
 
 ---
 

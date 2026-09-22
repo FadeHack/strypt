@@ -19,6 +19,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+### Changed
+
+- **Phase 5, the GUI, is open, and it is built on egui rather than Tauri.** Tauri resolves an HTTP
+  client into the dependency graph and needs WebKit2GTK on Linux, so it fails strypt's no-network
+  gate (ADR-0058). Nothing in the CLI changes.
+
 ## [0.1.2] - 2026-09-21
 
 ### Fixed

@@ -3618,3 +3618,61 @@ and it costs one comparison per round.
 - `malformed/duplicate-kids.pdf` carries the case, in the corpus and in the `pdf` fuzz seeds.
 
 ---
+
+## ADR-0058 — Phase 5 opens on egui, and Tauri is rejected
+
+**Status:** Accepted (2026-09-23)
+
+Opens Phase 5. Supersedes ROADMAP's framework choice and settles ADR-0055 decision 4.
+
+**Context.** The framework note was a 2026-08-19 snapshot, and ROADMAP required re-verifying it at
+phase start. Checked 2026-09-23 against the registry, not from memory:
+
+`tauri` 2.11.5 (MIT OR Apache-2.0, MSRV 1.77.2) declares `reqwest` with `json` and `stream` as a
+**non-optional** dependency, target-gated to Android and non-macOS Apple. It never compiles on a
+desktop build, but it resolves into the graph and brings `hyper`, `hyper-util`, `socket2`, `mio`
+and `ipnet`; `url` is unconditional. `scripts/check-no-network.sh` walks the resolved graph across
+all targets and all features, exactly so that a crate reachable only under some configuration
+cannot hide, so a Tauri dependency fails the gate. Admitting an HTTP client on the argument that
+the shipped targets do not compile it is the reasoning ADR-0004 exists to refuse.
+
+Tauri also needs WebKit2GTK 4.1, `libssl`, `libayatana-appindicator3` and `librsvg2` as Linux
+system packages. That ends the single self-contained binary and puts a large C chain under a tool
+whose case rests on memory-safe parsing.
+
+Probed the same way: `eframe` 0.36.2 (MIT OR Apache-2.0, MSRV 1.95, matching strypt's own),
+`iced` 0.14.0 (MIT), `slint` 1.18.1. None resolves an HTTP client. Slint's GPL-or-commercial
+licensing contradicts ADR-0012's permissive-licensing differentiator.
+
+**Decision.**
+
+1. **Phase 5 opens, on `eframe`/`egui`.** Its licensing and MSRV match the workspace, and `iced`
+   would serve equally on dependencies alone; egui wins on drag-and-drop and a smaller surface.
+2. **The `links` feature is off.** It exists to open hyperlinks in a browser, which strypt's GUI
+   does not need, and it is the only reason `url` and `webbrowser` appear.
+3. **AccessKit stays on, and the no-network gate becomes per-crate.** AccessKit reaches AT-SPI over
+   the D-Bus session bus, so on Linux it pulls `zbus`, `async-io` and `polling` — a local Unix
+   socket, not the network, and the same path every accessible Linux application takes. `async-io`
+   and `polling` are generic reactors that could poll any descriptor, so they are not forgiven
+   globally: `strypt-core` and `strypt` keep zero denylist hits, and only `strypt-gui` may resolve
+   the named accessibility crates. HTTP, TLS and DNS crates stay denied everywhere. The script
+   change ships with the first GUI commit and is proven to fail, as in Phase 0.
+4. **Unsigned, and Windows is scoped out of exit criterion 3.** macOS ships unsigned with the
+   approval step the README already documents for the CLI. Windows gets a build, but Smart App
+   Control can block an unsigned app outright (ADR-0055), so "usable by someone who has never
+   opened a terminal" is judged on Linux and macOS until there is a signature.
+5. **The GUI is dynamically linked on Linux.** A windowing and GPU stack rules out the static musl
+   build, so **the CLI remains the Tails and Whonix path** (ADR-0052). Whether a GUI can reach
+   those platforms at all is left open, and is settled by a spike before any UI work.
+
+**Consequences.**
+
+- **ROADMAP's Tauri text and its capability-audit exit criterion are superseded.** Criterion 2's
+  audit method becomes the per-crate gate of decision 3, not Tauri's permissions system.
+- **Accessibility is weaker than a webview would give**, and this is the trade decision 1 makes.
+  AccessKit is the mitigation, not an equivalent; the gap belongs in KNOWN_LIMITATIONS once there
+  is something to measure. It also bears on funding: NLnet requires WCAG compliance of software it
+  funds.
+- **Phase 7's deliverable 4 is unaffected.** An application describes this phase as its work plan.
+
+---
