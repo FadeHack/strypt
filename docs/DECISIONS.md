@@ -3621,7 +3621,7 @@ and it costs one comparison per round.
 
 ## ADR-0058 — Phase 5 opens on egui, and Tauri is rejected
 
-**Status:** Accepted (2026-09-23)
+**Status:** Accepted (2026-09-23); decision 3 amended and decision 6 added the same day, after the spike
 
 Opens Phase 5. Supersedes ROADMAP's framework choice and settles ADR-0055 decision 4.
 
@@ -3652,18 +3652,29 @@ licensing contradicts ADR-0012's permissive-licensing differentiator.
    does not need, and it is the only reason `url` and `webbrowser` appear.
 3. **AccessKit stays on, and the no-network gate becomes per-crate.** AccessKit reaches AT-SPI over
    the D-Bus session bus, so on Linux it pulls `zbus`, `async-io` and `polling` — a local Unix
-   socket, not the network, and the same path every accessible Linux application takes. `async-io`
-   and `polling` are generic reactors that could poll any descriptor, so they are not forgiven
-   globally: `strypt-core` and `strypt` keep zero denylist hits, and only `strypt-gui` may resolve
-   the named accessibility crates. HTTP, TLS and DNS crates stay denied everywhere. The script
-   change ships with the first GUI commit and is proven to fail, as in Phase 0.
+   socket, not the network, and the same path every accessible Linux application takes. *Amended
+   after the spike:* winit's Wayland backend reaches `polling` too, through `calloop`, so turning
+   AccessKit off would not clear the gate. `async-io` and `polling` are generic reactors that could
+   poll any descriptor, so they are not forgiven globally: `strypt-core` and `strypt` keep zero
+   denylist hits, and `strypt-gui` admits those two only when every path to them runs through
+   `zbus` or `calloop`. Any other route fails, as do HTTP, TLS and DNS crates everywhere.
+   `scripts/prove-gates.sh` plants four violations of this rule.
 4. **Unsigned, and Windows is scoped out of exit criterion 3.** macOS ships unsigned with the
    approval step the README already documents for the CLI. Windows gets a build, but Smart App
    Control can block an unsigned app outright (ADR-0055), so "usable by someone who has never
    opened a terminal" is judged on Linux and macOS until there is a signature.
 5. **The GUI is dynamically linked on Linux.** A windowing and GPU stack rules out the static musl
-   build, so **the CLI remains the Tails and Whonix path** (ADR-0052). Whether a GUI can reach
-   those platforms at all is left open, and is settled by a spike before any UI work.
+   build, so **the CLI remains the Tails and Whonix path** (ADR-0052). The spike found the binary
+   links only `libc`, `libm` and `libgcc_s` (glibc symbol floor 2.39); X11, Wayland, xkbcommon, EGL
+   and Vulkan are `dlopen`ed. On a clean Debian 13 under Xvfb it rendered through Mesa's software
+   rasteriser, fell back to GL without Vulkan, and failed cleanly with neither. Tails 7 is Debian 13
+   with GNOME, so it probably runs there. **Not run on Tails** (ADR-0043), nor built for amd64, and
+   how a Tails user with no terminal would launch a downloaded binary is open.
+6. **The GUI stack's licences and duplicates are admitted for that stack alone.** `deny.toml`
+   gives BSL-1.0 (`clipboard-win`, `error-code`), ISC (`libloading`), and OFL-1.1 with the Ubuntu
+   Font Licence (`epaint_default_fonts`) as per-crate exceptions, leaving the allow-list unchanged.
+   `skip-tree` on `eframe` exempts its 33 upstream duplicates; core and the CLI stay strict. This
+   ADR is also `eframe`'s dependency ADR (ADR-0008).
 
 **Consequences.**
 
@@ -3674,5 +3685,12 @@ licensing contradicts ADR-0012's permissive-licensing differentiator.
   is something to measure. It also bears on funding: NLnet requires WCAG compliance of software it
   funds.
 - **Phase 7's deliverable 4 is unaffected.** An application describes this phase as its work plan.
+- **Exit criterion 1 is tested** by `crates/strypt-gui/tests/cli_identity.rs`, which runs the CLI
+  binary over the corpus against the GUI's one entry into core; a planted byte fails it.
+- **The GUI graph carries the `image` decoder** (via `arboard` and `eframe`). It never touches a
+  file being stripped, but it is parsing surface the CLI does not have.
+- **egui's `DroppedFile::bytes` is unbounded.** The GUI reads through `read_bounded` instead.
+- **`prove-gates.sh`'s advisory case moved to `atty`**: egui needs `smallvec` ^1.15, so the
+  vulnerable `smallvec` 1.6.0 no longer resolves.
 
 ---

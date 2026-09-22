@@ -23,6 +23,8 @@ cargo build                      # whole workspace
 cargo build --release
 cargo test --all-features        # what CI runs, on Linux, macOS and Windows
 cargo test -p strypt             # CLI contract tests only
+cargo test -p strypt-gui         # GUI output byte-identical to the CLI's, across the corpus
+cargo run -p strypt-gui          # the Phase 5 spike window
 cargo test jpeg                  # tests matching a name
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings

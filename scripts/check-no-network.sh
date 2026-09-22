@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# strypt — no-network dependency gate (ADR-0004)
+# strypt — no-network dependency gate (ADR-0004), per workspace crate (ADR-0058 decision 3)
 #
 # THIS IS THE REAL GATE. The Claude Code hooks in .claude/hooks/ are early local warnings
 # that only see edits made through those tools and cannot see transitive dependencies.
 # This script walks the FULLY RESOLVED dependency graph and is the only layer that cannot be
 # bypassed by a contributor who has never read the project's documentation.
 #
-# Exit 0 = clean. Exit 1 = a networking crate is present anywhere in the graph.
+# Exit 0 = clean. Exit 1 = a networking crate is reachable from a workspace crate that does
+# not admit it.
 
 set -euo pipefail
 
@@ -39,29 +40,55 @@ DENIED = {
 # Crates that are fine in themselves but must not enable networking features.
 FEATURE_GUARDS = {"tokio": {"net", "full", "io-std", "process"}}
 
+# ADR-0058 decision 3. Only these crates, only in strypt-gui, and only when every path to them
+# runs through a carrier: zbus is AT-SPI over the D-Bus session bus, calloop is winit's Wayland
+# event loop. Every other workspace crate admits nothing. HTTP, TLS and DNS are never admitted.
+ADMITTED = {"strypt-gui": {"async-io", "polling"}}
+CARRIERS = {"strypt-gui": {"zbus", "calloop"}}
+
 meta = json.load(open(sys.argv[1]))
+packages = {p["id"]: p for p in meta["packages"]}
+edges = {n["id"]: [d["pkg"] for d in n["deps"]] for n in meta["resolve"]["nodes"]}
 violations = []
 
-for pkg in meta.get("packages", []):
-    name = pkg.get("name", "")
-    if name in DENIED:
-        violations.append(f"denied crate in dependency graph: {name} {pkg.get('version','')}")
-    guard = FEATURE_GUARDS.get(name)
-    if guard:
-        enabled = set(pkg.get("features", {}).keys())
-        bad = enabled & guard
-        if bad:
-            violations.append(f"{name} enables networking features: {sorted(bad)}")
+def reach(root, stop=frozenset()):
+    seen, todo = set(), [root]
+    while todo:
+        pid = todo.pop()
+        if pid in seen:
+            continue
+        seen.add(pid)
+        if packages[pid]["name"] not in stop:
+            todo.extend(edges.get(pid, []))
+    return seen
 
-# Also check declared dependencies, to catch an optional dependency that is declared but not
-# currently resolved into the graph.
-for pkg in meta.get("packages", []):
-    if not pkg.get("manifest_path", "").startswith(str(meta.get("workspace_root", ""))):
-        continue
-    for dep in pkg.get("dependencies", []):
+for member in meta["workspace_members"]:
+    crate = packages[member]["name"]
+    admitted = ADMITTED.get(crate, set())
+    everything = reach(member)
+    # Reachable without passing through a carrier: an admitted crate found here was pulled in
+    # by something else, which is exactly the route decision 3 does not forgive.
+    uncarried = reach(member, frozenset(CARRIERS.get(crate, set())))
+    for pid in everything:
+        pkg = packages[pid]
+        name, version = pkg["name"], pkg["version"]
+        if name in DENIED:
+            if name not in admitted:
+                violations.append(f"{crate}: denied crate in dependency graph: {name} {version}")
+            elif pid in uncarried:
+                violations.append(
+                    f"{crate}: {name} {version} is admitted only through "
+                    f"{sorted(CARRIERS[crate])}, but another path reaches it"
+                )
+        bad = set(pkg.get("features", {})) & FEATURE_GUARDS.get(name, set())
+        if bad:
+            violations.append(f"{crate}: {name} enables networking features: {sorted(bad)}")
+
+    # Declared dependencies too, to catch one that is optional and not currently resolved.
+    for dep in packages[member].get("dependencies", []):
         if dep.get("name") in DENIED:
             violations.append(
-                f"denied crate declared by {pkg.get('name')}: {dep.get('name')} "
+                f"{crate}: denied crate declared: {dep.get('name')} "
                 f"(optional={dep.get('optional', False)})"
             )
 
@@ -81,5 +108,8 @@ if violations:
     print("Do not silence this check by editing the deny list without one.")
     sys.exit(1)
 
-print("✓ no-network gate: clean — no networking crates in the resolved dependency graph")
+for member in meta["workspace_members"]:
+    crate = packages[member]["name"]
+    extra = f"; admits {sorted(ADMITTED[crate])} via {sorted(CARRIERS[crate])}" if crate in ADMITTED else ""
+    print(f"✓ no-network gate: {crate} clean{extra}")
 PY

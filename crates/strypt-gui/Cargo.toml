@@ -1,0 +1,31 @@
+[package]
+name = "strypt-gui"
+description = "Desktop front-end for strypt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme.workspace = true
+keywords.workspace = true
+publish = false
+
+[[bin]]
+name = "strypt-gui"
+path = "src/main.rs"
+
+[dependencies]
+strypt-core = { path = "../strypt-core", version = "0.1.2" }
+# ADR-0058. `links` stays off: it pulls `webbrowser` and `url`. AccessKit is on, and is why
+# check-no-network.sh admits the AT-SPI crates for this crate alone.
+eframe = { version = "0.36.2", default-features = false, features = [
+    "accesskit",
+    "default_fonts",
+    "wayland",
+    "x11",
+    "wgpu",
+] }
+
+[lints]
+workspace = true

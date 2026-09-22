@@ -156,7 +156,8 @@ at each release, not once: the framework's security posture is load-bearing.
 1. GUI produces **byte-identical** output to the CLI for every file in the test corpus.
    This is the proof that no logic was duplicated or has drifted (ADR-0003).
 2. `scripts/check-no-network.sh` confirms **zero** HTTP, TLS or DNS crates in `strypt-gui`'s
-   graph, and that only the AT-SPI accessibility crates of ADR-0058 are admitted there.
+   graph, and that `async-io` and `polling` are admitted there only through `zbus` (AT-SPI) or
+   `calloop` (Wayland), per ADR-0058 decision 3. Gate proven to fail 2026-09-23.
 3. The GUI is usable by someone who has never opened a terminal — validated with an actual
    non-technical person, not assumed by the developer. Judged on Linux and macOS; Windows is
    scoped out while the binary is unsigned (ADR-0058 decision 4).
@@ -170,7 +171,8 @@ at each release, not once: the framework's security posture is load-bearing.
 - *Front-end divergence.* Mitigated structurally by exit criterion 1, which is why it is a
   byte-identity check rather than a spot check.
 - *The Tails and Whonix path stays with the CLI.* A windowing stack rules out the static musl
-  binary, so the GUI does not inherit ADR-0052's route; a spike settles whether it has one.
+  binary, so the GUI does not inherit ADR-0052's route. The spike says probably, untested on Tails
+  (ADR-0058 decision 5).
 
 ---
 

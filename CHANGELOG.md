@@ -24,6 +24,14 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - **Phase 5, the GUI, is open, and it is built on egui rather than Tauri.** Tauri resolves an HTTP
   client into the dependency graph and needs WebKit2GTK on Linux, so it fails strypt's no-network
   gate (ADR-0058). Nothing in the CLI changes.
+- **The no-network check is now per crate.** The library and CLI still admit no networking-capable
+  crate at all; only the GUI may carry the Linux accessibility and Wayland event loops, and only
+  by those routes (ADR-0058 decision 3).
+
+### Added
+
+- A `strypt-gui` spike: one dropped file, stripped in memory, removed fields listed. Not released,
+  and not yet usable as a tool; a test holds its output byte-identical to the CLI's.
 
 ## [0.1.2] - 2026-09-21
 

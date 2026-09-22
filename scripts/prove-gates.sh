@@ -19,16 +19,18 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 TREE="$WORK/tree"
 CORE="$TREE/crates/strypt-core/Cargo.toml"
+CLI="$TREE/crates/strypt/Cargo.toml"
+GUI="$TREE/crates/strypt-gui/Cargo.toml"
 failed=0
 
-# Tracked files from the working tree, so uncommitted gate changes are what gets tested. The
+# Tracked and untracked-but-not-ignored files, so uncommitted gate changes are what gets tested. The
 # corpora are 1.6GB and irrelevant to dependency resolution; the fuzz crate is its own workspace.
 fresh_tree() {
   rm -rf "$TREE"
   python3 - "$ROOT" "$TREE" <<'PY'
 import pathlib, shutil, subprocess, sys
 root, tree = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-files = subprocess.run(["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True).stdout
+files = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root, capture_output=True, check=True).stdout
 for rel in filter(None, files.decode().split("\0")):
     if rel.startswith(("corpus/", "crates/strypt-core/fuzz/")) or not (root / rel).is_file():
         continue
@@ -37,8 +39,9 @@ for rel in filter(None, files.decode().split("\0")):
 PY
 }
 
+# add_dep LINE [MANIFEST] — MANIFEST defaults to strypt-core's.
 add_dep() {
-  python3 - "$CORE" "$1" <<'PY'
+  python3 - "${2:-$CORE}" "$1" <<'PY'
 import sys
 path, line = sys.argv[1], sys.argv[2]
 text = open(path).read()
@@ -89,6 +92,17 @@ fresh_tree; add_dep 'ureq = "3"'
 expect_fail "bans: networking crate on the deny list" 'error\[banned\]' cargo deny check bans
 expect_fail "no-network: networking crate in the graph" 'ADR-0004 VIOLATION' ./scripts/check-no-network.sh
 
+# ADR-0058 decision 3: the gate is per crate, and only strypt-gui admits the AT-SPI and Wayland
+# reactors, only through zbus or calloop. HTTP stays denied there too.
+fresh_tree; add_dep 'ureq = "3"' "$GUI"
+expect_fail "no-network: HTTP client in strypt-gui" 'strypt-gui: denied crate in dependency graph: ureq' ./scripts/check-no-network.sh
+fresh_tree; add_dep 'async-io = "2"'
+expect_fail "no-network: admitted reactor in strypt-core" 'strypt-core: denied crate in dependency graph: async-io' ./scripts/check-no-network.sh
+fresh_tree; add_dep 'polling = "3"' "$CLI"
+expect_fail "no-network: admitted reactor in strypt" 'strypt: denied crate in dependency graph: polling' ./scripts/check-no-network.sh
+fresh_tree; add_dep 'polling = "3"' "$GUI"
+expect_fail "no-network: reactor reaching strypt-gui outside zbus and calloop" 'strypt-gui: polling .* another path reaches it' ./scripts/check-no-network.sh
+
 fresh_tree; add_dep 'rand = "0.8"'
 expect_fail "bans: duplicate versions" 'error\[duplicate\]' cargo deny check bans
 
@@ -102,10 +116,10 @@ expect_fail "licenses: copyleft licence" 'error\[rejected\]' cargo deny check li
 fresh_tree; add_dep 'itoa = { git = "https://github.com/dtolnay/itoa" }'
 expect_fail "sources: git dependency" 'error\[source-not-allowed\]' cargo deny check sources
 
-# RUSTSEC-2021-0003, a buffer overflow in SmallVec::insert_many. Fixed upstream long ago, so
-# the advisory is permanent and this version is never going to stop matching it.
-fresh_tree; add_dep 'smallvec = "=1.6.0"'
-expect_fail "advisories: known vulnerability" 'RUSTSEC-2021-0003' cargo deny check advisories
+# RUSTSEC-2021-0145, an unaligned read in `atty`, which is unmaintained and will never be fixed.
+# Not smallvec's RUSTSEC-2021-0003 any more: egui needs smallvec ^1.15, so =1.6.0 cannot resolve.
+fresh_tree; add_dep 'atty = "=0.2.14"'
+expect_fail "advisories: known unsound crate" 'RUSTSEC-2021-0145' cargo deny check advisories
 
 # The crate this gate first caught for real, on 2026-09-11. Cargo will select a yanked version
 # only by --precise; if this case breaks, check it has not been un-yanked before anything else.

@@ -26,11 +26,22 @@ allow = [
     "Zlib",
 ]
 confidence-threshold = 0.93
+# ADR-0058 decision 6: permissive, but admitted only for the GUI crates that carry them.
+exceptions = [
+    { crate = "clipboard-win", allow = ["BSL-1.0"] },
+    { crate = "error-code", allow = ["BSL-1.0"] },
+    { crate = "libloading", allow = ["ISC"] },
+    { crate = "epaint_default_fonts", allow = ["OFL-1.1", "Ubuntu-font-1.0"] },
+]
 
 [bans]
 # ADR-0008 names duplicate versions as part of the hard gate.
 multiple-versions = "deny"
 wildcards = "deny"
+# ADR-0058 decision 6: eframe's duplicates are upstream's. Core and the CLI stay strict.
+skip-tree = [
+    { crate = "eframe", reason = "ADR-0058: upstream duplicates in the GUI stack" },
+]
 
 # ADR-0004 expressed as policy. NOTE: this list is the *explanatory* layer — the
 # authoritative gate is scripts/check-no-network.sh, which walks the resolved graph and
