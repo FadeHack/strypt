@@ -1,4 +1,7 @@
 /target
+# Sustained-fuzzing run records: ADR-0044 evidence, kept out of target/ so cargo clean
+# cannot delete it, and out of git because it is 79M of logs.
+/fuzz-runs
 **/*.rs.bk
 *.pdb
 

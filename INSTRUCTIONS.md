@@ -117,7 +117,8 @@ python3 scripts/fuzz-plateau.py [target...]       # saturated or PUNCTUATED, per
   ADR-0014's superseded rule.
 - The runner's target list must include every target in `fuzz list`; check after adding one.
 
-Each run writes `summary.md`, `cov-<target>.tsv` and `<target>.log` to `target/fuzz-runs/<timestamp>/`.
+Each run writes `summary.md`, `cov-<target>.tsv` and `<target>.log` to `fuzz-runs/<timestamp>/`.
+That is deliberately outside `target/`, which `cargo clean` empties (2026-09-23).
 Stopping early is safe: discoveries are already in `corpus/`.
 
 ## Test fixtures

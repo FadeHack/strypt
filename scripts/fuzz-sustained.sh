@@ -40,7 +40,7 @@ usage() {
 Usage: scripts/fuzz-sustained.sh [-d SECONDS] [-o OUTDIR] [target ...]
 
   -d SECONDS  wall-clock seconds per target (default 7200 = 2h)
-  -o OUTDIR   where to write logs (default target/fuzz-runs/<timestamp>)
+  -o OUTDIR   where to write logs (default fuzz-runs/<timestamp>)
 
 Targets default to all twenty-two: pdf jpeg png webp tiff gif heif bmff svg jxl flac wav mp3 tags ogg oggpage mp4 riff ooxml odf zip detect
 
@@ -91,10 +91,12 @@ cargo +nightly fuzz --version >/dev/null 2>&1 \
   || { echo "error: cargo-fuzz not installed (cargo install cargo-fuzz)" >&2; exit 2; }
 command -v perl >/dev/null 2>&1 || { echo "error: perl is required for log timestamping" >&2; exit 2; }
 
-[ -n "$OUT_DIR" ] || OUT_DIR="$REPO_ROOT/target/fuzz-runs/$(date +%Y%m%d-%H%M%S)"
+# Deliberately NOT under target/: these records are ADR-0044 evidence and cargo clean
+# would take them (2026-09-23).
+[ -n "$OUT_DIR" ] || OUT_DIR="$REPO_ROOT/fuzz-runs/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$OUT_DIR"
 # Resolve to an absolute path. This script cd's to the fuzz directory below, so a relative -o
-# — `-o target/fuzz-runs/tonight`, the obvious thing to type from the repo root — would be
+# — `-o fuzz-runs/tonight`, the obvious thing to type from the repo root — would be
 # created here and then written to somewhere else entirely, killing the run at its first
 # redirect.
 OUT_DIR="$(cd "$OUT_DIR" && pwd)"

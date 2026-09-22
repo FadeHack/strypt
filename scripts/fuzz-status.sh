@@ -24,7 +24,7 @@ usage() {
 Usage: scripts/fuzz-status.sh [-n SECONDS] [RUN_DIR]
 
   -n SECONDS  refresh interval (default 10)
-  RUN_DIR     a target/fuzz-runs/<name> directory (default: most recently modified)
+  RUN_DIR     a fuzz-runs/<name> directory (default: most recently modified)
 
 Ctrl-C stops watching. It does not stop the fuzz run — that is a separate process.
 EOF
@@ -47,8 +47,8 @@ fi
 
 RUN_DIR="${1:-}"
 if [ -z "$RUN_DIR" ]; then
-  RUN_DIR="$(ls -dt "$REPO_ROOT"/target/fuzz-runs/*/ 2>/dev/null | head -1 || true)"
-  [ -n "$RUN_DIR" ] || { echo "error: no run found under target/fuzz-runs/" >&2; exit 2; }
+  RUN_DIR="$(ls -dt "$REPO_ROOT"/fuzz-runs/*/ 2>/dev/null | head -1 || true)"
+  [ -n "$RUN_DIR" ] || { echo "error: no run found under fuzz-runs/" >&2; exit 2; }
 fi
 [ -d "$RUN_DIR" ] || { echo "error: not a directory: $RUN_DIR" >&2; exit 2; }
 RUN_DIR="${RUN_DIR%/}"

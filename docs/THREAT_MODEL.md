@@ -201,7 +201,7 @@ Added as each handler lands, from what implementing and testing it actually taug
 from what the specification says ought to be true. §4's general limitations still apply on top
 of everything here.
 
-Fuzzing run history is in `CHANGELOG.md` and `target/fuzz-runs/`; certification is
+Fuzzing run history is in `CHANGELOG.md` and `fuzz-runs/`; certification is
 `scripts/fuzz-tally.py`'s (ADR-0044). Each subsection keeps one line on it.
 
 ### 7.1 PDF (Phase 1)

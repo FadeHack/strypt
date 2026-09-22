@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Per-handler fuzzing certification under ADR-0044 — Phase 3 deliverable 1.
 
-Reads target/fuzz-runs/*/summary.md and each run's cov-<target>.tsv. A handler certifies on its
+Reads fuzz-runs/*/summary.md and each run's cov-<target>.tsv. A handler certifies on its
 most recent complete run of at least 24 hours, since its sources last changed, whose curve
 fuzz-plateau.py classifies saturated.
 
@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-RUNS = REPO / "target" / "fuzz-runs"
+RUNS = REPO / "fuzz-runs"
 BASE = "crates/strypt-core/src/"
 
 _spec = importlib.util.spec_from_file_location("plateau", REPO / "scripts" / "fuzz-plateau.py")

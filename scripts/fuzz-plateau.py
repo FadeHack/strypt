@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Classify a coverage curve as saturated or punctuated — ADR-0044's plateau test.
 
-Reads target/fuzz-runs/*/cov-<target>.tsv and splits each run into six equal windows. Window 1
+Reads fuzz-runs/*/cov-<target>.tsv and splits each run into six equal windows. Window 1
 is initial exploration and is never tested. A run is PUNCTUATED if any later window's gain both
 exceeds 1% of final coverage and at least doubles its predecessor; otherwise it is SATURATED if
 the final window's gain is under 1% of final coverage.
