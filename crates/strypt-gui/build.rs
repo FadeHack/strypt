@@ -53,25 +53,27 @@ mod windows {
         for (size, image) in SIZES.iter().zip(&images) {
             let len = u32::try_from(image.len()).map_err(Error::other)?;
             // A width or height of 256 is written as 0.
-            let side = u8::try_from(*size).unwrap_or(0);
-            ico.extend([side, side, 0, 0]);
+            let edge = u8::try_from(*size).unwrap_or(0);
+            ico.extend([edge, edge, 0, 0]);
             ico.extend(1u16.to_le_bytes());
             ico.extend(32u16.to_le_bytes());
             ico.extend(len.to_le_bytes());
             ico.extend(offset.to_le_bytes());
             offset += len;
         }
-        images.iter().for_each(|image| ico.extend(image));
+        for image in &images {
+            ico.extend(image);
+        }
         Ok(ico)
     }
 
     /// A BITMAPINFOHEADER, BGRA rows from the bottom, and an all-zero AND mask, since alpha
     /// already says what is transparent.
     fn dib(size: u16) -> Vec<u8> {
-        let side = usize::from(size);
-        let mask_row = side.div_ceil(32) * 4;
+        let edge = usize::from(size);
+        let mask_row = edge.div_ceil(32) * 4;
         let rgba = mark::pixels(size);
-        let mut dib = Vec::with_capacity(40 + side * side * 4 + side * mask_row);
+        let mut dib = Vec::with_capacity(40 + edge * edge * 4 + edge * mask_row);
         let (width, height) = (i32::from(size), 2 * i32::from(size));
         dib.extend(40u32.to_le_bytes());
         dib.extend(width.to_le_bytes());
@@ -79,12 +81,12 @@ mod windows {
         dib.extend(1u16.to_le_bytes());
         dib.extend(32u16.to_le_bytes());
         dib.extend([0; 24]);
-        for row in rgba.chunks_exact(side * 4).rev() {
+        for row in rgba.chunks_exact(edge * 4).rev() {
             for px in row.chunks_exact(4) {
                 dib.extend([px[2], px[1], px[0], px[3]]);
             }
         }
-        dib.resize(dib.len() + side * mask_row, 0);
+        dib.resize(dib.len() + edge * mask_row, 0);
         dib
     }
 }
