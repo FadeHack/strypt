@@ -115,6 +115,57 @@ fn every_kind_of_failure_is_shown_as_one() {
     let _ = std::fs::remove_dir_all(&work);
 }
 
+/// Every row a folder drop makes: its files, a name clash in one output folder, and on Unix a
+/// link and a pipe, which are listed and never read.
+#[test]
+fn a_folder_drop_gives_an_honest_row_for_every_entry() {
+    let work = scratch("batch-folder");
+    let (tree, out) = (work.join("Photos"), work.join("out"));
+    std::fs::create_dir_all(tree.join("2024")).unwrap();
+    std::fs::create_dir(&out).unwrap();
+    let jpeg = corpus().join("jpeg/exif-gps.jpg");
+    std::fs::copy(&jpeg, tree.join("photo.jpg")).unwrap();
+    std::fs::copy(&jpeg, tree.join("2024/photo.jpg")).unwrap();
+    std::fs::write(tree.join("notes.txt"), "no handler").unwrap();
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(corpus(), tree.join("link")).unwrap();
+        let made = std::process::Command::new("mkfifo")
+            .arg(tree.join("pipe"))
+            .status()
+            .unwrap();
+        assert!(made.success());
+    }
+
+    let walk = strypt_core::walk(&tree);
+    assert_eq!(walk.files.len(), 3);
+    let expected_skips = if cfg!(unix) { 2 } else { 0 };
+    assert_eq!(walk.skipped.len(), expected_skips);
+    let summary = strypt_gui::folder_summary(&walk);
+    assert!(
+        summary.starts_with("It holds 3 files in 2 folders."),
+        "{summary}"
+    );
+    assert_eq!(summary.contains("2 other entries"), cfg!(unix), "{summary}");
+
+    let mut cleaned = 0;
+    for file in &walk.files {
+        let before = written(&out);
+        let status = process(file, Some(&out));
+        assert_honest(file, &status, before, written(&out));
+        cleaned += usize::from(status.tone() == Tone::Success);
+    }
+    // 2024/photo.jpg is cleaned first; the second photo.stripped.jpg is refused, not overwritten.
+    assert_eq!(cleaned, 1);
+    for entry in &walk.skipped {
+        let before = written(&out);
+        let status = strypt_gui::skipped(entry);
+        assert_eq!(status.tone(), Tone::Failure, "{status:?}");
+        assert_honest(&entry.path, &status, before, written(&out));
+    }
+    let _ = std::fs::remove_dir_all(&work);
+}
+
 #[test]
 fn a_file_still_working_does_not_look_cleaned() {
     assert_eq!(Status::Working.tone(), Tone::Pending);

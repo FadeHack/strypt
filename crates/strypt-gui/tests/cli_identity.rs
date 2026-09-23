@@ -132,6 +132,35 @@ fn gui_matches_cli_across_the_corpus() {
     assert!(same > 0);
 }
 
+/// A dropped folder against `strip --recursive`: the same walk, the same order, so the same
+/// files written and the same name clashes refused in the one output folder.
+#[test]
+fn a_folder_drop_matches_cli_recursive() {
+    let cli = cli();
+    let (cli_out, gui_out) = (scratch("folder-cli"), scratch("folder-gui"));
+    let status = Command::new(&cli)
+        .args(["strip", "--recursive", "--output-dir"])
+        .arg(&cli_out)
+        .arg(corpus())
+        .output()
+        .unwrap()
+        .status;
+    assert!(status.code().is_some(), "the CLI was killed");
+
+    let walk = strypt_core::walk(&corpus());
+    assert!(walk.skipped.is_empty(), "{:?}", walk.skipped);
+    let cleaned = walk
+        .files
+        .iter()
+        .filter(|file| strypt_gui::clean(file, Some(&gui_out)).is_ok())
+        .count();
+    let diff = differences(&cli_out, &gui_out);
+    assert!(diff.is_empty(), "{diff:?}");
+    assert!(cleaned > 0);
+    let _ = std::fs::remove_dir_all(&cli_out);
+    let _ = std::fs::remove_dir_all(&gui_out);
+}
+
 /// A comparison that cannot fail proves nothing, so plant each kind of difference.
 #[test]
 fn a_planted_difference_fails_the_comparison() {

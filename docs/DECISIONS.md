@@ -3754,3 +3754,35 @@ could not depend on without also publishing it.
 - A case added to a core enum reaches a `_` arm that still says something true, in both.
 
 ---
+
+## ADR-0061 — Folder drops, through one walk in core that skips nothing silently
+
+**Status:** Accepted (2026-09-23)
+
+**Context.** Folder drops in the GUI needed the CLI's `--recursive` walk, which lived in the CLI.
+Copying it would let the front-ends drift (ADR-0003). The walk also had two faults: `flatten()`
+dropped an unreadable entry without a word, and a named pipe was passed on to be read, which waits
+for a writer forever.
+
+**Decision.**
+
+1. **`strypt_core::walk`** returns sorted files and every entry passed over, with its reason: a
+   symbolic link (never followed, as before), a pipe, socket or device, or an unreadable entry. It
+   is iterative. Both front-ends call it.
+2. **The CLI reports every skip on stderr**, and with `--json` as an entry: an unreadable one as
+   `"failed"` with exit 3, a link or special file as a new `"skipped"` status that leaves the exit
+   code alone. The wording is shared (ADR-0060).
+3. **The GUI asks before writing**: the folder's file and folder counts, and where copies will go.
+   Plain counts, because `detect` needs a ZIP's central directory at the end of the file, so no
+   prefix can say what can be cleaned. Each file and skip gets a row; a drop's unsupported files
+   share one card that lists them.
+4. **Output layout is the CLI's.** Beside each original means inside every subfolder; a chosen
+   folder is flat, and a clashing name is refused. No tree mirroring.
+
+**Consequences.**
+
+- A JSON consumer that switches on `status` meets `"skipped"`. Additive; noted in CHANGELOG.
+- `tests/cli_identity.rs` compares a folder drop over the corpus with `strip --recursive`.
+- Folders arrive by drag only; the Open files dialog picks files.
+
+---

@@ -193,6 +193,9 @@ created by *documentation and UI*, not by code, and it is the reason for the ban
   finishes before the temporary file is opened. An existing file is never overwritten, so a second
   original with the same name is reported not cleaned. The choice is held in memory only: eframe's
   `persistence` is off, so nothing on disk records what was cleaned or where.
+- **Folder drops** (ADR-0061) write nothing until the user confirms counts and destination. Beside
+  the originals, that is inside every subfolder. Links are never followed, and every entry not
+  processed gets a row.
 
 ---
 

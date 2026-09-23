@@ -14,7 +14,7 @@ use std::fmt::Write as _;
 
 use strypt_core::report::{Finding, MetadataReport, MetadataValue, Note, Sensitivity, StripReport};
 
-use crate::wording::{kind_label, note_line, retention_reason, sensitivity_mark};
+use crate::wording::{kind_label, note_line, retention_reason, sensitivity_mark, skip_label};
 
 /// Render a `show` result for one file.
 pub fn show_text(path: &std::path::Path, report: &MetadataReport) -> String {
@@ -134,6 +134,24 @@ pub fn error_json(path: &std::path::Path, error: &strypt_core::StryptError) -> s
         "status": "failed",
         "error": error.to_string(),
     })
+}
+
+/// An entry `--recursive` did not process. Unreadable is a failure, in `error_json`'s shape; a
+/// link or special file was passed over on purpose.
+pub fn skip_json(skipped: &strypt_core::Skipped) -> serde_json::Value {
+    let label = skip_label(&skipped.reason);
+    match &skipped.reason {
+        strypt_core::Skip::Unreadable(error) => serde_json::json!({
+            "path": skipped.path.to_string_lossy(),
+            "status": "failed",
+            "error": format!("{label}: {error}"),
+        }),
+        _ => serde_json::json!({
+            "path": skipped.path.to_string_lossy(),
+            "status": "skipped",
+            "reason": label,
+        }),
+    }
 }
 
 fn finding_json(finding: &Finding) -> serde_json::Value {

@@ -10,8 +10,8 @@ use strypt_core::report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, Note, Retained, Sensitivity, StripReport,
 };
 use strypt_core::{
-    Limits, Overwrite, Result, StripOptions, StryptError, inspect_bytes, strip_bytes_to_file,
-    stripped_path,
+    Limits, Overwrite, Result, Skip, Skipped, StripOptions, StryptError, Walk, inspect_bytes,
+    strip_bytes_to_file, stripped_path,
 };
 
 // The CLI's words, compiled here too so the two front-ends cannot drift (ADR-0060).
@@ -323,9 +323,9 @@ impl Status {
 /// Clean one dropped path into a [`Status`], with the reason the CLI would print on failure.
 #[must_use]
 pub fn process(input: &Path, output_dir: Option<&Path>) -> Status {
-    // The CLI refuses a directory without --recursive; the GUI has no such switch.
+    // A dropped folder is walked and confirmed first; one reaching here was not.
     if input.is_dir() {
-        return Status::Refused("This is a folder; drop the files inside it instead".into());
+        return Status::Refused("This is a folder, not a file".into());
     }
     match clean(input, output_dir) {
         Ok((output, diff)) => Status::Cleaned { output, diff },
@@ -341,6 +341,40 @@ pub fn process(input: &Path, output_dir: Option<&Path>) -> Status {
         }
         Err(e) => Status::Refused(capitalise(&e.to_string())),
     }
+}
+
+/// A folder entry that was never processed, in the CLI's words.
+#[must_use]
+pub fn skipped(entry: &Skipped) -> Status {
+    let label = wording::skip_label(&entry.reason);
+    Status::Refused(capitalise(&match &entry.reason {
+        Skip::Unreadable(error) => format!("{label}: {error}"),
+        _ => label.to_string(),
+    }))
+}
+
+/// What a dropped folder holds, asked before anything is written.
+#[must_use]
+pub fn folder_summary(walk: &Walk) -> String {
+    let plural = |n: usize, one: &str, many: &str| {
+        if n == 1 {
+            format!("1 {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+    let held = format!(
+        "It holds {} in {}.",
+        plural(walk.files.len(), "file", "files"),
+        plural(walk.folders, "folder", "folders")
+    );
+    if walk.skipped.is_empty() {
+        return held;
+    }
+    format!(
+        "{held} {} will be skipped and listed.",
+        plural(walk.skipped.len(), "other entry", "other entries")
+    )
 }
 
 fn capitalise(s: &str) -> String {

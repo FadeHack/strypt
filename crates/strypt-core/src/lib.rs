@@ -43,6 +43,7 @@ pub mod panic_guard;
 pub mod pipeline;
 pub mod registry;
 pub mod report;
+pub mod walk;
 
 pub use detect::{Format, detect};
 pub use error::{IoAction, MalformedDetail, ResourceLimit, Result, StryptError, UnsupportedKind};
@@ -53,6 +54,7 @@ pub use report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, MetadataValue, Note, Retained,
     RetentionReason, Sensitivity, StripReport,
 };
+pub use walk::{Skip, Skipped, Walk, walk};
 
 /// The crate version, for front-ends to report.
 #[must_use]

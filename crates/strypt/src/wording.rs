@@ -5,6 +5,7 @@
 //! something true.
 
 use strypt_core::report::{MetadataKind, Note, RetentionReason, Sensitivity};
+use strypt_core::walk::Skip;
 
 /// What kind of information an item is.
 pub const fn kind_label(kind: MetadataKind) -> &'static str {
@@ -75,6 +76,16 @@ pub fn note_line(note: &Note) -> String {
         } => format!("{location} was removed, so this file can no longer {capability}"),
         _ => "strypt produced a note this version does not recognise; treat the file with care"
             .to_string(),
+    }
+}
+
+/// Why a folder's entry was not processed; an unreadable one adds the system's error.
+pub const fn skip_label(skip: &Skip) -> &'static str {
+    match skip {
+        Skip::SymbolicLink => "symbolic link, not followed",
+        Skip::NotAFile => "not a regular file, skipped",
+        Skip::Unreadable(_) => "could not be read",
+        _ => "skipped for a reason this version does not recognise",
     }
 }
 

@@ -2,10 +2,12 @@
 
 #![forbid(unsafe_code)]
 
-use std::path::PathBuf;
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use eframe::egui::{self, Align, Color32, Layout, Margin, RichText, Sense, Stroke, vec2};
+use strypt_core::Walk;
 use strypt_core::report::Sensitivity;
 use strypt_gui::{Backend, Diff, Group, Status, Tone};
 
@@ -17,10 +19,26 @@ const STRIKE: f32 = 0.4;
 const STAGGER: f32 = 0.16;
 
 struct Row {
-    path: PathBuf,
+    /// The file's name, or its path from the dropped folder.
+    label: String,
     status: Status,
     /// When the result arrived, in egui's clock; the strike-through starts here.
     done_at: f64,
+    /// The folder drop this row came from, whose unsupported files share one card.
+    batch: Option<usize>,
+}
+
+/// A dropped folder, walked and waiting to be confirmed.
+struct Survey {
+    root: PathBuf,
+    walk: Walk,
+}
+
+fn name_of(path: &Path) -> String {
+    path.file_name()
+        .unwrap_or(path.as_os_str())
+        .to_string_lossy()
+        .into_owned()
 }
 
 enum Picked {
@@ -39,6 +57,13 @@ struct App {
     /// `None` saves each copy beside its original, as the CLI does.
     output_dir: Option<PathBuf>,
     backend: Backend,
+    /// Folder names by batch.
+    batches: Vec<String>,
+    surveys: (Sender<Survey>, Receiver<Survey>),
+    /// Folders still being walked.
+    looking: Vec<String>,
+    /// Walked folders waiting for the user's yes, first shown first.
+    asking: VecDeque<Survey>,
 }
 
 impl App {
@@ -63,21 +88,146 @@ impl App {
             nothing_chosen: false,
             output_dir: None,
             backend,
+            batches: Vec::new(),
+            surveys: channel(),
+            looking: Vec::new(),
+            asking: VecDeque::new(),
         }
     }
 
-    fn enqueue(&mut self, path: PathBuf) {
+    fn enqueue(&mut self, path: PathBuf, label: String, batch: Option<usize>) {
         self.nothing_chosen = false;
         let row = self.rows.len();
-        let status = match self.jobs.send((row, path.clone(), self.output_dir.clone())) {
+        let status = match self.jobs.send((row, path, self.output_dir.clone())) {
             Ok(()) => Status::Working,
             Err(_) => Status::Refused("strypt's worker stopped; restart strypt".into()),
         };
         self.rows.push(Row {
-            path,
+            label,
             status,
             done_at: 0.0,
+            batch,
         });
+    }
+
+    /// A folder is walked off the window's thread, then confirmed before anything is written.
+    fn add(&mut self, ctx: &egui::Context, path: PathBuf) {
+        if !path.is_dir() {
+            let label = name_of(&path);
+            self.enqueue(path, label, None);
+            return;
+        }
+        self.nothing_chosen = false;
+        self.looking.push(name_of(&path));
+        let tx = self.surveys.0.clone();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            let walk = strypt_core::walk(&path);
+            let _ = tx.send(Survey { root: path, walk });
+            ctx.request_repaint();
+        });
+    }
+
+    fn surveyed(&mut self, survey: Survey, now: f64) {
+        let name = name_of(&survey.root);
+        if let Some(at) = self.looking.iter().position(|n| *n == name) {
+            self.looking.remove(at);
+        }
+        if survey.walk.files.is_empty() {
+            self.accept(survey, now);
+        } else {
+            self.asking.push_back(survey);
+        }
+    }
+
+    /// One row per file and per skipped entry, labelled from the dropped folder down.
+    fn accept(&mut self, survey: Survey, now: f64) {
+        let Survey { root, walk } = survey;
+        let batch = self.batches.len();
+        self.batches.push(name_of(&root));
+        let base = root.parent().unwrap_or(&root).to_path_buf();
+        let label = |path: &Path| {
+            path.strip_prefix(&base)
+                .unwrap_or(path)
+                .display()
+                .to_string()
+        };
+        if walk.files.is_empty() && walk.skipped.is_empty() {
+            self.rows.push(Row {
+                label: label(&root),
+                status: Status::Refused("This folder holds no files".into()),
+                done_at: now,
+                batch: Some(batch),
+            });
+        }
+        for file in walk.files {
+            let text = label(&file);
+            self.enqueue(file, text, Some(batch));
+        }
+        for entry in &walk.skipped {
+            self.rows.push(Row {
+                label: label(&entry.path),
+                status: strypt_gui::skipped(entry),
+                done_at: now,
+                batch: Some(batch),
+            });
+        }
+    }
+
+    /// Where copies will go, in the confirmation's words.
+    fn destination(&self) -> String {
+        match &self.output_dir {
+            None => "Each cleaned copy will be saved next to its original.".into(),
+            Some(dir) => format!("Cleaned copies will be saved in {}.", name_of(dir)),
+        }
+    }
+
+    fn confirm(&mut self, ctx: &egui::Context, now: f64) {
+        let Some(survey) = self.asking.front() else {
+            return;
+        };
+        let name = name_of(&survey.root);
+        let count = survey.walk.files.len();
+        let summary = strypt_gui::folder_summary(&survey.walk);
+        let destination = self.destination();
+        let mut answer = None;
+        let modal = egui::Modal::new(egui::Id::new("confirm-folder")).show(ctx, |ui| {
+            let p = theme::of(ui);
+            ui.set_max_width(420.0);
+            ui.label(
+                RichText::new(format!("Clean the files in {name}?"))
+                    .size(20.0)
+                    .color(p.ink),
+            );
+            ui.add_space(6.0);
+            ui.label(RichText::new(summary).color(p.ink));
+            ui.label(RichText::new(destination).color(p.muted));
+            ui.add_space(12.0);
+            ui.horizontal(|ui| {
+                let files = if count == 1 { "file" } else { "files" };
+                let clean = egui::Button::new(
+                    RichText::new(format!("Clean {count} {files}")).color(p.on_accent),
+                )
+                .fill(p.accent)
+                .corner_radius(8.0);
+                if ui.add(clean).clicked() {
+                    answer = Some(true);
+                }
+                if ui.button("Cancel").clicked() {
+                    answer = Some(false);
+                }
+            });
+        });
+        // Escape or a click outside is a Cancel.
+        if answer.is_none() && modal.should_close() {
+            answer = Some(false);
+        }
+        if let Some(yes) = answer
+            && let Some(survey) = self.asking.pop_front()
+            && yes
+        {
+            self.accept(survey, now);
+        }
     }
 
     /// macOS requires its dialogs on the main thread; elsewhere a dialog blocks, so it gets its
@@ -117,7 +267,8 @@ impl App {
         match picked {
             Picked::Files(Some(files)) if !files.is_empty() => {
                 for file in files {
-                    self.enqueue(file);
+                    let label = name_of(&file);
+                    self.enqueue(file, label, None);
                 }
             }
             Picked::Files(_) => self.nothing_chosen = true,
@@ -132,8 +283,12 @@ impl eframe::App for App {
         let ctx = ui.ctx().clone();
         let now = ctx.input(|i| i.time);
         for file in ctx.input(|i| i.raw.dropped_files.clone()) {
-            self.enqueue(file.path().to_path_buf());
+            self.add(&ctx, file.path().to_path_buf());
         }
+        while let Ok(survey) = self.surveys.1.try_recv() {
+            self.surveyed(survey, now);
+        }
+        self.confirm(&ctx, now);
         if let Some(rx) = &self.picked
             && let Ok(picked) = rx.try_recv()
         {
@@ -175,17 +330,38 @@ impl eframe::App for App {
                 self.drop_zone(ui);
                 ui.add_space(10.0);
                 self.save_location(ui);
+                for name in &self.looking {
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label(RichText::new(format!("Looking inside {name}…")).color(p.muted));
+                    });
+                }
                 if self.rows.is_empty() {
                     return;
                 }
                 ui.add_space(18.0);
                 self.summary(ui);
                 ui.add_space(6.0);
+                let mut last = vec![0; self.batches.len()];
+                for (index, row) in self.rows.iter().enumerate() {
+                    if let Some(slot) = row.batch.and_then(|b| last.get_mut(b)) {
+                        *slot = index;
+                    }
+                }
                 egui::ScrollArea::vertical()
                     .auto_shrink(false)
                     .show(ui, |ui| {
                         for (index, row) in self.rows.iter().enumerate() {
-                            card(ui, index, row, now);
+                            let folded =
+                                row.batch.is_some() && matches!(row.status, Status::Unsupported(_));
+                            if !folded {
+                                card(ui, index, row, now);
+                            }
+                            if let Some(batch) = row.batch
+                                && last.get(batch) == Some(&index)
+                            {
+                                self.unsupported_card(ui, batch);
+                            }
                         }
                     });
             });
@@ -355,7 +531,7 @@ impl App {
                     .max_rect(inner)
                     .layout(Layout::top_down(Align::Center)),
             );
-            self.zone_text(&mut child, files_over, "Drop files here")
+            self.zone_text(&mut child, files_over, "Drop files or folders here")
         } else {
             page(&painter, rect.left_center() + vec2(56.0, 0.0), lit, p);
             let inner = egui::Rect::from_min_max(
@@ -368,7 +544,7 @@ impl App {
                     .max_rect(inner)
                     .layout(Layout::top_down(Align::Min)),
             );
-            self.zone_text(&mut child, files_over, "Drop more files here")
+            self.zone_text(&mut child, files_over, "Drop more files or folders here")
         };
         if zone.clicked() && !clicked_button {
             self.ask(&ctx, false);
@@ -456,9 +632,65 @@ impl App {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if busy == 0 && ui.button("Clear list").clicked() {
                     self.rows.clear();
+                    self.batches.clear();
                 }
             });
         });
+    }
+}
+
+impl App {
+    /// A folder drop's unsupported files, as one card that lists them on request.
+    fn unsupported_card(&self, ui: &mut egui::Ui, batch: usize) {
+        let files: Vec<(&str, &str)> = self
+            .rows
+            .iter()
+            .filter(|row| row.batch == Some(batch))
+            .filter_map(|row| match &row.status {
+                Status::Unsupported(reason) => Some((row.label.as_str(), reason.as_str())),
+                _ => None,
+            })
+            .collect();
+        if files.is_empty() {
+            return;
+        }
+        let p = theme::of(ui);
+        let folder = self.batches.get(batch).map_or("", String::as_str);
+        let count = if files.len() == 1 {
+            "1 file strypt does not support".to_string()
+        } else {
+            format!("{} files strypt does not support", files.len())
+        };
+        egui::Frame::new()
+            .fill(p.card)
+            .stroke(Stroke::new(1.0, p.line))
+            .corner_radius(14.0)
+            .inner_margin(Margin::same(18))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(count).size(18.0).color(p.ink));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        pill(ui, "Not cleaned: unsupported", Tone::Failure);
+                    });
+                });
+                ui.label(
+                    RichText::new(format!("In {folder}. No file was written for them."))
+                        .size(13.0)
+                        .color(p.muted),
+                );
+                ui.add_space(6.0);
+                egui::CollapsingHeader::new(RichText::new("Which files").color(p.muted))
+                    .id_salt(("unsupported", batch))
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        for (label, reason) in files {
+                            ui.label(RichText::new(label).color(p.ink));
+                            ui.label(RichText::new(reason).size(13.0).color(p.muted));
+                        }
+                    });
+            });
+        ui.add_space(10.0);
     }
 }
 
@@ -488,10 +720,9 @@ fn card(ui: &mut egui::Ui, index: usize, row: &Row, now: f64) {
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
-                let name = row.path.file_name().unwrap_or_default().to_string_lossy();
-                ui.label(RichText::new(name).size(18.0).color(p.ink));
+                ui.label(RichText::new(&row.label).size(18.0).color(p.ink));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    pill(ui, &row.status);
+                    pill(ui, row.status.headline(), row.status.tone());
                 });
             });
             let detail = row.status.detail();
@@ -505,9 +736,9 @@ fn card(ui: &mut egui::Ui, index: usize, row: &Row, now: f64) {
     ui.add_space(10.0);
 }
 
-fn pill(ui: &mut egui::Ui, status: &Status) {
+fn pill(ui: &mut egui::Ui, headline: &str, tone: Tone) {
     let p = theme::of(ui);
-    let colour = tone_colour(status.tone(), p);
+    let colour = tone_colour(tone, p);
     egui::Frame::new()
         .fill(colour.gamma_multiply(0.14))
         .corner_radius(99.0)
@@ -515,8 +746,8 @@ fn pill(ui: &mut egui::Ui, status: &Status) {
         .show(ui, |ui| {
             // Laid out right to left, so the dot is added after the words to sit before them.
             ui.horizontal(|ui| {
-                ui.label(RichText::new(status.headline()).color(colour));
-                if status.tone() == Tone::Pending {
+                ui.label(RichText::new(headline).color(colour));
+                if tone == Tone::Pending {
                     ui.spinner();
                 } else {
                     let (dot, _) = ui.allocate_exact_size(vec2(8.0, 8.0), Sense::hover());

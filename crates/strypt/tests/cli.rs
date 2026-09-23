@@ -217,12 +217,42 @@ fn recursive_does_not_follow_symlinks() {
     std::os::unix::fs::symlink(&outside, dir.join("link")).unwrap();
     let out = strypt(&["strip", "--recursive", "--in-place"], &dir);
     assert_eq!(out.status.code(), Some(0));
+    assert!(stderr(&out).contains("link: symbolic link, not followed"));
     assert_eq!(
         std::fs::read(outside.join("photo.jpg")).unwrap(),
         std::fs::read(fixture("jpeg/exif-gps.jpg")).unwrap()
     );
+
+    let doc = json(&strypt(&["show", "--recursive", "--json"], &dir));
+    let file = &doc["files"][0];
+    assert_eq!(keys(file), ["path", "reason", "status"]);
+    assert_eq!(file["status"], "skipped");
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&outside).unwrap();
+}
+
+// The old walk dropped an unreadable entry without a word, so its files were never mentioned.
+#[cfg(unix)]
+#[test]
+fn recursive_reports_an_unreadable_folder_as_a_failure() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = scratch("unreadable");
+    copy_in(&dir, "jpeg/clean.jpg", "photo.jpg");
+    let locked = dir.join("locked");
+    std::fs::create_dir(&locked).unwrap();
+    copy_in(&locked, "jpeg/exif-gps.jpg", "hidden.jpg");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    // Root reads it anyway, leaving nothing to observe.
+    if std::fs::read_dir(&locked).is_err() {
+        let out = strypt(&["show", "--recursive", "--json"], &dir);
+        assert_eq!(out.status.code(), Some(3));
+        assert!(stderr(&out).contains("locked: could not be read"));
+        let file = &json(&out)["files"][0];
+        assert_eq!(keys(file), ["error", "path", "status"]);
+        assert_eq!(file["status"], "failed");
+    }
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 // Constraint 8: a report is easy to paste somewhere durable.

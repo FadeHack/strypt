@@ -16,7 +16,7 @@ use clap::{Args, Parser, Subcommand};
 use strypt_core::formats::StripOptions;
 use strypt_core::io::{Limits, Overwrite};
 use strypt_core::report::InspectOptions;
-use strypt_core::{StryptError, inspect_file, strip_file, stripped_path};
+use strypt_core::{Skip, Skipped, StryptError, inspect_file, strip_file, stripped_path};
 
 /// Exit codes. Documented in `INSTRUCTIONS.md` and **stable across releases** — scripts and
 /// pre-commit hooks depend on them, so changing one is a breaking change.
@@ -195,7 +195,7 @@ fn run_show(input: &InputArgs, show_values: bool) -> u8 {
     let mut outcome = Outcome::default();
     let mut json = Vec::new();
 
-    for path in collect(input, &mut outcome) {
+    for path in collect(input, &mut outcome, &mut json) {
         match inspect_file(&path, limits, &options) {
             Ok(report) => {
                 outcome.reported = true;
@@ -225,7 +225,7 @@ fn run_strip(input: &InputArgs, in_place: bool, output_dir: Option<&Path>, force
     let mut outcome = Outcome::default();
     let mut json = Vec::new();
 
-    for path in collect(input, &mut outcome) {
+    for path in collect(input, &mut outcome, &mut json) {
         let destination = if in_place {
             path.clone()
         } else {
@@ -269,13 +269,21 @@ fn run_strip(input: &InputArgs, in_place: bool, output_dir: Option<&Path>, force
     outcome.code()
 }
 
-/// Expand the requested paths into files to process.
-fn collect(input: &InputArgs, outcome: &mut Outcome) -> Vec<PathBuf> {
+/// Expand the requested paths into files to process, reporting every entry a folder walk skips.
+fn collect(
+    input: &InputArgs,
+    outcome: &mut Outcome,
+    json: &mut Vec<serde_json::Value>,
+) -> Vec<PathBuf> {
     let mut files = Vec::new();
     for path in &input.paths {
         if path.is_dir() {
             if input.recursive {
-                walk(path, &mut files, outcome);
+                let found = strypt_core::walk(path);
+                for skipped in &found.skipped {
+                    report_skip(skipped, input.json, json, outcome);
+                }
+                files.extend(found.files);
             } else {
                 eprintln!(
                     "strypt: {} is a directory; pass --recursive to descend into it",
@@ -293,28 +301,24 @@ fn collect(input: &InputArgs, outcome: &mut Outcome) -> Vec<PathBuf> {
     files
 }
 
-fn walk(dir: &Path, files: &mut Vec<PathBuf>, outcome: &mut Outcome) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(e) => {
-            eprintln!("strypt: cannot read {}: {e}", dir.display());
-            outcome.record_local(Failure::Io);
-            return;
-        }
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        // Symbolic links are not followed. Following them would let a directory tree redirect
-        // a batch run outside the directory the user pointed at — and in `--in-place` mode
-        // that means writing to a file they never named.
-        if entry.file_type().is_ok_and(|t| t.is_symlink()) {
-            continue;
-        }
-        if path.is_dir() {
-            walk(&path, files, outcome);
-        } else {
-            files.push(path);
-        }
+/// A link or special file is passed over on purpose and does not change the exit code; an
+/// unreadable entry is an I/O failure, since it may hold a file the user expected cleaned.
+fn report_skip(
+    skipped: &Skipped,
+    json: bool,
+    sink: &mut Vec<serde_json::Value>,
+    outcome: &mut Outcome,
+) {
+    let label = wording::skip_label(&skipped.reason);
+    let path = skipped.path.display();
+    if let Skip::Unreadable(error) = &skipped.reason {
+        outcome.record_local(Failure::Io);
+        eprintln!("strypt: {path}: {label}: {error}");
+    } else {
+        eprintln!("strypt: {path}: {label}");
+    }
+    if json {
+        sink.push(render::skip_json(skipped));
     }
 }
 

@@ -45,7 +45,7 @@ strypt strip FILE...                   # write FILE.stripped.EXT beside each inp
 strypt strip --in-place FILE...        # replace the originals
 strypt strip --output-dir OUT FILE...  # write copies into OUT
 strypt strip --force FILE...           # overwrite an existing output
-strypt strip --recursive DIR           # descend into a directory; symlinks are not followed
+strypt strip --recursive DIR           # descend into a directory; links and special files are listed, not read
 strypt strip --max-bytes 1048576 FILE  # refuse larger inputs
 ```
 

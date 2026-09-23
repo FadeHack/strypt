@@ -21,6 +21,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Fixed
 
+- `--recursive` skipped an unreadable entry inside a folder without saying so, so any files in it
+  went unmentioned. It is now reported, and the run exits 3. A named pipe in the tree was read,
+  which waits forever; it is now skipped and reported (ADR-0061).
 - `strypt strip` gave FLAC's kept audio MD5 as "reason not recognised by this version of the CLI". It
   now says it is kept because anyone holding the file can recompute it (ADR-0038). The CLI's and the
   GUI's wording now come from one file (ADR-0060).
@@ -39,6 +42,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- `strypt-gui` takes dropped folders. It says how many files and folders it found and where copies
+  will go, and writes nothing until asked. Each file gets a row, as does every link, special file
+  or unreadable entry it skipped, and a folder's unsupported files share one card that lists them.
+- `--recursive` names each symbolic link or special file it skips on stderr, and with `--json` as
+  an entry with the new status `"skipped"`. The exit code is unchanged for these.
+- `strypt_core::walk`: the folder walk, moved out of the CLI so every front-end shares it.
 - `strypt-gui` shows, under each cleaned file, what was found, what was removed and what was kept and
   why, by field name only, with the CLI's `!!`/`!` sensitivity marks and every note. An empty result
   says so, and every file carries the caveats that filenames and visible content are untouched, and
