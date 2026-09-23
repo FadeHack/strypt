@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use strypt_core::io::read_bounded;
 use strypt_core::report::{
-    Finding, InspectOptions, MetadataReport, Note, Retained, Sensitivity, StripReport,
+    Finding, InspectOptions, MetadataKind, MetadataReport, Note, Retained, Sensitivity, StripReport,
 };
 use strypt_core::{
     Limits, Overwrite, Result, StripOptions, StryptError, inspect_bytes, strip_bytes_to_file,
@@ -145,6 +145,60 @@ impl Diff {
     }
 }
 
+/// One kind of detail that was removed, in words for someone who has never heard of Exif.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Group {
+    /// How sensitive this kind is.
+    pub sensitivity: Sensitivity,
+    /// The CLI's mark for it.
+    pub mark: &'static str,
+    /// What it is, plainly.
+    pub label: &'static str,
+    /// How many fields of this kind came out.
+    pub fields: usize,
+}
+
+impl Diff {
+    /// What was removed, one entry per kind, most sensitive first.
+    #[must_use]
+    pub fn removed_groups(&self) -> Vec<Group> {
+        let mut counts = std::collections::BTreeMap::<(Sensitivity, MetadataKind), usize>::new();
+        for finding in &self.stripped.removed {
+            *counts
+                .entry((finding.sensitivity(), finding.kind))
+                .or_default() += 1;
+        }
+        counts
+            .into_iter()
+            .map(|((sensitivity, kind), fields)| Group {
+                sensitivity,
+                mark: wording::sensitivity_mark(sensitivity),
+                label: plain_label(kind),
+                fields,
+            })
+            .collect()
+    }
+}
+
+/// A kind of metadata as a person would put it; the shared, technical label is in [`Diff::sections`].
+#[must_use]
+pub const fn plain_label(kind: MetadataKind) -> &'static str {
+    match kind {
+        MetadataKind::Location => "Where it was made",
+        MetadataKind::DeviceIdentity => "Which device made it",
+        MetadataKind::PersonalIdentity => "Who made it",
+        MetadataKind::SoftwareFingerprint => "Which app made it",
+        MetadataKind::Timestamp => "When it was made or changed",
+        MetadataKind::Thumbnail => "A hidden preview image",
+        MetadataKind::EditingHistory => "Its editing history",
+        MetadataKind::DocumentIdentifier => "An ID that links its copies",
+        MetadataKind::ColourProfile => "A colour profile, which can name a device",
+        MetadataKind::Comment => "Hidden comments",
+        MetadataKind::Other => "Other hidden details",
+        _ => "Details of a kind this version of strypt does not recognise",
+    }
+}
+
 fn finding_line(finding: &Finding) -> Line {
     let mut text = format!(
         "{}, in {}",
@@ -162,7 +216,9 @@ fn finding_line(finding: &Finding) -> Line {
     }
 }
 
-const fn sensitivity_words(sensitivity: Sensitivity) -> &'static str {
+/// A sensitivity mark in words.
+#[must_use]
+pub const fn sensitivity_words(sensitivity: Sensitivity) -> &'static str {
     match sensitivity {
         Sensitivity::Direct => "Can identify someone or somewhere on its own",
         Sensitivity::Correlating => "Can identify when combined with other details",
@@ -364,6 +420,7 @@ mod tests {
         for kind in KINDS {
             let line = finding_line(&Finding::new(kind, "loc", 1));
             assert_human(&line.text, &format!("{kind:?}"));
+            assert_human(plain_label(kind), &format!("{kind:?}"));
             assert_human(
                 line.sensitivity.unwrap(),
                 &format!("{:?}", kind.sensitivity()),

@@ -24,6 +24,9 @@ fn files(dir: &Path, out: &mut Vec<PathBuf>) {
 /// Every string the window draws for one cleaned file.
 fn drawn(diff: &Diff) -> Vec<String> {
     let mut out = vec![diff.summary()];
+    for group in diff.removed_groups() {
+        out.push(format!("{} {} {}", group.mark, group.label, group.fields));
+    }
     for Section {
         title,
         lines,

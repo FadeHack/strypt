@@ -7,8 +7,17 @@ const BACKGROUND: [f32; 3] = [0.06, 0.46, 0.43];
 const PAGE: [f32; 3] = [0.97, 0.98, 0.99];
 const INK: [f32; 3] = [0.20, 0.25, 0.33];
 
+/// One rounded rectangle of the mark, on a 256-unit square.
+struct Part {
+    centre: (f32, f32),
+    half: (f32, f32),
+    radius: f32,
+    colour: [f32; 3],
+    alpha: f32,
+}
+
 /// A page whose lines are half struck away, on a rounded teal square.
-pub fn icon() -> egui::IconData {
+fn parts() -> impl Iterator<Item = Part> {
     // (length, opacity): the faint lines are the ones strypt took out.
     const LINES: [(f32, f32); 5] = [
         (88.0, 1.0),
@@ -17,25 +26,40 @@ pub fn icon() -> egui::IconData {
         (56.0, 0.22),
         (72.0, 1.0),
     ];
+    let square = Part {
+        centre: (128.0, 128.0),
+        half: (120.0, 120.0),
+        radius: 48.0,
+        colour: BACKGROUND,
+        alpha: 1.0,
+    };
+    let page = Part {
+        centre: (128.0, 128.0),
+        half: (64.0, 84.0),
+        radius: 10.0,
+        colour: PAGE,
+        alpha: 1.0,
+    };
+    let lines = (0u8..).zip(LINES).map(|(row, (length, alpha))| Part {
+        centre: (84.0 + length / 2.0, 80.0 + 24.0 * f32::from(row)),
+        half: (length / 2.0, 5.0),
+        radius: 5.0,
+        colour: INK,
+        alpha,
+    });
+    [square, page].into_iter().chain(lines)
+}
+
+/// The mark as window and dock icon pixels.
+pub fn icon() -> egui::IconData {
     let mut rgba = Vec::with_capacity(usize::from(SIZE) * usize::from(SIZE) * 4);
     for y in 0..SIZE {
         for x in 0..SIZE {
             let p = (f32::from(x) + 0.5, f32::from(y) + 0.5);
             let mut px = [0.0; 4];
-            over(
-                &mut px,
-                BACKGROUND,
-                cover(rounded_rect(p, (128.0, 128.0), (120.0, 120.0), 48.0)),
-            );
-            over(
-                &mut px,
-                PAGE,
-                cover(rounded_rect(p, (128.0, 128.0), (64.0, 84.0), 10.0)),
-            );
-            for (row, (length, alpha)) in (0u8..).zip(LINES) {
-                let centre = (84.0 + length / 2.0, 80.0 + 24.0 * f32::from(row));
-                let ink = cover(rounded_rect(p, centre, (length / 2.0, 5.0), 5.0));
-                over(&mut px, INK, ink * alpha);
+            for part in parts() {
+                let inside = cover(rounded_rect(p, part.centre, part.half, part.radius));
+                over(&mut px, part.colour, inside * part.alpha);
             }
             rgba.extend(px.map(byte));
         }
@@ -44,6 +68,23 @@ pub fn icon() -> egui::IconData {
         width: u32::from(SIZE),
         height: u32::from(SIZE),
         rgba,
+    }
+}
+
+/// The same mark as vector shapes, sharp at any scale, filling the square `rect`.
+pub fn paint(painter: &egui::Painter, rect: egui::Rect) {
+    let scale = rect.width() / f32::from(SIZE);
+    for part in parts() {
+        let [r, g, b] = part.colour.map(byte);
+        let shape = egui::Rect::from_center_size(
+            rect.min + egui::vec2(part.centre.0, part.centre.1) * scale,
+            egui::vec2(part.half.0, part.half.1) * 2.0 * scale,
+        );
+        painter.rect_filled(
+            shape,
+            part.radius * scale,
+            egui::Color32::from_rgba_unmultiplied(r, g, b, byte(part.alpha)),
+        );
     }
 }
 
