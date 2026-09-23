@@ -1,0 +1,13 @@
+[package]
+name = "strypt-mark"
+description = "strypt's mark, drawn in code, and the icon files made from it"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[lints]
+workspace = true

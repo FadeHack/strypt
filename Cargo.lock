@@ -3101,9 +3101,14 @@ dependencies = [
  "eframe",
  "rfd",
  "strypt-core",
+ "strypt-mark",
  "winit",
  "winresource",
 ]
+
+[[package]]
+name = "strypt-mark"
+version = "0.1.2"
 
 [[package]]
 name = "syn"

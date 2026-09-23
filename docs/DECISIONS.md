@@ -3853,5 +3853,11 @@ Verified the same day:
   profile strips it anyway. Reproduced and fixed locally. This changes every macOS hash, CLI included.
   All ten builds then matched ([run 35888165554](https://github.com/FadeHack/strypt/actions/runs/35888165554)),
   and all ten caught the planted leak ([35888170242](https://github.com/FadeHack/strypt/actions/runs/35888170242)).
+- **Settled with the owner while building (2026-09-24):** decision 2's two architectures ship as one
+  universal `.app`, merged by `lipo`, so nobody has to know which chip their Mac has. Bundle identifier
+  `io.github.fadehack.strypt`, which must not change once shipped; minimum macOS 11.
+- **Icons come from `crates/strypt-mark`**, a first-party crate with no dependencies that the GUI, its
+  build script and `scripts/package-macos.sh` share. Its PNGs are stored, not deflated, to keep a
+  compression crate out of the graph; the `.icns` is 2.7 MB inside the `.app`, compressed in the `.dmg`.
 
 ---

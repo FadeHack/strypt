@@ -14,7 +14,6 @@ use strypt_core::report::Sensitivity;
 use strypt_gui::{Backend, Diff, Group, Status, Tone};
 
 mod icon;
-mod mark;
 mod theme;
 
 /// Seconds for a strike to cross one label, and between one label's strike and the next.

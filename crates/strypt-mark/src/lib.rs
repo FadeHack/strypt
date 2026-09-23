@@ -1,21 +1,33 @@
-//! The mark's shapes and pixels, in plain `std`: `build.rs` includes this file for the Windows
-//! `.exe` icon (ADR-0062), and `icon.rs` for the window.
+//! strypt's mark, drawn in code so no image file is committed, and the icon files each platform
+//! wants made from it (ADR-0062). Plain `std`, so the GUI's build script can use it too.
 
+#![forbid(unsafe_code)]
+
+mod files;
+
+pub use files::{icns, ico, png};
+
+/// The side of the square the mark is designed on, in units.
 pub const SIZE: u16 = 256;
 const BACKGROUND: [f32; 3] = [0.06, 0.46, 0.43];
 const PAGE: [f32; 3] = [0.97, 0.98, 0.99];
 const INK: [f32; 3] = [0.20, 0.25, 0.33];
 
-/// One rounded rectangle of the mark, on a 256-unit square.
+/// One rounded rectangle of the mark, on the [`SIZE`]-unit square.
 pub struct Part {
+    /// Centre, in units.
     pub centre: (f32, f32),
+    /// Half the width and height, in units.
     pub half: (f32, f32),
+    /// Corner radius, in units.
     pub radius: f32,
+    /// Straight RGB, 0 to 1.
     pub colour: [f32; 3],
+    /// Opacity, 0 to 1.
     pub alpha: f32,
 }
 
-/// A page whose lines are half struck away, on a rounded teal square.
+/// A page whose lines are half struck away, on a rounded teal square, back to front.
 pub fn parts() -> impl Iterator<Item = Part> {
     // (length, opacity): the faint lines are the ones strypt took out.
     const LINES: [(f32, f32); 5] = [
@@ -51,7 +63,7 @@ pub fn parts() -> impl Iterator<Item = Part> {
 
 /// The mark as `size` × `size` straight-alpha RGBA, row by row from the top.
 pub fn pixels(size: u16) -> Vec<u8> {
-    // Units of the 256-unit square per pixel.
+    // Units of the design square per pixel.
     let unit = f32::from(SIZE) / f32::from(size);
     let mut rgba = Vec::with_capacity(usize::from(size) * usize::from(size) * 4);
     for y in 0..size {
@@ -92,11 +104,31 @@ fn over(px: &mut [f32; 4], colour: [f32; 3], alpha: f32) {
     px[3] = out;
 }
 
+/// A 0-to-1 channel as a byte.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "clamped to 0..=255 first"
 )]
+#[must_use]
 pub fn byte(channel: f32) -> u8 {
     (channel * 255.0).round().clamp(0.0, 255.0) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn corners_are_transparent_and_the_middle_opaque_at_every_size() {
+        for size in [16u16, 256] {
+            let px = pixels(size);
+            let side = usize::from(size);
+            assert_eq!(px.len(), side * side * 4);
+            let alpha = |x: usize, y: usize| px[(y * side + x) * 4 + 3];
+            assert_eq!(alpha(0, 0), 0);
+            assert_eq!(alpha(side - 1, side - 1), 0);
+            assert_eq!(alpha(side / 2, side / 2), 255);
+        }
+    }
 }

@@ -101,6 +101,38 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: "${{ matrix.gui && 'gui-meta' || 'meta' }}-${{ matrix.target }}", path: meta/*, if-no-files-found: error }
 
+  # One universal strypt.app in a .dmg (ADR-0062). The .app is packaged twice and compared; the
+  # .dmg cannot be reproduced, so it is attested only.
+  package-macos:
+    needs: build
+    if: inputs.prove != true
+    runs-on: macos-15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: a, persist-credentials: false }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { path: second checkout, persist-credentials: false }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: { pattern: "gui-*-apple-darwin", path: bins, merge-multiple: true }
+      - name: Package twice, as another machine would
+        run: |
+          set -- bins/strypt-gui-*-aarch64-apple-darwin bins/strypt-gui-*-x86_64-apple-darwin
+          bash a/scripts/package-macos.sh "$@" out-a
+          export CARGO_HOME="$RUNNER_TEMP/cargo-b" RUSTUP_HOME="$RUNNER_TEMP/rustup-b"
+          bash "second checkout/scripts/package-macos.sh" "$@" out-b
+          diff -r out-a/strypt.app out-b/strypt.app || { echo "::error::strypt.app is not reproducible"; exit 1; }
+          shasum -a 256 out-a/*.dmg
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with: { subject-path: out-a/*.dmg }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with: { name: gui-universal-apple-darwin, path: out-a/*.dmg, if-no-files-found: error }
+
   release:
     needs: build
     if: inputs.prove != true

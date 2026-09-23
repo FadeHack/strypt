@@ -2,7 +2,7 @@
 
 use eframe::egui;
 
-use crate::mark::{self, SIZE, byte};
+use strypt_mark::{self as mark, SIZE, byte};
 
 /// The mark as window and dock icon pixels.
 pub fn icon() -> egui::IconData {
@@ -43,13 +43,5 @@ mod tests {
         assert_eq!(alpha(0, 0), 0);
         assert_eq!(alpha(255, 255), 0);
         assert_eq!(alpha(128, 128), 255);
-    }
-
-    #[test]
-    fn smaller_sizes_keep_the_shape() {
-        let px = mark::pixels(16);
-        assert_eq!(px.len(), 16 * 16 * 4);
-        assert_eq!(px[3], 0);
-        assert_eq!(px[(8 * 16 + 8) * 4 + 3], 255);
     }
 }
