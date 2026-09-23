@@ -47,7 +47,7 @@ pub mod report;
 pub use detect::{Format, detect};
 pub use error::{IoAction, MalformedDetail, ResourceLimit, Result, StryptError, UnsupportedKind};
 pub use formats::{MetadataHandler, ParseLimits, StripOptions, Stripped};
-pub use io::{AtomicWrite, Limits, Overwrite, Permissions};
+pub use io::{AtomicWrite, Limits, Overwrite, Permissions, stripped_path};
 pub use pipeline::{inspect_bytes, inspect_file, strip_bytes, strip_file};
 pub use report::{
     Finding, InspectOptions, MetadataKind, MetadataReport, MetadataValue, Note, Retained,

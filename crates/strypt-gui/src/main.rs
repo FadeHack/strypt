@@ -1,4 +1,4 @@
-//! Phase 5 spike: drop one file, strip it in memory, list what was removed. Writes nothing.
+//! Phase 5 spike: drop one file, write its stripped copy beside it, list what was removed.
 
 #![forbid(unsafe_code)]
 
@@ -7,9 +7,11 @@ use std::path::PathBuf;
 use eframe::egui;
 use strypt_core::report::StripReport;
 
+type Outcome = Result<(PathBuf, StripReport), String>;
+
 #[derive(Default)]
 struct Spike {
-    last: Option<(PathBuf, Result<StripReport, String>)>,
+    last: Option<(PathBuf, Outcome)>,
 }
 
 impl eframe::App for Spike {
@@ -17,9 +19,7 @@ impl eframe::App for Spike {
         let dropped = ui.ctx().input(|i| i.raw.dropped_files.first().cloned());
         if let Some(file) = dropped {
             let path = file.path().to_path_buf();
-            let outcome = strypt_gui::clean(&path)
-                .map(|s| s.report)
-                .map_err(|e| e.to_string());
+            let outcome = strypt_gui::clean(&path, None).map_err(|e| e.to_string());
             self.last = Some((path, outcome));
         }
 
@@ -30,7 +30,8 @@ impl eframe::App for Spike {
             };
             ui.label(path.display().to_string());
             match outcome {
-                Ok(report) => {
+                Ok((output, report)) => {
+                    ui.label(format!("Written to {}", output.display()));
                     ui.label(format!(
                         "{:?}: {} removed, {} kept",
                         report.format,

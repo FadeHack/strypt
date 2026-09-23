@@ -167,6 +167,27 @@ pub enum Permissions {
     Inherit,
 }
 
+/// Where a stripped copy goes: `photo.jpg` becomes `photo.stripped.jpg`, beside the input
+/// or in `output_dir`. Shared so every front-end names its output the same way.
+///
+/// The suffix goes before the extension so the file still opens in the right application, and
+/// the name is deliberately not a temporary-looking one — this is the file the user will
+/// publish.
+#[must_use]
+pub fn stripped_path(input: &Path, output_dir: Option<&Path>) -> PathBuf {
+    let stem = input.file_stem().unwrap_or_default();
+    let mut name = stem.to_os_string();
+    name.push(".stripped");
+    if let Some(extension) = input.extension() {
+        name.push(".");
+        name.push(extension);
+    }
+    match output_dir {
+        Some(dir) => dir.join(name),
+        None => input.with_file_name(name),
+    }
+}
+
 /// A file being written through a temporary alongside its destination, replaced by an atomic
 /// rename only once the content is complete and durable.
 ///
@@ -570,5 +591,19 @@ mod tests {
         let w = AtomicWrite::begin(&dest, Overwrite::Refuse, Permissions::OwnerOnly).unwrap();
         assert_eq!(w.temporary.parent(), dest.parent());
         w.abort();
+    }
+
+    #[test]
+    fn the_stripped_copy_keeps_its_extension_last() {
+        let p = Path::new("dir/photo.jpg");
+        assert_eq!(stripped_path(p, None), Path::new("dir/photo.stripped.jpg"));
+        assert_eq!(
+            stripped_path(p, Some(Path::new("out"))),
+            Path::new("out/photo.stripped.jpg")
+        );
+        assert_eq!(
+            stripped_path(Path::new("README"), None),
+            Path::new("README.stripped")
+        );
     }
 }

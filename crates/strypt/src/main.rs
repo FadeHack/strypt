@@ -15,7 +15,7 @@ use clap::{Args, Parser, Subcommand};
 use strypt_core::formats::StripOptions;
 use strypt_core::io::{Limits, Overwrite};
 use strypt_core::report::InspectOptions;
-use strypt_core::{StryptError, inspect_file, strip_file};
+use strypt_core::{StryptError, inspect_file, strip_file, stripped_path};
 
 /// Exit codes. Documented in `INSTRUCTIONS.md` and **stable across releases** — scripts and
 /// pre-commit hooks depend on them, so changing one is a breaking change.
@@ -228,7 +228,7 @@ fn run_strip(input: &InputArgs, in_place: bool, output_dir: Option<&Path>, force
         let destination = if in_place {
             path.clone()
         } else {
-            output_path(&path, output_dir)
+            stripped_path(&path, output_dir)
         };
         // In-place means replacing the file that is already there, so it implies the
         // overwrite that `--force` otherwise gates. Asking for both would be noise.
@@ -314,25 +314,6 @@ fn walk(dir: &Path, files: &mut Vec<PathBuf>, outcome: &mut Outcome) {
         } else {
             files.push(path);
         }
-    }
-}
-
-/// Where a stripped copy goes: `photo.jpg` becomes `photo.stripped.jpg`.
-///
-/// The suffix goes before the extension so the file still opens in the right application, and
-/// the name is deliberately not a temporary-looking one — this is the file the user will
-/// publish.
-fn output_path(input: &Path, output_dir: Option<&Path>) -> PathBuf {
-    let stem = input.file_stem().unwrap_or_default();
-    let mut name = stem.to_os_string();
-    name.push(".stripped");
-    if let Some(extension) = input.extension() {
-        name.push(".");
-        name.push(extension);
-    }
-    match output_dir {
-        Some(dir) => dir.join(name),
-        None => input.with_file_name(name),
     }
 }
 

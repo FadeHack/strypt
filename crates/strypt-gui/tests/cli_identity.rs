@@ -1,5 +1,5 @@
-//! ROADMAP Phase 5 exit criterion 1: the GUI's output is byte-identical to the CLI's for every
-//! corpus file, and it refuses exactly what the CLI refuses.
+//! ROADMAP Phase 5 exit criterion 1: the GUI writes byte-identical files to the CLI's for every
+//! corpus file, under the same names and permissions, and refuses exactly what the CLI refuses.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -36,59 +36,149 @@ fn cli() -> PathBuf {
     profile_dir.join(format!("strypt{}", std::env::consts::EXE_SUFFIX))
 }
 
+fn scratch(tag: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("strypt-gui-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn cli_strip(cli: &Path, input: &Path, out: &Path) -> bool {
+    Command::new(cli)
+        .arg("strip")
+        .arg("--output-dir")
+        .arg(out)
+        .arg(input)
+        .output()
+        .unwrap()
+        .status
+        .success()
+}
+
+#[cfg(unix)]
+fn mode(path: &Path) -> u32 {
+    use std::os::unix::fs::PermissionsExt as _;
+    std::fs::metadata(path).unwrap().permissions().mode() & 0o777
+}
+
+#[cfg(not(unix))]
+fn mode(_: &Path) -> u32 {
+    0
+}
+
+/// Every difference between what the two front-ends left in their output directories.
+fn differences(cli: &Path, gui: &Path) -> Vec<String> {
+    let listing = |dir: &Path| {
+        let mut names: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        names.sort();
+        names
+    };
+    let (cli_names, gui_names) = (listing(cli), listing(gui));
+    if cli_names != gui_names {
+        return vec![format!("names: CLI {cli_names:?}, GUI {gui_names:?}")];
+    }
+    let mut found = Vec::new();
+    for name in &cli_names {
+        let (c, g) = (cli.join(name), gui.join(name));
+        if std::fs::read(&c).unwrap() != std::fs::read(&g).unwrap() {
+            found.push(format!("bytes of {}", name.to_string_lossy()));
+        }
+        if mode(&c) != mode(&g) {
+            found.push(format!("mode of {}", name.to_string_lossy()));
+        }
+    }
+    found
+}
+
 #[test]
 fn gui_matches_cli_across_the_corpus() {
     let cli = cli();
-    let out = std::env::temp_dir().join(format!("strypt-gui-identity-{}", std::process::id()));
+    let (cli_out, gui_out) = (scratch("identity-cli"), scratch("identity-gui"));
     let mut inputs = Vec::new();
     files(&corpus(), &mut inputs);
     inputs.sort();
     let (mut same, mut refused) = (0, 0);
 
     for input in &inputs {
-        let _ = std::fs::remove_dir_all(&out);
-        std::fs::create_dir_all(&out).unwrap();
-        let status = Command::new(&cli)
-            .arg("strip")
-            .arg("--output-dir")
-            .arg(&out)
-            .arg(input)
-            .output()
-            .unwrap()
-            .status;
-        let written: Vec<_> = std::fs::read_dir(&out).unwrap().collect();
-        let gui = strypt_gui::clean(input);
-
-        match (status.success(), gui) {
-            (true, Ok(stripped)) => {
-                assert_eq!(written.len(), 1, "{}", input.display());
-                let cli_bytes = std::fs::read(written[0].as_ref().unwrap().path()).unwrap();
-                assert!(
-                    cli_bytes == stripped.bytes,
-                    "output differs: {}",
-                    input.display()
-                );
-                same += 1;
-            }
-            (false, Err(_)) => {
-                assert!(
-                    written.is_empty(),
-                    "CLI failed but wrote: {}",
-                    input.display()
-                );
-                refused += 1;
-            }
-            (cli_ok, gui) => panic!(
-                "front-ends disagree on {}: CLI success={cli_ok}, GUI success={}",
-                input.display(),
-                gui.is_ok()
-            ),
+        for dir in [&cli_out, &gui_out] {
+            std::fs::remove_dir_all(dir).unwrap();
+            std::fs::create_dir(dir).unwrap();
+        }
+        let cli_ok = cli_strip(&cli, input, &cli_out);
+        let gui_ok = strypt_gui::clean(input, Some(&gui_out)).is_ok();
+        assert_eq!(cli_ok, gui_ok, "front-ends disagree on {}", input.display());
+        let diff = differences(&cli_out, &gui_out);
+        assert!(diff.is_empty(), "{}: {diff:?}", input.display());
+        if cli_ok {
+            same += 1;
+        } else {
+            assert!(
+                std::fs::read_dir(&cli_out).unwrap().next().is_none(),
+                "both refused but wrote: {}",
+                input.display()
+            );
+            refused += 1;
         }
     }
-    let _ = std::fs::remove_dir_all(&out);
+    let _ = std::fs::remove_dir_all(&cli_out);
+    let _ = std::fs::remove_dir_all(&gui_out);
     eprintln!(
         "{same} identical, {refused} refused by both, of {}",
         inputs.len()
     );
     assert!(same > 0);
+}
+
+/// A comparison that cannot fail proves nothing, so plant each kind of difference.
+#[test]
+fn a_planted_difference_fails_the_comparison() {
+    let cli = cli();
+    let input = corpus().join("jpeg/exif-gps.jpg");
+    let (cli_out, gui_out) = (scratch("plant-cli"), scratch("plant-gui"));
+    assert!(cli_strip(&cli, &input, &cli_out));
+    let (written, _) = strypt_gui::clean(&input, Some(&gui_out)).unwrap();
+    assert!(differences(&cli_out, &gui_out).is_empty());
+
+    let original = std::fs::read(&written).unwrap();
+    let mut planted = original.clone();
+    let last = planted.len() - 1;
+    planted[last] ^= 1;
+    std::fs::write(&written, &planted).unwrap();
+    assert!(
+        !differences(&cli_out, &gui_out).is_empty(),
+        "a flipped byte"
+    );
+    std::fs::write(&written, &original).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&written, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(!differences(&cli_out, &gui_out).is_empty(), "a wider mode");
+        std::fs::set_permissions(&written, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+
+    let renamed = gui_out.join("exif-gps.clean.jpg");
+    std::fs::rename(&written, &renamed).unwrap();
+    assert!(!differences(&cli_out, &gui_out).is_empty(), "another name");
+
+    let _ = std::fs::remove_dir_all(&cli_out);
+    let _ = std::fs::remove_dir_all(&gui_out);
+}
+
+#[test]
+fn the_gui_refuses_to_overwrite_as_the_cli_does() {
+    let input = corpus().join("jpeg/exif-gps.jpg");
+    let out = scratch("overwrite");
+    let (written, _) = strypt_gui::clean(&input, Some(&out)).unwrap();
+    std::fs::write(&written, b"the user's own file").unwrap();
+    assert!(matches!(
+        strypt_gui::clean(&input, Some(&out)),
+        Err(strypt_core::StryptError::OutputExists)
+    ));
+    assert_eq!(std::fs::read(&written).unwrap(), b"the user's own file");
+    let _ = std::fs::remove_dir_all(&out);
 }

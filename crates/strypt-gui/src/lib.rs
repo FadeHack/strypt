@@ -3,19 +3,28 @@
 
 #![forbid(unsafe_code)]
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use strypt_core::io::{Limits, read_bounded};
-use strypt_core::{Result, StripOptions, Stripped, strip_bytes};
+use strypt_core::report::StripReport;
+use strypt_core::{Limits, Overwrite, Result, StripOptions, strip_file, stripped_path};
 
-/// Read `path` under the CLI's default limits and strip it in memory.
+/// Strip `input` into core's `*.stripped.*` copy, beside it or in `output_dir`, under the CLI's
+/// defaults: its size limit, refusing to overwrite, owner-only permissions. Returns where the copy
+/// went.
 ///
 /// Reads through `strypt-core`, never egui's `DroppedFile::bytes`, which has no size bound.
 ///
 /// # Errors
 ///
-/// Whatever [`read_bounded`] or [`strip_bytes`] returns.
-pub fn clean(path: &Path) -> Result<Stripped> {
-    let data = read_bounded(path, Limits::default())?;
-    strip_bytes(&data, &StripOptions::default())
+/// Whatever [`strip_file`] returns; nothing is written on error.
+pub fn clean(input: &Path, output_dir: Option<&Path>) -> Result<(PathBuf, StripReport)> {
+    let output = stripped_path(input, output_dir);
+    let report = strip_file(
+        input,
+        &output,
+        Limits::default(),
+        Overwrite::Refuse,
+        &StripOptions::default(),
+    )?;
+    Ok((output, report))
 }
