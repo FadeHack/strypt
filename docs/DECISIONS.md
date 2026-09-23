@@ -3845,5 +3845,11 @@ Verified the same day:
   remains the Tails and Whonix path (ADR-0058 decision 5).
 - **Measured on one macOS release.** Gatekeeper's behaviour changed in macOS 15 and can change again;
   re-check at each release.
+- **The first gate run failed on both macOS GUI builds**
+  ([run 35864988352](https://github.com/FadeHack/strypt/actions/runs/35864988352)): only `LC_UUID`
+  and the signature hash over it differed. Apple's `ld` hashes its debug map, which names objects
+  inside `RUSTUP_HOME`, a prefix `-oso_prefix` does not cover; ADR-0050 varied `RUSTUP_HOME` only
+  for the CLI. `build-release.sh` now links with `-Wl,-S`, so no debug map is written; the release
+  profile strips it anyway. Reproduced and fixed locally. This changes every macOS hash, CLI included.
 
 ---

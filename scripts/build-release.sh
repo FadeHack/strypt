@@ -31,7 +31,8 @@ flags=(
   "--remap-path-prefix=$STD_SRC=/rustc/$COMMIT"
 )
 # Apple's ld hashes object-file paths into LC_UUID; --remap-path-prefix does not reach it.
-[[ $TARGET == *-apple-darwin ]] && flags+=("-Clink-arg=-Wl,-oso_prefix,$SRC/")
+# -S drops the debug map, whose paths into RUSTUP_HOME changed the GUI's UUID (ADR-0062).
+[[ $TARGET == *-apple-darwin ]] && flags+=("-Clink-arg=-Wl,-oso_prefix,$SRC/" "-Clink-arg=-Wl,-S")
 # link.exe stamps the PE header with the link time; rustc never passes /Brepro itself.
 [[ $TARGET == *-windows-msvc ]] && flags+=("-Clink-arg=/Brepro")
 
