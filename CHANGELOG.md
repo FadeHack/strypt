@@ -30,6 +30,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- An Open files button in `strypt-gui`, beside drag-and-drop, through the `rfd` crate. On Linux the
+  GUI starts on X11 when it can, because file drops do not arrive under Wayland (ADR-0059).
 - `strypt-gui`, in progress and not released: drop any number of files, and each gets a row
   saying cleaned, not cleaned, or unsupported, with the CLI's reason. Stripping runs off the window's
   thread. A test holds that only a written file is shown as cleaned; another holds the files it

@@ -24,7 +24,7 @@ cargo build --release
 cargo test --all-features        # what CI runs, on Linux, macOS and Windows
 cargo test -p strypt             # CLI contract tests only
 cargo test -p strypt-gui         # files the GUI writes match the CLI's: bytes, names, modes
-cargo run -p strypt-gui          # the GUI; drop files onto it
+cargo run -p strypt-gui          # the GUI; drop or open files
 cargo test jpeg                  # tests matching a name
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings

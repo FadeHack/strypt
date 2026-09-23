@@ -37,6 +37,13 @@ it knows to look for. No tool can promise more.
 - **Install steps were tested on GitHub's fresh runners, not on anyone's own machine**, and never on
   Tails itself (ADR-0053).
 
+## The desktop app (not yet released)
+
+- **Dragging files onto the window does not work on a Linux desktop running Wayland alone.** Where an
+  X server runs beside it, the app uses that and dragging works; otherwise it says so, and
+  Open files… still works (ADR-0059).
+- **Not run on Tails** (ADR-0058 decision 5).
+
 ## Where mat2 is the better choice
 
 | Your file | Why |

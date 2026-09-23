@@ -225,8 +225,8 @@ update `docs/THREAT_MODEL.md`. Core dispatch is untouched. No dynamic plugin loa
 > crates recommended below were rejected once Phase 1 measured them: `img-parts` and
 > `file-format` were both dropped (image parsing and detection are in-tree), and no logging
 > crate was adopted. The actual direct dependencies are `thiserror` and `lopdf` in
-> `strypt-core`, `clap` and `serde_json` in `strypt`, `eframe` in `strypt-gui` (ADR-0058). **See
-> `docs/DECISIONS.md` ADR-0018.**
+> `strypt-core`, `clap` and `serde_json` in `strypt`, `eframe` and `rfd` in `strypt-gui`, plus
+> `winit` on Linux (ADR-0058, ADR-0059). **See `docs/DECISIONS.md` ADR-0018.**
 > Kept because the alternatives considered are worth having on record.
 
 **Every version below was verified on crates.io on 2026-08-19 and every one of them must be

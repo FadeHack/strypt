@@ -26,6 +26,12 @@ eframe = { version = "0.36.2", default-features = false, features = [
     "x11",
     "wgpu",
 ] }
+# ADR-0059: the Open files button. Adds `rfd` and a second, older `pollster` to the graph.
+rfd = "0.17.2"
+
+# ADR-0059: eframe's own winit, named only to choose X11, where file drops work.
+[target.'cfg(target_os = "linux")'.dependencies]
+winit = { version = "0.30.13", default-features = false }
 
 [lints]
 workspace = true

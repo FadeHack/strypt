@@ -143,7 +143,7 @@ at each release, not once: the framework's security posture is load-bearing.
 **Deliverables.**
 - `strypt-gui` calling **directly into `strypt-core`**. It must not re-implement stripping
   logic and must not shell out to the CLI binary as a subprocess. Call the library.
-- Drag-and-drop file input, batch support.
+- Drag-and-drop and an Open files button (ADR-0059), batch support.
 - **A visible before/after metadata diff**, so the user sees exactly what is being removed.
   This is a trust feature first and a usability feature second: a user who can see what came
   out has grounds to believe the tool, and a user who sees an empty diff on a file they

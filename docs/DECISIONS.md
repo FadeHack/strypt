@@ -3694,3 +3694,38 @@ licensing contradicts ADR-0012's permissive-licensing differentiator.
   vulnerable `smallvec` 1.6.0 no longer resolves.
 
 ---
+
+## ADR-0059 — An Open files button through `rfd`, and X11 first on Linux
+
+**Status:** Accepted (2026-09-23)
+
+**Context.** Drag-and-drop was the GUI's only input. winit 0.30.13, eframe 0.36.2's, reports file
+drops on macOS, Windows and X11 only; on Ubuntu 24.04 (arm64, UTM) a Wayland session delivered no
+drop, and the same build under XWayland did (2026-09-23). A drag-only window also cannot be used
+from a keyboard or a screen reader, and a first-time user looks for a button (exit criterion 3).
+
+Three routes: `rfd`; the file-chooser portal over `zbus`, which AccessKit already brings, but
+Linux only, with macOS needing its own Objective-C calls; or a browser drawn in egui, with no
+dependency but unfamiliar and ~200 lines to own. Checked 2026-09-23: `rfd` 0.17.2 (MIT) has, since
+0.17.0, reached the portal by `dlopen`ing `libdbus-1`, with no async runtime. It adds `rfd` and
+`pollster` 0.4.0 to the graph; `check-no-network.sh` and `cargo deny` pass.
+
+**Decision.**
+
+1. **An Open files button, through `rfd` with its default features.** The dialog runs on the main
+   thread on macOS, which AppKit requires, and on its own thread elsewhere.
+2. **"No files were chosen" is all the GUI says when the dialog returns nothing.** When the portal
+   fails `rfd` runs `zenity` from `PATH`, and when that fails it returns what Cancel returns.
+3. **On Linux, X11 when there is one.** With `WAYLAND_DISPLAY` and `DISPLAY` both set the GUI starts
+   on XWayland, naming eframe's `winit` directly for `with_x11`: no new crate, where clearing the
+   variable would need `unsafe` in edition 2024. On Wayland alone it says dragging will not work.
+
+**Consequences.**
+
+- **The GUI now loads `libdbus-1` and may spawn `zenity`** on Linux. Neither is network, and neither
+  touches core or the CLI; THREAT_MODEL's GUI note must cover both.
+- **`pollster` 0.4.0 duplicates eframe's 1.0.1** and passes only because `deny.toml` skips eframe's
+  tree.
+- **Not run on Tails** (ADR-0043); whether it ships a portal, `zenity` or XWayland is unchecked.
+
+---

@@ -131,3 +131,40 @@ fn capitalise(s: &str) -> String {
         .next()
         .map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect())
 }
+
+/// Which windowing backend to start on Linux. winit 0.30 delivers no file drops under Wayland
+/// (ADR-0059).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Backend {
+    /// Not a Wayland session: winit's own choice already has drops.
+    Default,
+    /// Wayland with an X server beside it: start on X11 so drops work.
+    X11,
+    /// Wayland alone: start there, and say that dragging will not work.
+    WaylandWithoutDrops,
+}
+
+impl Backend {
+    /// Choose from whether `DISPLAY` and `WAYLAND_DISPLAY` (or `WAYLAND_SOCKET`) are set.
+    #[must_use]
+    pub const fn choose(x11: bool, wayland: bool) -> Self {
+        match (wayland, x11) {
+            (true, true) => Self::X11,
+            (true, false) => Self::WaylandWithoutDrops,
+            (false, _) => Self::Default,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn x11_is_chosen_only_under_wayland_with_xwayland() {
+        assert_eq!(Backend::choose(true, true), Backend::X11);
+        assert_eq!(Backend::choose(false, true), Backend::WaylandWithoutDrops);
+        assert_eq!(Backend::choose(true, false), Backend::Default);
+        assert_eq!(Backend::choose(false, false), Backend::Default);
+    }
+}
