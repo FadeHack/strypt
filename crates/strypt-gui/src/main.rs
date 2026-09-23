@@ -221,7 +221,7 @@ fn seconds(t: f64) -> f32 {
     t as f32
 }
 
-/// The mark, the wordmark struck through once at launch, and one line on what strypt does.
+/// The mark, the wordmark underlined once at launch, and one line on what strypt does.
 fn header(ui: &mut egui::Ui, now: f64) {
     let p = theme::of(ui);
     ui.horizontal(|ui| {
@@ -231,16 +231,18 @@ fn header(ui: &mut egui::Ui, now: f64) {
         ui.vertical(|ui| {
             ui.add_space(-2.0);
             let word = ui.label(RichText::new("strypt").size(34.0).color(p.ink));
+            // An underline, not a strike: a struck-through name reads as cancelled.
             let t = ease((seconds(now) - 0.25) / 0.7);
             if t > 0.0 {
                 let r = word.rect;
-                let y = r.center().y + 3.0;
-                let end = r.left() - 3.0 + (r.width() + 6.0) * t;
+                let y = r.bottom() + 1.0;
+                let end = r.left() + r.width() * t;
                 ui.painter().line_segment(
-                    [egui::pos2(r.left() - 3.0, y), egui::pos2(end, y)],
+                    [egui::pos2(r.left(), y), egui::pos2(end, y)],
                     Stroke::new(3.0, p.accent),
                 );
             }
+            ui.add_space(4.0);
             ui.label(
                 RichText::new("Take hidden details out of your files before you share them.")
                     .color(p.muted),
