@@ -49,6 +49,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   between machines. This changes the macOS CLI binaries' hashes too.
 - Clippy runs in CI on macOS and Windows as well as Linux, since platform-gated code is linted only
   where it compiles. It found one warning in Windows-only code.
+- `strypt-gui.exe` shows strypt's mark in Explorer, drawn at build time from the code that draws
+  the window icon, through `winresource` on a Windows host (ADR-0062).
 - `strypt-gui` opens without a console window on Windows, and if its window cannot open, it says so
   in a dialog rather than on a stderr nobody sees.
 - `strypt-gui` takes dropped folders. It says how many files and folders it found and where copies

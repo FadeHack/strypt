@@ -3851,5 +3851,7 @@ Verified the same day:
   inside `RUSTUP_HOME`, a prefix `-oso_prefix` does not cover; ADR-0050 varied `RUSTUP_HOME` only
   for the CLI. `build-release.sh` now links with `-Wl,-S`, so no debug map is written; the release
   profile strips it anyway. Reproduced and fixed locally. This changes every macOS hash, CLI included.
+  All ten builds then matched ([run 35888165554](https://github.com/FadeHack/strypt/actions/runs/35888165554)),
+  and all ten caught the planted leak ([35888170242](https://github.com/FadeHack/strypt/actions/runs/35888170242)).
 
 ---
