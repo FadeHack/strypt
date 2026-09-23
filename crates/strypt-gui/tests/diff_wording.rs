@@ -23,7 +23,7 @@ fn files(dir: &Path, out: &mut Vec<PathBuf>) {
 
 /// Every string the window draws for one cleaned file.
 fn drawn(diff: &Diff) -> Vec<String> {
-    let mut out = Vec::new();
+    let mut out = vec![diff.summary()];
     for Section {
         title,
         lines,

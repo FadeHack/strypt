@@ -40,6 +40,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   why, by field name only, with the CLI's `!!`/`!` sensitivity marks and every note. An empty result
   says so, and every file carries the caveats that filenames and visible content are untouched, and
   that finding nothing does not mean a file is clean.
+- `strypt-gui` has a large drop area that lights up while files are held over it, one card per file
+  saying which folder its copy was saved in, an app icon drawn in code, and a 720×720 window. It
+  follows the system's light or dark setting on macOS and Windows; on Linux it starts light, because
+  the X11 backend it prefers reports no theme. Fonts are egui's bundled ones only.
 - `strypt_core::strip_bytes_to_file`, so a front-end that inspects a file first reads it once.
 - An Open files button in `strypt-gui`, beside drag-and-drop, through the `rfd` crate. On Linux the
   GUI starts on X11 when it can, because file drops do not arrive under Wayland (ADR-0059).

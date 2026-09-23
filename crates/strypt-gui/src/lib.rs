@@ -109,6 +109,32 @@ impl Diff {
         ]
     }
 
+    /// One line for a collapsed diff.
+    #[must_use]
+    pub fn summary(&self) -> String {
+        let count = |n: usize| {
+            if n == 1 {
+                "1 item".to_string()
+            } else {
+                format!("{n} items")
+            }
+        };
+        let (found, removed, kept) = (
+            self.found.findings.len(),
+            self.stripped.removed.len(),
+            self.stripped.retained.len(),
+        );
+        if found + removed + kept == 0 {
+            return "Found nothing to remove".to_string();
+        }
+        format!(
+            "Found {}, removed {}, kept {}",
+            count(found),
+            count(removed),
+            count(kept)
+        )
+    }
+
     /// Shown under every diff, whatever it holds.
     #[must_use]
     pub fn caveats() -> [String; 2] {
@@ -221,12 +247,14 @@ impl Status {
     pub fn detail(&self) -> String {
         match self {
             Self::Working => String::new(),
+            // The folder too: a copy lands beside its original, wherever that is.
             Self::Cleaned { output, diff } => {
                 let name = output.file_name().unwrap_or_default().to_string_lossy();
+                let folder = output.parent().unwrap_or(Path::new("")).display();
                 if diff.stripped.removed.is_empty() {
-                    format!("Nothing to remove; wrote a clean copy to {name}")
+                    format!("Nothing to remove; saved a copy as {name} in {folder}")
                 } else {
-                    format!("Wrote {name}")
+                    format!("Saved as {name} in {folder}")
                 }
             }
             Self::Refused(reason) | Self::Unsupported(reason) => {
