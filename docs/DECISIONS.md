@@ -3859,5 +3859,10 @@ Verified the same day:
 - **Icons come from `crates/strypt-mark`**, a first-party crate with no dependencies that the GUI, its
   build script and `scripts/package-macos.sh` share. Its PNGs are stored, not deflated, to keep a
   compression crate out of the graph; the `.icns` is 2.7 MB inside the `.app`, compressed in the `.dmg`.
+- **The `.dmg`'s Applications link stays a symlink**, though the owner saw it drawn as an empty square
+  on 26.3.1. The viewing Mac draws that icon, not the image; DropDMG's maintainer calls it icon caching,
+  and a 26.3.2 report cleared on an icon-services reset and drew correctly on 26.4
+  ([forum](https://forum.c-command.com/t/macbook-neo-applications-folder-graphic-missing/17531),
+  2026-09-24). A Finder alias gets the same badged rendering and needs Finder to write. Dragging works.
 
 ---
