@@ -403,27 +403,31 @@ impl App {
         clicked
     }
 
+    /// Where copies go, as a choice between two places, so it cannot read as a folder to clean.
+    /// It applies to files added from now on.
     fn save_location(&mut self, ui: &mut egui::Ui) {
         let p = theme::of(ui);
         let ctx = ui.ctx().clone();
         ui.horizontal_wrapped(|ui| {
-            ui.label(RichText::new("Cleaned copies are saved").color(p.muted));
+            ui.label(RichText::new("Save cleaned copies").color(p.muted));
+            if ui
+                .radio(self.output_dir.is_none(), "next to each original")
+                .clicked()
+            {
+                self.output_dir = None;
+            }
             match &self.output_dir {
                 None => {
-                    ui.label(RichText::new("next to each original.").color(p.ink));
-                    if ui.link("Choose a folder instead…").clicked() {
+                    if ui.radio(false, "in a folder I choose…").clicked() {
                         self.ask(&ctx, true);
                     }
                 }
                 Some(dir) => {
                     let name = dir.file_name().unwrap_or(dir.as_os_str()).to_string_lossy();
-                    ui.label(RichText::new(format!("in {name}.")).color(p.ink))
+                    ui.radio(true, format!("in {name}"))
                         .on_hover_text(dir.display().to_string());
                     if ui.link("Change…").clicked() {
                         self.ask(&ctx, true);
-                    }
-                    if ui.link("Save next to originals").clicked() {
-                        self.output_dir = None;
                     }
                 }
             }
