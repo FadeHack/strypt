@@ -77,7 +77,8 @@ cargo deny check && \
 
 On macOS, also lint the Linux-only GUI code:
 `cargo clippy --target aarch64-unknown-linux-gnu --all-targets --all-features -- -D warnings`
-(`rustup target add aarch64-unknown-linux-gnu` once).
+(`rustup target add aarch64-unknown-linux-gnu` once), and the same with `x86_64-pc-windows-msvc`
+for Windows-only code. CI lints on all three.
 
 CI also builds at the MSRV (`rustup toolchain install 1.95`, then `cargo +1.95 build --all-features`), runs the [filesystem matrix](#filesystem-constraints-matrix) on Linux, and
 fuzzes every target for 60 seconds. Enable the local pre-commit hook once per clone:
@@ -252,7 +253,7 @@ and fails unless the two match. A local release build embeds your home directory
 ```sh
 scripts/build-release.sh aarch64-apple-darwin   # -> target/release-artifacts/strypt-<version>-<target>
 scripts/build-release.sh --gui aarch64-apple-darwin   # strypt-gui-<version>-<target> (ADR-0062)
-gh workflow run release.yml                      # the gate on all five targets; publishes nothing
+gh workflow run release.yml                      # the gate on all ten builds; publishes nothing
 gh workflow run release.yml -f prove=true        # drops a remap; each job passes only if the gate catches it
 scripts/sbom.sh out x86_64-unknown-linux-musl    # -> out/strypt-<version>-<target>.cdx.json (ADR-0054)
 ```

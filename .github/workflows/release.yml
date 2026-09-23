@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    name: build (${{ matrix.target }})
+    name: build (${{ matrix.gui && 'gui, ' || '' }}${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -29,6 +29,13 @@ jobs:
           - { target: aarch64-apple-darwin, os: macos-15 }
           - { target: x86_64-apple-darwin, os: macos-15 }
           - { target: x86_64-pc-windows-msvc, os: windows-2025 }
+          # The GUI is gated here but attached to no release yet (ADR-0062 decision 7). Its
+          # artifacts are named `gui-*` so the release job's `strypt-*` pattern skips them.
+          - { gui: true, target: x86_64-unknown-linux-gnu, os: ubuntu-24.04 }
+          - { gui: true, target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm }
+          - { gui: true, target: aarch64-apple-darwin, os: macos-15 }
+          - { gui: true, target: x86_64-apple-darwin, os: macos-15 }
+          - { gui: true, target: x86_64-pc-windows-msvc, os: windows-2025 }
     permissions:
       contents: read
       id-token: write
@@ -39,6 +46,7 @@ jobs:
         shell: bash
     env:
       T: ${{ matrix.target }}
+      GUI: ${{ matrix.gui && '--gui' || '' }}
       PROVE: ${{ inputs.prove == true }}
     steps:
       # Actions on the release path are pinned by commit (ADR-0050 decision 4).
@@ -52,11 +60,11 @@ jobs:
         run: sed -i.bak '/remap-path-prefix=\$CARGO=/d' a/scripts/build-release.sh "second checkout/scripts/build-release.sh"
 
       - name: Build
-        run: bash a/scripts/build-release.sh "$T" out-a
+        run: bash a/scripts/build-release.sh $GUI "$T" out-a
       - name: Build again, as another machine would
         run: |
           export CARGO_HOME="$RUNNER_TEMP/cargo-b" RUSTUP_HOME="$RUNNER_TEMP/rustup-b"
-          bash "second checkout/scripts/build-release.sh" "$T" out-b
+          bash "second checkout/scripts/build-release.sh" $GUI "$T" out-b
 
       - name: Compare
         run: |
@@ -77,7 +85,7 @@ jobs:
         with: { subject-path: out-a/* }
       - if: env.PROVE != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with: { name: "strypt-${{ matrix.target }}", path: out-a/*, if-no-files-found: error }
+        with: { name: "${{ matrix.gui && 'gui' || 'strypt' }}-${{ matrix.target }}", path: out-a/*, if-no-files-found: error }
 
       # A verifier needs the same image and linker, not only the commit (ADR-0050).
       - name: Record the toolchain
@@ -91,7 +99,7 @@ jobs:
           mkdir meta; printf '| `%s` | %s %s | %s |\n' "$T" "$ImageOS" "$ImageVersion" "$l" > "meta/$T.md"
       - if: env.PROVE != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with: { name: "meta-${{ matrix.target }}", path: meta/*, if-no-files-found: error }
+        with: { name: "${{ matrix.gui && 'gui-meta' || 'meta' }}-${{ matrix.target }}", path: meta/*, if-no-files-found: error }
 
   release:
     needs: build

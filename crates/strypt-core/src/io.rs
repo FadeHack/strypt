@@ -364,6 +364,7 @@ fn create_private(path: &Path, permissions: Permissions) -> Result<File> {
 }
 
 /// Apply permissions to an existing path. A no-op off Unix.
+#[cfg_attr(not(unix), allow(clippy::unnecessary_wraps))] // fallible on Unix; one signature
 fn apply_permissions(path: &Path, permissions: Permissions) -> Result<()> {
     #[cfg(unix)]
     if permissions == Permissions::OwnerOnly {
