@@ -251,6 +251,7 @@ and fails unless the two match. A local release build embeds your home directory
 
 ```sh
 scripts/build-release.sh aarch64-apple-darwin   # -> target/release-artifacts/strypt-<version>-<target>
+scripts/build-release.sh --gui aarch64-apple-darwin   # strypt-gui-<version>-<target> (ADR-0062)
 gh workflow run release.yml                      # the gate on all five targets; publishes nothing
 gh workflow run release.yml -f prove=true        # drops a remap; each job passes only if the gate catches it
 scripts/sbom.sh out x86_64-unknown-linux-musl    # -> out/strypt-<version>-<target>.cdx.json (ADR-0054)

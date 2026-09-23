@@ -42,6 +42,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- `scripts/build-release.sh --gui` builds `strypt-gui` reproducibly, the first step to shipping it as
+  a `.dmg`, an AppImage and a portable `.exe`, unsigned (ADR-0062).
 - `strypt-gui` opens without a console window on Windows, and if its window cannot open, it says so
   in a dialog rather than on a stderr nobody sees.
 - `strypt-gui` takes dropped folders. It says how many files and folders it found and where copies

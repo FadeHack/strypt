@@ -2,10 +2,12 @@
 # Build one release binary reproducibly (ADR-0050). CI runs this, and so does anyone verifying a
 # release: same commit, same target, same OS image -> same bytes.
 #
-# Usage: scripts/build-release.sh TARGET [OUTDIR]    (default OUTDIR: target/release-artifacts)
+# Usage: scripts/build-release.sh [--gui] TARGET [OUTDIR]    (default OUTDIR: target/release-artifacts)
+# --gui builds strypt-gui instead of the CLI (ADR-0062).
 set -euo pipefail
 
-TARGET=${1:?usage: scripts/build-release.sh TARGET [OUTDIR]}
+PKG=strypt; [[ ${1:-} == --gui ]] && { PKG=strypt-gui; shift; }
+TARGET=${1:?usage: scripts/build-release.sh [--gui] TARGET [OUTDIR]}
 ROOT=$(cd "$(dirname "$0")/.." && pwd -P)
 mkdir -p "${2:-$ROOT/target/release-artifacts}"
 OUT=$(cd "${2:-$ROOT/target/release-artifacts}" && pwd -P)
@@ -40,11 +42,11 @@ CARGO_ENCODED_RUSTFLAGS=$(IFS=$'\x1f'; printf '%s' "${flags[*]}")
 export CARGO_ENCODED_RUSTFLAGS
 unset RUSTFLAGS CARGO_TARGET_DIR
 
-cargo build --release --locked -p strypt --target "$TARGET" --target-dir "$ROOT/target"
+cargo build --release --locked -p "$PKG" --target "$TARGET" --target-dir "$ROOT/target"
 
 VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
 EXE=; [[ $TARGET == *-windows-* ]] && EXE=.exe
-NAME="strypt-$VERSION-$TARGET$EXE"
+NAME="$PKG-$VERSION-$TARGET$EXE"
 mkdir -p "$OUT"
-cp "target/$TARGET/release/strypt$EXE" "$OUT/$NAME"
+cp "target/$TARGET/release/$PKG$EXE" "$OUT/$NAME"
 echo "$OUT/$NAME"

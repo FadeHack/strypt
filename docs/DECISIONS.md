@@ -3786,3 +3786,64 @@ for a writer forever.
 - Folders arrive by drag only; the Open files dialog picks files.
 
 ---
+
+## ADR-0062 — The GUI ships as a `.dmg`, an AppImage and a portable `.exe`, unsigned
+
+**Status:** Accepted (2026-09-23)
+
+Settles how ROADMAP Phase 5's GUI is released. Extends ADR-0050 to a second package and applies
+ADR-0051 to an app bundle.
+
+**Context.** Measured 2026-09-23 on macOS 26.3.1, Apple Silicon, with a `.app` inside a `.dmg`
+carrying Safari's quarantine flag:
+
+- **The linker's ad-hoc signature covers the binary, not the bundle.** A `.app` built around it
+  fails `codesign --verify` ("code has no resources but signature indicates they must be present"),
+  and Finder says it **"is damaged and can't be opened"**, with no Open Anyway.
+- **`codesign --force -s -` over the whole bundle** verifies, and Gatekeeper answers "Apple could
+  not verify 'strypt'". System Settings → Privacy & Security then offers **Open Anyway**; after it,
+  the app opened and stripped a dropped file, and later launches opened directly.
+
+Verified the same day:
+
+- `appimagetool` 1.9.1 (2025-11-18) downloads its runtime at build time unless given
+  `--runtime-file`. The static `type2-runtime` 20251108 needs no `libfuse2` on the user's system.
+  Both publish SHA-256 digests.
+- `hdiutil` writes random and time-dependent header fields, so a `.dmg` is not byte-reproducible.
+- `winresource` 0.1.31 (MIT) with default features off adds only `version_check`, already in the
+  graph; `embed-resource` 3.0.11 adds about eighteen crates. Both need `rc.exe` from the Windows SDK.
+
+**Decision.**
+
+1. **`scripts/build-release.sh --gui`** builds `strypt-gui` with ADR-0050's flags, and the release
+   workflow gates it twice like the CLI. Linux targets are `x86_64-` and `aarch64-unknown-linux-gnu`
+   on `ubuntu-24.04` runners, so glibc 2.39 is the floor (Debian 13, Ubuntu 24.04, Fedora 40).
+2. **macOS: a `.app` in a `.dmg`, both architectures.** The script assembles the bundle and signs it
+   whole with `codesign --force -s -`: ad-hoc, so no name and no fee (ADR-0051). The binary is gated;
+   the `.dmg` is attested and checksummed only.
+3. **Linux: an AppImage**, from `appimagetool` 1.9.1 with `--runtime-file` set to runtime 20251108,
+   each checked against its pinned digest before it runs. Whether the AppImage is byte-reproducible is
+   measured when it is built, not promised here.
+4. **Windows: one portable `.exe`, no installer.** No console window, and an Explorer icon through
+   `winresource` 0.1.31 as a Windows-only build-dependency with default features off. An installer
+   would be one more unsigned program for Smart App Control to block.
+5. **Icons are drawn by `icon.rs` at build time.** No image file is committed.
+6. **The first-run step is documented as measured, and nothing weaker.** macOS: Open Anyway, once.
+   Linux: "Allow executing" in the file's properties. Windows: SmartScreen's "Run anyway", with Smart
+   App Control able to refuse outright (ADR-0055). The README never suggests `xattr` or turning
+   Gatekeeper off.
+7. **Which release first carries the GUI is the owner's call**, and a GUI is not attached to a
+   release before exit criterion 3 is met.
+
+**Consequences.**
+
+- **A bundle signed only by the linker is a "damaged" app**, which a user can pass only through a
+  terminal. The build must fail if `codesign --verify --deep --strict` does not pass on the bundle.
+- **The Windows icon adds build-time surface** on Windows only; `rc.exe` comes from the runner's SDK.
+- **Two downloaded tools join the release path**, pinned by digest, on Linux only.
+- **The AppImage needs FUSE 3 at runtime.** Whether Tails provides it is unchecked, and the CLI
+  remains the Tails and Whonix path (ADR-0058 decision 5).
+- **Measured on one macOS release.** Gatekeeper's behaviour changed in macOS 15 and can change again;
+  re-check at each release.
+
+---
