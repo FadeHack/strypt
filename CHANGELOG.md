@@ -24,6 +24,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - `strypt strip` gave FLAC's kept audio MD5 as "reason not recognised by this version of the CLI". It
   now says it is kept because anyone holding the file can recompute it (ADR-0038). The CLI's and the
   GUI's wording now come from one file (ADR-0060).
+- The no-network check read the features `tokio` defines rather than those enabled, so it refused
+  any `tokio`, even one that cannot open a socket. It now refuses `tokio` only with `net`, `full`,
+  `io-std` or `process` enabled, as ARCHITECTURE §5.2 says, and `prove-gates.sh` proves both sides.
 
 ### Changed
 

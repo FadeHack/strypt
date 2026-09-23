@@ -69,6 +69,20 @@ expect_fail() {
   fi
 }
 
+# expect_admit NAME CMD... — CMD must pass a planted tree its policy allows: the gate is not broader
+# than it says.
+expect_admit() {
+  local name=$1 out
+  shift
+  if out=$(in_tree "$@" 2>&1); then
+    echo "✓ $name"
+  else
+    echo "✗ $name — refused what its policy admits:"
+    tail -15 <<<"$out" | sed 's/^/    /'
+    failed=1
+  fi
+}
+
 expect_pass() {
   local name=$1 out
   shift
@@ -102,6 +116,13 @@ fresh_tree; add_dep 'polling = "3"' "$CLI"
 expect_fail "no-network: admitted reactor in strypt" 'strypt: denied crate in dependency graph: polling' ./scripts/check-no-network.sh
 fresh_tree; add_dep 'polling = "3"' "$GUI"
 expect_fail "no-network: reactor reaching strypt-gui outside zbus and calloop" 'strypt-gui: polling .* another path reaches it' ./scripts/check-no-network.sh
+
+# tokio is guarded by enabled feature. `io-std` pulls no `mio`, so only the guard can catch it; `rt`
+# alone must pass, or the guard is an outright ban.
+fresh_tree; add_dep 'tokio = { version = "1", default-features = false, features = ["io-std"] }'
+expect_fail "no-network: tokio with a guarded feature" "strypt-core: tokio enables networking features: \['io-std'\]" ./scripts/check-no-network.sh
+fresh_tree; add_dep 'tokio = { version = "1", default-features = false, features = ["rt"] }'
+expect_admit "no-network: tokio without a guarded feature" ./scripts/check-no-network.sh
 
 fresh_tree; add_dep 'rand = "0.8"'
 expect_fail "bans: duplicate versions" 'error\[duplicate\]' cargo deny check bans

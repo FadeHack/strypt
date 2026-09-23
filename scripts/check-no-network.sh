@@ -49,6 +49,8 @@ CARRIERS = {"strypt-gui": {"zbus", "calloop"}}
 meta = json.load(open(sys.argv[1]))
 packages = {p["id"]: p for p in meta["packages"]}
 edges = {n["id"]: [d["pkg"] for d in n["deps"]] for n in meta["resolve"]["nodes"]}
+# Enabled, not defined: a package's own "features" is the table it declares, every guarded name included.
+enabled = {n["id"]: set(n.get("features", [])) for n in meta["resolve"]["nodes"]}
 violations = []
 
 def reach(root, stop=frozenset()):
@@ -80,7 +82,7 @@ for member in meta["workspace_members"]:
                     f"{crate}: {name} {version} is admitted only through "
                     f"{sorted(CARRIERS[crate])}, but another path reaches it"
                 )
-        bad = set(pkg.get("features", {})) & FEATURE_GUARDS.get(name, set())
+        bad = enabled.get(pid, set()) & FEATURE_GUARDS.get(name, set())
         if bad:
             violations.append(f"{crate}: {name} enables networking features: {sorted(bad)}")
 

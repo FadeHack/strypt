@@ -175,6 +175,25 @@ unqualified guarantee, users will take risks they would not otherwise take. This
 created by *documentation and UI*, not by code, and it is the reason for the ban on
 "complete", "guaranteed", and "100%" in user-facing text.
 
+**5.7 What the GUI adds.** `strypt-gui` strips through the same core call as the CLI (ADR-0058), so
+§7 applies unchanged. It adds these, none of them network (checked 2026-09-23, eframe 0.36.2):
+
+- **An image decoder.** `arboard` compiles `image` with BMP, PNG and TIFF, reached only by reading
+  an image from the clipboard, which egui-winit never does. It never sees a file being stripped.
+  An eframe upgrade that pastes images makes it live parsing surface.
+- **Dropped files are read by path**, through `read_bounded` under the CLI's limits. egui fills the
+  unbounded `DroppedFile::bytes` only on the web, and the GUI never reads it.
+- **The Open files dialog** (ADR-0059). On Linux `rfd` `dlopen`s `libdbus-1` to ask the desktop
+  portal, a separate process that learns the chosen paths; failing that it runs `zenity` from
+  `PATH`, which returns them over a pipe. Paths, never contents. A `zenity` planted on `PATH` runs
+  as the user (§6 assumption 1). Whether a chooser adds its picks to the desktop's recent files is
+  unchecked on every platform; if it does, that list names what was cleaned.
+- **An output folder.** The temporary file and the copy land there, so §5.5's permission caveats
+  follow that folder's filesystem. A sync client watching it sees only stripped bytes: stripping
+  finishes before the temporary file is opened. An existing file is never overwritten, so a second
+  original with the same name is reported not cleaned. The choice is held in memory only: eframe's
+  `persistence` is off, so nothing on disk records what was cleaned or where.
+
 ---
 
 ## 6. Assumptions
