@@ -42,6 +42,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- `strypt-gui` opens without a console window on Windows, and if its window cannot open, it says so
+  in a dialog rather than on a stderr nobody sees.
 - `strypt-gui` takes dropped folders. It says how many files and folders it found and where copies
   will go, and writes nothing until asked. Each file gets a row, as does every link, special file
   or unreadable entry it skipped, and a folder's unsupported files share one card that lists them.

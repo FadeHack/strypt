@@ -1,6 +1,8 @@
 //! Drop or choose files, get a `*.stripped.*` copy of each, one card per file.
 
 #![forbid(unsafe_code)]
+// No console window beside the GUI on Windows; debug builds keep it for stderr.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -932,7 +934,7 @@ fn main() -> eframe::Result {
         event_loop_builder: event_loop(backend),
         ..Default::default()
     };
-    eframe::run_native(
+    let run = eframe::run_native(
         "strypt",
         options,
         Box::new(move |cc| {
@@ -943,5 +945,14 @@ fn main() -> eframe::Result {
             theme::install(&cc.egui_ctx);
             Ok(Box::new(App::new(cc.egui_ctx.clone(), backend)))
         }),
-    )
+    );
+    // Launched from Finder, Explorer or a desktop menu, there is no terminal to show stderr.
+    if let Err(e) = &run {
+        rfd::MessageDialog::new()
+            .set_level(rfd::MessageLevel::Error)
+            .set_title("strypt")
+            .set_description(format!("strypt could not open its window.\n\n{e}"))
+            .show();
+    }
+    run
 }
