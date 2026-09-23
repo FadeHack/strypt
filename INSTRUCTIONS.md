@@ -23,7 +23,7 @@ cargo build                      # whole workspace
 cargo build --release
 cargo test --all-features        # what CI runs, on Linux, macOS and Windows
 cargo test -p strypt             # CLI contract tests only
-cargo test -p strypt-gui         # files the GUI writes match the CLI's: bytes, names, modes
+cargo test -p strypt-gui         # GUI output matches the CLI's; its diff shows names, never values
 cargo run -p strypt-gui          # the GUI; drop or open files
 cargo test jpeg                  # tests matching a name
 cargo fmt --check
@@ -74,6 +74,10 @@ cargo test --all-features && \
 cargo deny check && \
 ./scripts/prove-gates.sh
 ```
+
+On macOS, also lint the Linux-only GUI code:
+`cargo clippy --target aarch64-unknown-linux-gnu --all-targets --all-features -- -D warnings`
+(`rustup target add aarch64-unknown-linux-gnu` once).
 
 CI also builds at the MSRV (`rustup toolchain install 1.95`, then `cargo +1.95 build --all-features`), runs the [filesystem matrix](#filesystem-constraints-matrix) on Linux, and
 fuzzes every target for 60 seconds. Enable the local pre-commit hook once per clone:

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use eframe::egui;
-use strypt_gui::{Backend, Status, Tone};
+use strypt_gui::{Backend, Diff, Status, Tone};
 
 struct App {
     rows: Vec<(PathBuf, Status)>,
@@ -165,6 +165,37 @@ fn row(ui: &mut egui::Ui, path: &std::path::Path, status: &Status) {
     let detail = status.detail();
     if !detail.is_empty() {
         ui.label(detail);
+    }
+    if let Status::Cleaned { output, diff } = status {
+        egui::CollapsingHeader::new("What strypt found, removed and kept")
+            .id_salt(output)
+            .default_open(true)
+            .show(ui, |ui| show_diff(ui, diff));
+    }
+}
+
+fn show_diff(ui: &mut egui::Ui, diff: &Diff) {
+    ui.weak(strypt_gui::SENSITIVITY_KEY);
+    for section in diff.sections() {
+        ui.label(egui::RichText::new(section.title).strong());
+        if section.lines.is_empty() {
+            ui.label(section.empty);
+        }
+        for line in section.lines {
+            ui.horizontal_wrapped(|ui| {
+                ui.add_sized(
+                    [18.0, 0.0],
+                    egui::Label::new(egui::RichText::new(line.mark).strong()),
+                );
+                let text = ui.label(line.text);
+                if let Some(words) = line.sensitivity {
+                    text.on_hover_text(words);
+                }
+            });
+        }
+    }
+    for caveat in Diff::caveats() {
+        ui.colored_label(ui.visuals().warn_fg_color, caveat);
     }
 }
 

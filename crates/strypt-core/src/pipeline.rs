@@ -95,7 +95,21 @@ pub fn strip_file(
     options: &StripOptions,
 ) -> Result<StripReport> {
     let data = read_bounded(input, limits)?;
-    let stripped = strip_bytes(&data, options)?;
+    strip_bytes_to_file(&data, output, overwrite, options)
+}
+
+/// [`strip_file`] for bytes already read, so a front-end that inspects first reads the file once.
+///
+/// # Errors
+///
+/// As [`strip_bytes`], plus [`StryptError::Io`] if the output cannot be written.
+pub fn strip_bytes_to_file(
+    data: &[u8],
+    output: &Path,
+    overwrite: Overwrite,
+    options: &StripOptions,
+) -> Result<StripReport> {
+    let stripped = strip_bytes(data, options)?;
 
     let mut writer = AtomicWrite::begin(output, overwrite, Permissions::OwnerOnly)?;
     writer.write_all(&stripped.bytes)?;

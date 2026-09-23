@@ -3729,3 +3729,28 @@ dependency but unfamiliar and ~200 lines to own. Checked 2026-09-23: `rfd` 0.17.
 - **Not run on Tails** (ADR-0043); whether it ships a portal, `zenity` or XWayland is unchecked.
 
 ---
+
+## ADR-0060 — The CLI and the GUI share one wording file
+
+**Status:** Accepted (2026-09-23)
+
+**Context.** The before/after diff (ROADMAP Phase 5) must say what the CLI says about each kind,
+sensitivity, kept reason and note. That wording lived in the CLI binary's `render.rs`, and core may
+hold no prose (ADR-0003). The drift was already real: the CLI printed FLAC's kept MD5 as "reason not
+recognised", having never been taught `DerivedFromPayload` (ADR-0038).
+
+**Decision.** The shared words live in `crates/strypt/src/wording.rs`, which the GUI compiles by
+`#[path]`. The published CLI owns the file, so `cargo package` still finds it; the GUI is
+`publish = false`. Each front-end keeps its own layout. Rejected: the GUI depending on a `strypt`
+library target, which brings `clap` and `serde_json` into its graph; a third crate, which the CLI
+could not depend on without also publishing it.
+
+**Consequences.**
+
+- The CLI and GUI cannot drift on shared text. Anything only one of them says (the GUI's sensitivity
+  words, the "nothing found" caveat) stays in that crate.
+- An edit to `wording.rs` changes both. `tests/diff_wording.rs` checks the GUI's side across the
+  corpus: no values, a label for every case, both caveats, none of hard constraint 7's words.
+- A case added to a core enum reaches a `_` arm that still says something true, in both.
+
+---

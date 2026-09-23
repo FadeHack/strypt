@@ -7,6 +7,7 @@
 //! them is quietly less safe.
 
 mod render;
+mod wording;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -339,9 +340,6 @@ fn finish(json: bool, values: &[serde_json::Value], outcome: &Outcome) {
         // A standing reminder rather than a per-file line. strypt reads file contents; the
         // things it cannot see are frequently the ones that identify someone
         // (docs/THREAT_MODEL.md §4). Most needed after a clean result, when a user publishes.
-        eprintln!(
-            "strypt: filenames, folder names, and anything visible in the document itself \
-             are not touched."
-        );
+        eprintln!("strypt: {}.", wording::NOT_TOUCHED);
     }
 }

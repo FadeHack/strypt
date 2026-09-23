@@ -331,3 +331,19 @@ fn json_output_gets_no_caveat() {
     let out = strypt(&["show", "--json"], &fixture("jpeg/clean.jpg"));
     assert!(!stderr(&out).contains(CAVEAT));
 }
+
+#[test]
+fn every_kept_reason_in_the_corpus_is_named() {
+    // FLAC's MD5 was printed as "reason not recognised" until ADR-0060.
+    let dir = scratch("kept-reason");
+    let input = copy_in(&dir, "flac/appended-tags.flac", "a.flac");
+    let out = strypt(&["strip"], &input);
+    let text = stdout(&out);
+    assert!(text.contains("kept STREAMINFO"), "{text}");
+    assert!(
+        text.contains("anyone holding the file can recompute it"),
+        "{text}"
+    );
+    assert!(!text.contains("not recognise"), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

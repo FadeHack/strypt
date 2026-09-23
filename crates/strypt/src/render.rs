@@ -12,9 +12,9 @@
 
 use std::fmt::Write as _;
 
-use strypt_core::report::{
-    Finding, MetadataKind, MetadataReport, MetadataValue, Note, Sensitivity, StripReport,
-};
+use strypt_core::report::{Finding, MetadataReport, MetadataValue, Note, Sensitivity, StripReport};
+
+use crate::wording::{kind_label, note_line, retention_reason, sensitivity_mark};
 
 /// Render a `show` result for one file.
 pub fn show_text(path: &std::path::Path, report: &MetadataReport) -> String {
@@ -60,16 +60,7 @@ pub fn strip_text(
             out,
             "  kept {} ({})",
             retained.location,
-            match retained.reason {
-                strypt_core::report::RetentionReason::RemovalWouldAlterPayload =>
-                    "removing it would have altered the file's contents",
-                strypt_core::report::RetentionReason::StructurallyRequired =>
-                    "the format requires it",
-                // strypt-core's enums are non-exhaustive so that new cases are additive. A
-                // front-end that has not been taught the new case must still say something
-                // truthful rather than fail to build or, worse, stay silent about it.
-                _ => "reason not recognised by this version of the CLI",
-            }
+            retention_reason(retained.reason)
         );
     }
     for note in &report.notes {
@@ -80,12 +71,7 @@ pub fn strip_text(
 
 fn finding_line(finding: &Finding) -> String {
     let mut line = String::new();
-    line.push_str(match finding.sensitivity() {
-        Sensitivity::Direct => "!! ",
-        Sensitivity::Correlating => " ! ",
-        Sensitivity::Incidental => "   ",
-        _ => " ? ",
-    });
+    let _ = write!(line, "{:>2} ", sensitivity_mark(finding.sensitivity()));
     line.push_str(kind_label(finding.kind));
     line.push_str(" — ");
     line.push_str(&finding.location);
@@ -104,51 +90,6 @@ fn finding_line(finding: &Finding) -> String {
         }
     }
     line
-}
-
-fn kind_label(kind: MetadataKind) -> &'static str {
-    match kind {
-        MetadataKind::Location => "location",
-        MetadataKind::DeviceIdentity => "device identity",
-        MetadataKind::PersonalIdentity => "personal identity",
-        MetadataKind::SoftwareFingerprint => "software fingerprint",
-        MetadataKind::Timestamp => "timestamp",
-        MetadataKind::Thumbnail => "embedded thumbnail",
-        MetadataKind::EditingHistory => "editing history",
-        MetadataKind::DocumentIdentifier => "document identifier",
-        MetadataKind::ColourProfile => "colour profile",
-        MetadataKind::Comment => "comment",
-        MetadataKind::Other => "other metadata",
-        _ => "metadata of a kind this version of the CLI does not recognise",
-    }
-}
-
-fn note_line(note: &Note) -> String {
-    match note {
-        Note::UnparsedRegion { location, bytes } => format!(
-            "{location} could not be parsed ({bytes} bytes left untouched) — \
-             any metadata inside it was not removed"
-        ),
-        Note::IncrementalHistory { revisions } => format!(
-            "this file had been saved {revisions} time(s) before; earlier revisions were \
-             inside it"
-        ),
-        Note::OrphanedObjectsRemoved { objects } => {
-            format!("{objects} object(s) nothing referred to any more were dropped")
-        }
-        Note::OutOfScopeContent { location } => {
-            format!("contains {location}, which strypt does not open — check it separately")
-        }
-        Note::FilenameMayIdentify => {
-            "the filename itself may identify its subject; strypt does not change filenames"
-                .to_string()
-        }
-        Note::CapabilityRemoved {
-            location,
-            capability,
-        } => format!("{location} was removed, so this file can no longer {capability}"),
-        _ => "this version of the CLI does not recognise a note strypt-core produced".to_string(),
-    }
 }
 
 /// A `show` result as JSON.

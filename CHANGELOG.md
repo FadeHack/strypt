@@ -19,6 +19,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+### Fixed
+
+- `strypt strip` gave FLAC's kept audio MD5 as "reason not recognised by this version of the CLI". It
+  now says it is kept because anyone holding the file can recompute it (ADR-0038). The CLI's and the
+  GUI's wording now come from one file (ADR-0060).
+
 ### Changed
 
 - **Phase 5, the GUI, is open, and it is built on egui rather than Tauri.** Tauri resolves an HTTP
@@ -30,6 +36,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
+- `strypt-gui` shows, under each cleaned file, what was found, what was removed and what was kept and
+  why, by field name only, with the CLI's `!!`/`!` sensitivity marks and every note. An empty result
+  says so, and every file carries the caveats that filenames and visible content are untouched, and
+  that finding nothing does not mean a file is clean.
+- `strypt_core::strip_bytes_to_file`, so a front-end that inspects a file first reads it once.
 - An Open files button in `strypt-gui`, beside drag-and-drop, through the `rfd` crate. On Linux the
   GUI starts on X11 when it can, because file drops do not arrive under Wayland (ADR-0059).
 - `strypt-gui`, in progress and not released: drop any number of files, and each gets a row
