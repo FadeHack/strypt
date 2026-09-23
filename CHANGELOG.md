@@ -30,9 +30,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Added
 
-- A `strypt-gui` spike: one dropped file, its stripped copy written beside it, removed fields
-  listed. Not released, and not yet usable as a tool. It writes through the same core call as the
-  CLI, and a test holds the files each writes identical in bytes, name and permissions.
+- `strypt-gui`, in progress and not released: drop any number of files, and each gets a row
+  saying cleaned, not cleaned, or unsupported, with the CLI's reason. Stripping runs off the window's
+  thread. A test holds that only a written file is shown as cleaned; another holds the files it
+  writes identical to the CLI's in bytes, name and permissions.
 - `strypt_core::stripped_path`: the `*.stripped.*` naming, moved out of the CLI so every
   front-end shares it. The CLI's output names are unchanged.
 
