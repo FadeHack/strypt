@@ -254,12 +254,14 @@ and fails unless the two match. A local release build embeds your home directory
 scripts/build-release.sh aarch64-apple-darwin   # -> target/release-artifacts/strypt-<version>-<target>
 scripts/build-release.sh --gui aarch64-apple-darwin   # strypt-gui-<version>-<target> (ADR-0062)
 scripts/package-macos.sh ARM64_GUI X86_64_GUI out     # -> out/strypt.app and a universal .dmg
+scripts/package-linux.sh LINUX_GUI out                # -> out/strypt-gui-<version>-<target>.AppImage
 gh workflow run release.yml                      # the gate on all ten builds; publishes nothing
 gh workflow run release.yml -f prove=true        # drops a remap; each job passes only if the gate catches it
 scripts/sbom.sh out x86_64-unknown-linux-musl    # -> out/strypt-<version>-<target>.cdx.json (ADR-0054)
 ```
 
 `sbom.sh` needs `cargo install cargo-cyclonedx --version 0.5.9 --locked`, the version `release.yml` pins.
+`package-linux.sh` runs on Linux only and needs `desktop-file-validate` (`desktop-file-utils`).
 
 Cutting a release:
 

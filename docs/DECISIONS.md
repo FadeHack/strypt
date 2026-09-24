@@ -3864,5 +3864,11 @@ Verified the same day:
   and a 26.3.2 report cleared on an icon-services reset and drew correctly on 26.4
   ([forum](https://forum.c-command.com/t/macbook-neo-applications-folder-graphic-missing/17531),
   2026-09-24). A Finder alias gets the same badged rendering and needs Finder to write. Dragging works.
+- **`package-macos` passed on its first run** ([run 35918350176](https://github.com/FadeHack/strypt/actions/runs/35918350176)):
+  the two packagings produced identical `.app`s.
+- **Decision 3's digests are GitHub's asset digests**, pinned in `scripts/package-linux.sh`; neither
+  project had a newer tagged release on 2026-09-24. appimagetool embeds an update URL only when given
+  `-u` or `-g`, and neither is passed. `package-linux` packages each AppImage twice and fails if they
+  differ; its first run is the measurement decision 3 asks for.
 
 ---
