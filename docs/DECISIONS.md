@@ -3879,5 +3879,9 @@ Verified the same day:
   a container on the 24.04 runners instead. `rustup-init` 1.29.1 is pinned by digest there too; apt's
   `gcc` and `binutils` are not, so the release notes record the linker. The gate fails any Linux GUI
   build needing a glibc symbol above 2.35. Rejected: `cargo-zigbuild`, a new tool on the release path.
+  Both builds then reproduced at `GLIBC_2.35`, linked by GNU ld 2.38 ([run 35981228334](https://github.com/FadeHack/strypt/actions/runs/35981228334)),
+  and the owner's Ubuntu 22.04.3 arm64 VM opened that AppImage by double-click and stripped files.
+  The artifact's zip kept the execute bit, so "Allow executing" was already on; a browser download
+  of a release asset does not keep it, and that step is still unmeasured.
 
 ---
