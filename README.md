@@ -8,12 +8,13 @@ and strips it out.
 
 A single self-contained binary. Memory-safe Rust. **No network access in any code path.**
 
-> **Status: `0.1.2`. No external audit.** 0.1.1 and earlier could drop a page from a PDF whose
+> **Status: `0.2.0`. No external audit.** 0.1.1 and earlier could drop a page from a PDF whose
 > page tree named one object twice, and 0.1.0 left the Exif of photos inside PDFs; see
 > [`CHANGELOG.md`](https://github.com/FadeHack/strypt/blob/HEAD/CHANGELOG.md). Read
 > [`docs/KNOWN_LIMITATIONS.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/KNOWN_LIMITATIONS.md) before relying on strypt.
-> Phases 0–4 are complete: binaries, a Homebrew tap and crates.io, with install steps tested on
-> fresh CI runners ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
+> Phases 0–5 are complete: binaries, a Homebrew tap and crates.io, with install steps tested on
+> fresh CI runners, and a desktop app tried by non-technical people on macOS and Linux
+> ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
 
 [![CI](https://github.com/FadeHack/strypt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/ci.yml)
 [![no-network](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml)
@@ -114,23 +115,23 @@ brew install fadehack/strypt/strypt
 
 | Platform | File |
 |---|---|
-| Linux x86_64 (static) | `strypt-0.1.2-x86_64-unknown-linux-musl` |
-| Linux arm64 (static) | `strypt-0.1.2-aarch64-unknown-linux-musl` |
-| macOS, Apple Silicon | `strypt-0.1.2-aarch64-apple-darwin` |
-| macOS, Intel | `strypt-0.1.2-x86_64-apple-darwin` |
-| Windows x86_64 | `strypt-0.1.2-x86_64-pc-windows-msvc.exe` |
+| Linux x86_64 (static) | `strypt-0.2.0-x86_64-unknown-linux-musl` |
+| Linux arm64 (static) | `strypt-0.2.0-aarch64-unknown-linux-musl` |
+| macOS, Apple Silicon | `strypt-0.2.0-aarch64-apple-darwin` |
+| macOS, Intel | `strypt-0.2.0-x86_64-apple-darwin` |
+| Windows x86_64 | `strypt-0.2.0-x86_64-pc-windows-msvc.exe` |
 
 ```sh
-F=strypt-0.1.2-x86_64-unknown-linux-musl    # your file from the table
-curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.2/$F
-curl -LO https://github.com/FadeHack/strypt/releases/download/v0.1.2/SHA256SUMS
+F=strypt-0.2.0-x86_64-unknown-linux-musl    # your file from the table
+curl -LO https://github.com/FadeHack/strypt/releases/download/v0.2.0/$F
+curl -LO https://github.com/FadeHack/strypt/releases/download/v0.2.0/SHA256SUMS
 sha256sum -c SHA256SUMS --ignore-missing     # must print "<file>: OK"; older macOS: shasum -a 256 -c
 chmod +x $F && ./$F --version                # then rename it strypt, in a directory on your PATH
 ```
 
 To check that this repository's CI built it, with the [GitHub CLI](https://cli.github.com/) signed in:
 `gh attestation verify $F -R FadeHack/strypt`. On Windows, compare
-`Get-FileHash strypt-0.1.2-x86_64-pc-windows-msvc.exe` with its line in `SHA256SUMS`.
+`Get-FileHash strypt-0.2.0-x86_64-pc-windows-msvc.exe` with its line in `SHA256SUMS`.
 
 The binaries are not code-signed ([ADR-0051](https://github.com/FadeHack/strypt/blob/HEAD/docs/DECISIONS.md)).
 On macOS, a file downloaded in a browser is blocked once: click **Open Anyway** in System Settings →

@@ -16,8 +16,8 @@ name = "strypt-gui"
 path = "src/main.rs"
 
 [dependencies]
-strypt-core = { path = "../strypt-core", version = "0.1.2" }
-strypt-mark = { path = "../strypt-mark", version = "0.1.2" }
+strypt-core = { path = "../strypt-core", version = "0.2.0" }
+strypt-mark = { path = "../strypt-mark", version = "0.2.0" }
 # ADR-0058. `links` stays off: it pulls `webbrowser` and `url`. AccessKit is on, and is why
 # check-no-network.sh admits the AT-SPI crates for this crate alone.
 eframe = { version = "0.36.2", default-features = false, features = [
@@ -32,7 +32,7 @@ rfd = "0.17.2"
 
 # ADR-0062: the .exe's Explorer icon. `cfg(windows)` here is the host, which runs rc.exe.
 [target.'cfg(windows)'.build-dependencies]
-strypt-mark = { path = "../strypt-mark", version = "0.1.2" }
+strypt-mark = { path = "../strypt-mark", version = "0.2.0" }
 winresource = { version = "0.1.31", default-features = false }
 
 # ADR-0059: eframe's own winit, named only to choose X11, where file drops work.

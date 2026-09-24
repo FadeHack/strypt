@@ -3898,3 +3898,33 @@ Verified the same day:
   The owner chose **0.2.0** as the first release carrying the GUI, the whole workspace moving with it.
 
 ---
+
+## ADR-0063 — Phase 5 closes with 0.2.0
+
+**Status:** Accepted (2026-09-24)
+
+Closes ROADMAP Phase 5, opened by ADR-0058.
+
+**Decision.**
+
+1. **Phase 5 closes.** Its exit criteria:
+   1. Met. `crates/strypt-gui/tests/cli_identity.rs` compares the GUI's output with the CLI's over
+      the corpus, byte for byte, folder drops included (ADR-0061).
+   2. Met. `check-no-network.sh` is per crate, and `prove-gates.sh` plants four violations of
+      ADR-0058 decision 3.
+   3. Met on macOS and Linux, as the owner reports (ADR-0062). Windows is scoped out while unsigned.
+   4. Met. No `unsafe`. `eframe` (ADR-0058), `rfd` and `pollster` (ADR-0059) and `winresource`
+      (ADR-0062) each have an ADR; `strypt-mark` is first-party with no dependencies.
+2. **0.2.0 is the first release carrying the app**, the whole workspace moving with it (ADR-0062
+   decision 7).
+
+**Consequences.**
+
+- **Carried, not holding the phase open:** "Allow executing" on a browser download of a release
+  AppImage; Orca, NVDA and Narrator; Windows usability; Tails.
+- **`install.yml` tests README's command-line steps only.** The app's download rows are untested
+  there.
+- **No phase is open.** Phase 6 opens only by ADR, and ROADMAP's framework note still asks for
+  `eframe` to be re-verified at each release.
+
+---

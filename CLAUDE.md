@@ -18,9 +18,9 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **5, the GUI** (opened 2026-09-23, ADR-0058)
+## 2. Current phase: **none open** (Phase 5 closed 2026-09-24, ADR-0063)
 
-Phases 0–4 are complete. The GUI is `eframe`/`egui`, **not Tauri** — read ADR-0058 before touching
+Phases 0–5 are complete. Phase 6 is not open until an ADR opens it. The GUI is `eframe`/`egui`, **not Tauri** — read ADR-0058 before touching
 `strypt-gui` or `scripts/check-no-network.sh`, which the same ADR makes per-crate.
 [`docs/ROADMAP.md`](docs/ROADMAP.md) has the status, and
 [`README.md`](README.md) the format list. Every other format is reported as unsupported, never

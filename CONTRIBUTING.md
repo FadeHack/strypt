@@ -3,8 +3,8 @@
 Thanks for considering it. Please read this first — strypt has a few expectations that differ
 from a typical Rust CLI project, because of who relies on it.
 
-**Status: `0.1.2` (2026-09-21).** Phases 0–4 are complete, the last
-being distribution. There has been no external audit; the [README status block](README.md)
+**Status: `0.2.0` (2026-09-24).** Phases 0–5 are complete, the last
+being the desktop app. There has been no external audit; the [README status block](README.md)
 says what that means.
 
 **The format list is closed.** [ADR-0027](docs/DECISIONS.md) fixed it and

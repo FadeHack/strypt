@@ -19,6 +19,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-24
+
 ### Fixed
 
 - `--recursive` skipped an unreadable entry inside a folder without saying so, so any files in it
@@ -33,9 +35,10 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Changed
 
-- **Phase 5, the GUI, is open, and it is built on egui rather than Tauri.** Tauri resolves an HTTP
-  client into the dependency graph and needs WebKit2GTK on Linux, so it fails strypt's no-network
-  gate (ADR-0058). Nothing in the CLI changes.
+- **strypt has a desktop app**, for dropping files onto a window: a `.dmg` for macOS, an AppImage
+  for Linux and a portable `.exe` for Windows, all unsigned. It is built on egui rather than Tauri,
+  which resolves an HTTP client into the dependency graph and needs WebKit2GTK on Linux, so it fails
+  strypt's no-network gate (ADR-0058). Phase 5 is complete (ADR-0063).
 - **The no-network check is now per crate.** The library and CLI still admit no networking-capable
   crate at all; only the GUI may carry the Linux accessibility and Wayland event loops, and only
   by those routes (ADR-0058 decision 3).
@@ -89,7 +92,7 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - `strypt_core::strip_bytes_to_file`, so a front-end that inspects a file first reads it once.
 - An Open files button in `strypt-gui`, beside drag-and-drop, through the `rfd` crate. On Linux the
   GUI starts on X11 when it can, because file drops do not arrive under Wayland (ADR-0059).
-- `strypt-gui`, in progress and not released: drop any number of files, and each gets a row
+- `strypt-gui`: drop any number of files, and each gets a row
   saying cleaned, not cleaned, or unsupported, with the CLI's reason. Stripping runs off the window's
   thread. A test holds that only a written file is shown as cleaned; another holds the files it
   writes identical to the CLI's in bytes, name and permissions.
@@ -1160,7 +1163,8 @@ Read these before relying on the tool. They are limitations, not bugs, and each 
   unpublishable to crates.io. Now versioned explicitly.
 - Bumped `actions/checkout` to v5; v4 targets a deprecated Node runtime.
 
-[Unreleased]: https://github.com/FadeHack/strypt/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/FadeHack/strypt/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/FadeHack/strypt/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/FadeHack/strypt/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/FadeHack/strypt/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/FadeHack/strypt/releases/tag/v0.1.0

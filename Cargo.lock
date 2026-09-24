@@ -3077,7 +3077,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strypt"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "clap",
  "serde_json",
@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "strypt-core"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -3096,7 +3096,7 @@ dependencies = [
 
 [[package]]
 name = "strypt-gui"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "eframe",
  "rfd",
@@ -3108,7 +3108,7 @@ dependencies = [
 
 [[package]]
 name = "strypt-mark"
-version = "0.1.2"
+version = "0.2.0"
 
 [[package]]
 name = "syn"

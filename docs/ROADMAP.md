@@ -1,7 +1,7 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–4 complete; **Phase 5 open** (ADR-0058); four Phase 7 deliverables in
-progress (ADR-0055) · **Last updated:** 2026-09-23
+**Status:** Phases 0–5 complete; no phase open; four Phase 7 deliverables in progress (ADR-0055)
+· **Last updated:** 2026-09-24
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -131,51 +131,26 @@ version bump. OSS-Fuzz, declined until this phase closed (ADR-0049), is undecide
 
 ---
 
-## Phase 5 — GUI
+## Phase 5 — GUI *(complete; opened 2026-09-23, closed 2026-09-24)*
 
-**Goal.** Non-technical users — Marcus and Devi from `docs/PRD.md` §5 — get the same
-protection CLI users have, with no lower-trust code path.
+Opened by ADR-0058, closed by ADR-0063; 0.2.0 is the first release carrying the app. Built on
+`eframe`/`egui` 0.36.2, not Tauri, which resolves `reqwest` into the graph and needs WebKit2GTK on
+Linux. **Re-verify the framework at each release:** its security posture is load-bearing.
 
-**Framework:** `eframe`/`egui` 0.36.2, with `links` off and AccessKit on (ADR-0058, 2026-09-23).
-**Tauri is rejected:** it resolves `reqwest` into the graph and needs WebKit2GTK on Linux. Re-verify
-at each release, not once: the framework's security posture is load-bearing.
+| # | Deliverable | Outcome |
+|---|---|---|
+| 1 | `strypt-gui` calling `strypt-core` directly | One entry into core, and the CLI's wording from one shared file (ADR-0060) |
+| 2 | Drag-and-drop, Open files, batches, folders | ADR-0059 and ADR-0061. Drops fail on Wayland alone; Open files still works |
+| 3 | Before/after metadata diff | Removed kinds in plain words, and found, removed and kept by field name under Technical details |
+| 4 | Copy-out by default | Copies only, beside each original or in a chosen folder; no in-place option |
+| 5 | Verified absence of network | The per-crate gate of ADR-0058 decision 3, proven to fail |
+| 6 | Packages | A universal `.dmg`, an AppImage per Linux architecture and a portable `.exe`, unsigned (ADR-0062) |
 
-**Deliverables.**
-- `strypt-gui` calling **directly into `strypt-core`**. It must not re-implement stripping
-  logic and must not shell out to the CLI binary as a subprocess. Call the library.
-- Drag-and-drop and an Open files button (ADR-0059), batch support, and folder drops through
-  core's walk (ADR-0061).
-- **A visible before/after metadata diff**, so the user sees exactly what is being removed.
-  This is a trust feature first and a usability feature second: a user who can see what came
-  out has grounds to believe the tool, and a user who sees an empty diff on a file they
-  expected to be dirty has learned something important.
-- Safe defaults matching the CLI: copy-out, never in-place without explicit action.
-- **Verified absence of network capability**, by the per-crate no-network gate of ADR-0058
-  decision 3 — audited, not assumed.
-
-**Exit criteria.**
-1. GUI produces **byte-identical** output to the CLI for every file in the test corpus.
-   This is the proof that no logic was duplicated or has drifted (ADR-0003).
-2. `scripts/check-no-network.sh` confirms **zero** HTTP, TLS or DNS crates in `strypt-gui`'s
-   graph, and that `async-io` and `polling` are admitted there only through `zbus` (AT-SPI) or
-   `calloop` (Wayland), per ADR-0058 decision 3. Gate proven to fail 2026-09-23.
-3. The GUI is usable by someone who has never opened a terminal — validated with an actual
-   non-technical person, not assumed by the developer. Judged on Linux and macOS; Windows is
-   scoped out while the binary is unsigned (ADR-0058 decision 4).
-   *Met 2026-09-24, as the owner reports:* a non-technical person on macOS, told only where Open
-   Anyway is, and one on Linux.
-4. No new `unsafe` and no new dependency without an ADR.
-
-**Risks.**
-- *"Nice to have" network features* — update checks, telemetry, crash reporting, remote
-  fonts — are exactly the scope creep that would break ADR-0004. Any such proposal is an ADR
-  discussion, never a quick addition. ADR-0058 removes the webview's silent routes to one; it
-  does not remove the temptation.
-- *Front-end divergence.* Mitigated structurally by exit criterion 1, which is why it is a
-  byte-identity check rather than a spot check.
-- *The Tails and Whonix path stays with the CLI.* A windowing stack rules out the static musl
-  binary, so the GUI does not inherit ADR-0052's route. The spike says probably, untested on Tails
-  (ADR-0058 decision 5).
+**Exit criteria — all four met 2026-09-24** (ADR-0063 decision 1): byte-identical output to the CLI
+over the corpus; zero HTTP, TLS or DNS crates in the GUI's graph; used by non-technical people on
+macOS and Linux, as the owner reports; no new `unsafe`, and an ADR for every new dependency. Windows
+was scoped out while unsigned, screen readers were tried with VoiceOver only, and the Tails and
+Whonix path stays with the CLI.
 
 ---
 
