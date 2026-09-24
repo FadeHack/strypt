@@ -3700,7 +3700,7 @@ licensing contradicts ADR-0012's permissive-licensing differentiator.
 **Status:** Accepted (2026-09-23)
 
 **Context.** Drag-and-drop was the GUI's only input. winit 0.30.13, eframe 0.36.2's, reports file
-drops on macOS, Windows and X11 only; on Ubuntu 24.04 (arm64, UTM) a Wayland session delivered no
+drops on macOS, Windows and X11 only; on Ubuntu 22.04 (arm64, UTM) a Wayland session delivered no
 drop, and the same build under XWayland did (2026-09-23). A drag-only window also cannot be used
 from a keyboard or a screen reader, and a first-time user looks for a button (exit criterion 3).
 
@@ -3789,7 +3789,7 @@ for a writer forever.
 
 ## ADR-0062 — The GUI ships as a `.dmg`, an AppImage and a portable `.exe`, unsigned
 
-**Status:** Accepted (2026-09-23)
+**Status:** Accepted (2026-09-23); decision 1 amended 2026-09-24
 
 Settles how ROADMAP Phase 5's GUI is released. Extends ADR-0050 to a second package and applies
 ADR-0051 to an app bundle.
@@ -3816,8 +3816,10 @@ Verified the same day:
 **Decision.**
 
 1. **`scripts/build-release.sh --gui`** builds `strypt-gui` with ADR-0050's flags, and the release
-   workflow gates it twice like the CLI. Linux targets are `x86_64-` and `aarch64-unknown-linux-gnu`
-   on `ubuntu-24.04` runners, so glibc 2.39 is the floor (Debian 13, Ubuntu 24.04, Fedora 40).
+   workflow gates it twice like the CLI. Linux targets are `x86_64-` and `aarch64-unknown-linux-gnu`,
+   built by `scripts/build-in-container.sh` in `ubuntu:22.04` pinned by digest, so glibc 2.35 is the
+   floor (Ubuntu 22.04, Debian 12, Mint 21). *Amended:* built on the `ubuntu-24.04` runners directly,
+   the floor was 2.39, and the AppImage did nothing when double-clicked on Ubuntu 22.04.
 2. **macOS: a `.app` in a `.dmg`, both architectures.** The script assembles the bundle and signs it
    whole with `codesign --force -s -`: ad-hoc, so no name and no fee (ADR-0051). The binary is gated;
    the `.dmg` is attested and checksummed only.
@@ -3871,5 +3873,11 @@ Verified the same day:
   `-u` or `-g`, and neither is passed. `package-linux` packages each AppImage twice and fails if they
   differ. **Measured: both AppImages reproduce** ([run 35965305247](https://github.com/FadeHack/strypt/actions/runs/35965305247)),
   across checkout, `CARGO_HOME`, `RUSTUP_HOME` and staging directory on one runner image.
+- **The owner's Ubuntu 22.04 VM refused that AppImage** (`GLIBC_2.39' not found`), silently on a
+  double-click. GitHub's `ubuntu-22.04` runners began deprecation 2026-09-17 and go on 2027-04-17
+  ([runner-images#14254](https://github.com/actions/runner-images/issues/14254)), so the build runs in
+  a container on the 24.04 runners instead. `rustup-init` 1.29.1 is pinned by digest there too; apt's
+  `gcc` and `binutils` are not, so the release notes record the linker. The gate fails any Linux GUI
+  build needing a glibc symbol above 2.35. Rejected: `cargo-zigbuild`, a new tool on the release path.
 
 ---

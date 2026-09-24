@@ -253,6 +253,7 @@ and fails unless the two match. A local release build embeds your home directory
 ```sh
 scripts/build-release.sh aarch64-apple-darwin   # -> target/release-artifacts/strypt-<version>-<target>
 scripts/build-release.sh --gui aarch64-apple-darwin   # strypt-gui-<version>-<target> (ADR-0062)
+scripts/build-in-container.sh aarch64-unknown-linux-gnu   # the Linux GUI, in Ubuntu 22.04 (Docker)
 scripts/package-macos.sh ARM64_GUI X86_64_GUI out     # -> out/strypt.app and a universal .dmg
 scripts/package-linux.sh LINUX_GUI out                # -> out/strypt-gui-<version>-<target>.AppImage
 gh workflow run release.yml                      # the gate on all ten builds; publishes nothing

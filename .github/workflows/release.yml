@@ -31,8 +31,9 @@ jobs:
           - { target: x86_64-pc-windows-msvc, os: windows-2025 }
           # The GUI is gated here but attached to no release yet (ADR-0062 decision 7). Its
           # artifacts are named `gui-*` so the release job's `strypt-*` pattern skips them.
-          - { gui: true, target: x86_64-unknown-linux-gnu, os: ubuntu-24.04 }
-          - { gui: true, target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm }
+          # Built in Ubuntu 22.04, so glibc 2.35 is the floor, not the runner's 2.39.
+          - { gui: true, container: true, target: x86_64-unknown-linux-gnu, os: ubuntu-24.04 }
+          - { gui: true, container: true, target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm }
           - { gui: true, target: aarch64-apple-darwin, os: macos-15 }
           - { gui: true, target: x86_64-apple-darwin, os: macos-15 }
           - { gui: true, target: x86_64-pc-windows-msvc, os: windows-2025 }
@@ -47,6 +48,7 @@ jobs:
     env:
       T: ${{ matrix.target }}
       GUI: ${{ matrix.gui && '--gui' || '' }}
+      CONTAINER: ${{ matrix.container == true }}
       PROVE: ${{ inputs.prove == true }}
     steps:
       # Actions on the release path are pinned by commit (ADR-0050 decision 4).
@@ -60,11 +62,14 @@ jobs:
         run: sed -i.bak '/remap-path-prefix=\$CARGO=/d' a/scripts/build-release.sh "second checkout/scripts/build-release.sh"
 
       - name: Build
-        run: bash a/scripts/build-release.sh $GUI "$T" out-a
+        run: |
+          if [ "$CONTAINER" = true ]; then LD_NOTE="$RUNNER_TEMP/linker" bash a/scripts/build-in-container.sh "$T" out-a
+          else bash a/scripts/build-release.sh $GUI "$T" out-a; fi
       - name: Build again, as another machine would
         run: |
           export CARGO_HOME="$RUNNER_TEMP/cargo-b" RUSTUP_HOME="$RUNNER_TEMP/rustup-b"
-          bash "second checkout/scripts/build-release.sh" $GUI "$T" out-b
+          if [ "$CONTAINER" = true ]; then bash "second checkout/scripts/build-in-container.sh" "$T" out-b
+          else bash "second checkout/scripts/build-release.sh" $GUI "$T" out-b; fi
 
       - name: Compare
         run: |
@@ -78,6 +83,12 @@ jobs:
           else
             [ $same = true ] || { echo "::error::$T is not reproducible"; exit 1; }
             (command -v sha256sum >/dev/null && sha256sum "out-a/$a") || shasum -a 256 "out-a/$a"
+            if [ "$CONTAINER" = true ]; then
+              need=$(objdump -T "out-a/$a" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)
+              [ "$(printf '%s\n' "$need" GLIBC_2.35 | sort -V | tail -1)" = GLIBC_2.35 ] ||
+                { echo "::error::$T needs $need, above the 2.35 floor"; exit 1; }
+              echo "highest glibc symbol: $need"
+            fi
           fi
 
       - if: startsWith(github.ref, 'refs/tags/') && env.PROVE != 'true'
@@ -93,6 +104,7 @@ jobs:
         run: |
           case $T in
             *-apple-darwin) l=$(ld -v 2>&1 | sed -n '1s/.*PROJECT://p') ;;
+            *-linux-gnu) l="$(cat "$RUNNER_TEMP/linker"), in \`build-in-container.sh\`'s image" ;;
             *-linux-*) l=$(ld --version | head -1) ;;
             *) l="Visual Studio $("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property catalog_productDisplayVersion)" ;;
           esac
