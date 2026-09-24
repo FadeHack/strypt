@@ -3687,7 +3687,10 @@ licensing contradicts ADR-0012's permissive-licensing differentiator.
 - **Accessibility is weaker than a webview would give**, and this is the trade decision 1 makes.
   AccessKit is the mitigation, not an equivalent; the gap belongs in KNOWN_LIMITATIONS once there
   is something to measure. It also bears on funding: NLnet requires WCAG compliance of software it
-  funds.
+  funds. *Measured 2026-09-24* by the owner with VoiceOver on macOS 26.3: Tab reaches every control,
+  and VoiceOver's navigation reads the results and Technical details. The caveats come first, since
+  their panel is laid out first, and a first try heard only them. egui's tree was dumped headlessly
+  and holds every widget with its role and label. Orca, NVDA, Narrator and WCAG are untested.
 - **Phase 7's deliverable 4 is unaffected.** An application describes this phase as its work plan.
 - **Exit criterion 1 is tested** by `crates/strypt-gui/tests/cli_identity.rs`, which runs the CLI
   binary over the corpus against the GUI's one entry into core; a planted byte fails it.
