@@ -162,6 +162,8 @@ at each release, not once: the framework's security posture is load-bearing.
 3. The GUI is usable by someone who has never opened a terminal — validated with an actual
    non-technical person, not assumed by the developer. Judged on Linux and macOS; Windows is
    scoped out while the binary is unsigned (ADR-0058 decision 4).
+   *Met 2026-09-24, as the owner reports:* a non-technical person on macOS, told only where Open
+   Anyway is, and one on Linux.
 4. No new `unsafe` and no new dependency without an ADR.
 
 **Risks.**

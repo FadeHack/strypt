@@ -90,10 +90,6 @@ Report it privately through [`SECURITY.md`](https://github.com/FadeHack/strypt/b
 brew install fadehack/strypt/strypt
 ```
 
-Naming the formula in full is how Homebrew 6 and later trust a third-party tap. The
-[formula](https://github.com/FadeHack/homebrew-strypt/blob/main/Formula/strypt.rb) installs the
-release binary below, checked against its SHA256.
-
 **Or download the binary.** It is one file, with nothing else to install.
 
 | Platform | File |
@@ -112,29 +108,19 @@ sha256sum -c SHA256SUMS --ignore-missing     # must print "<file>: OK"; older ma
 chmod +x $F && ./$F --version                # then rename it strypt, in a directory on your PATH
 ```
 
-The checksum catches a damaged download, but it comes from the same page as the binary. To check
-that the binary was built by this repository's CI from a public commit, use the
-[GitHub CLI](https://cli.github.com/) 2.49 or later, signed in with `gh auth login`:
-`gh attestation verify $F -R FadeHack/strypt`.
+To check that this repository's CI built it, with the [GitHub CLI](https://cli.github.com/) signed in:
+`gh attestation verify $F -R FadeHack/strypt`. On Windows, compare
+`Get-FileHash strypt-0.1.2-x86_64-pc-windows-msvc.exe` with its line in `SHA256SUMS`.
 
-On Windows, compare `Get-FileHash strypt-0.1.2-x86_64-pc-windows-msvc.exe` in PowerShell with its
-line in `SHA256SUMS` (case does not matter).
+The binaries are not code-signed ([ADR-0051](https://github.com/FadeHack/strypt/blob/HEAD/docs/DECISIONS.md)).
+On macOS, a file downloaded in a browser is blocked once: click **Open Anyway** in System Settings →
+Privacy & Security. Windows may show SmartScreen, and Smart App Control may block the file outright.
+Never turn Gatekeeper off to run it.
 
-The binaries are not code-signed ([ADR-0051](https://github.com/FadeHack/strypt/blob/HEAD/docs/DECISIONS.md)). Windows may show a SmartScreen
-warning, and Smart App Control, where it is on, may block the file outright. On macOS, a file downloaded in a browser must be allowed once in System Settings →
-Privacy & Security; one fetched with `curl` does not. Never turn Gatekeeper off to run it.
-
-**Tails and Qubes-Whonix**: use the static Linux x86_64 binary. There is no `.deb`, because Tails
-keeps only packages from Debian (ADR-0052). On Qubes-Whonix, keep the binary in the app qube's home
-folder. On Tails, it runs from the Persistent folder (checked against Tails 7's code, not on Tails
-itself). Tails already includes
+**Tails and Qubes-Whonix:** use the static Linux x86_64 binary (ADR-0052). Tails already includes
 mat2 and Metadata Cleaner, which cover more formats than strypt.
 
-With Rust 1.95 or later (not Debian 13's), `cargo install strypt` builds it instead. `strypt-cli` on crates.io is the
-same tool under its original name, yanked on 2026-08-23 (ADR-0026); replace it with `strypt`.
-
-Tested in CI on Linux, macOS and Windows. On Windows, output takes the permissions of the folder
-it is written to ([`docs/KNOWN_LIMITATIONS.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/KNOWN_LIMITATIONS.md#everywhere)).
+**From source:** `cargo install strypt`, with Rust 1.95 or later.
 
 ## Usage
 

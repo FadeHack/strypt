@@ -3883,5 +3883,7 @@ Verified the same day:
   and the owner's Ubuntu 22.04.3 arm64 VM opened that AppImage by double-click and stripped files.
   The artifact's zip kept the execute bit, so "Allow executing" was already on; a browser download
   of a release asset does not keep it, and that step is still unmeasured.
+- **Decision 7's condition is met** (2026-09-24, ROADMAP exit criterion 3). The macOS tester needed
+  telling where Open Anyway is, so the README says it in the first-run step, not in a footnote.
 
 ---
