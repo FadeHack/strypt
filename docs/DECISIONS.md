@@ -3869,6 +3869,7 @@ Verified the same day:
 - **Decision 3's digests are GitHub's asset digests**, pinned in `scripts/package-linux.sh`; neither
   project had a newer tagged release on 2026-09-24. appimagetool embeds an update URL only when given
   `-u` or `-g`, and neither is passed. `package-linux` packages each AppImage twice and fails if they
-  differ; its first run is the measurement decision 3 asks for.
+  differ. **Measured: both AppImages reproduce** ([run 35965305247](https://github.com/FadeHack/strypt/actions/runs/35965305247)),
+  across checkout, `CARGO_HOME`, `RUSTUP_HOME` and staging directory on one runner image.
 
 ---

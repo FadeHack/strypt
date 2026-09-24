@@ -53,7 +53,7 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   inside a `.dmg`. The release workflow packages it twice and compares the two apps (ADR-0062).
 - `scripts/package-linux.sh` makes an AppImage for each Linux architecture with `appimagetool` 1.9.1
   and runtime 20251108, both checked against pinned SHA-256s. It embeds no update URL. The release
-  workflow packages each twice and compares them (ADR-0062).
+  workflow packages each twice and fails unless they are byte-identical, which they are (ADR-0062).
 - `strypt-mark`, an unpublished crate that draws the mark and writes it as ICO, ICNS or PNG, so no
   icon file is committed.
 - `strypt-gui.exe` shows strypt's mark in Explorer, drawn at build time from the code that draws
