@@ -259,9 +259,10 @@ scripts/package-linux.sh LINUX_GUI out                # -> out/strypt-gui-<versi
 gh workflow run release.yml                      # the gate on all ten builds; publishes nothing
 gh workflow run release.yml -f prove=true        # drops a remap; each job passes only if the gate catches it
 scripts/sbom.sh out x86_64-unknown-linux-musl    # -> out/strypt-<version>-<target>.cdx.json (ADR-0054)
+scripts/sbom.sh --gui out universal-apple-darwin # strypt-gui's; both Mac targets merged, for the .dmg
 ```
 
-`sbom.sh` needs `cargo install cargo-cyclonedx --version 0.5.9 --locked`, the version `release.yml` pins.
+`sbom.sh` needs `cargo install cargo-cyclonedx --version 0.5.9 --locked`, the version `release.yml` pins, and `jq`.
 `package-linux.sh` runs on Linux only and needs `desktop-file-validate` (`desktop-file-utils`).
 
 Cutting a release:

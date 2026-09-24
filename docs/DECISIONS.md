@@ -3500,6 +3500,10 @@ different paths wrote identical bytes. One macOS host wrote every target's SBOM,
 - **First run green on 2026-09-14**, at `3b55416`
   ([run 34818678470](https://github.com/FadeHack/strypt/actions/runs/34818678470)). All five SBOMs
   were byte-identical to ones written on macOS arm64 from the same commit, checked by hand once.
+- **Extended to the GUI (2026-09-24, with the owner):** one SBOM per GUI release file, named after
+  the file, from `sbom.sh --gui`. The `.dmg`'s is the union of both Mac targets': measured the same
+  day, they list the same 200 crates but not the same edges (`cpufeatures` reaches `libc` on arm64
+  only), so neither alone describes a universal binary. Two runs wrote identical bytes.
 
 ---
 
@@ -3885,5 +3889,6 @@ Verified the same day:
   of a release asset does not keep it, and that step is still unmeasured.
 - **Decision 7's condition is met** (2026-09-24, ROADMAP exit criterion 3). The macOS tester needed
   telling where Open Anyway is, so the README says it in the first-run step, not in a footnote.
+  The owner chose **0.2.0** as the first release carrying the GUI, the whole workspace moving with it.
 
 ---

@@ -44,7 +44,7 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 - `scripts/build-release.sh --gui` builds `strypt-gui` reproducibly, the first step to shipping it as
   a `.dmg`, an AppImage and a portable `.exe`, unsigned (ADR-0062). The release workflow gates it on
-  five targets, Linux on glibc, and attaches it to no release yet. macOS builds now link with
+  five targets, Linux on glibc. macOS builds now link with
   `-Wl,-S`, because a toolchain path in the linker's debug map made the GUI's `LC_UUID` differ
   between machines. This changes the macOS CLI binaries' hashes too.
 - Clippy runs in CI on macOS and Windows as well as Linux, since platform-gated code is linted only
@@ -58,6 +58,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   newer. Built on Ubuntu 24.04 it needed glibc 2.39 and did nothing when opened on 22.04 (ADR-0062).
 - `strypt-mark`, an unpublished crate that draws the mark and writes it as ICO, ICNS or PNG, so no
   icon file is committed.
+- Releases carry the GUI: the `.dmg`, both AppImages and the Windows `.exe`, each with its own SBOM,
+  listed in `SHA256SUMS` and attested like the CLI binaries. The `.dmg`'s SBOM covers both Mac
+  architectures (ADR-0054).
 - `strypt-gui.exe` shows strypt's mark in Explorer, drawn at build time from the code that draws
   the window icon, through `winresource` on a Windows host (ADR-0062).
 - `strypt-gui` opens without a console window on Windows, and if its window cannot open, it says so
