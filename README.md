@@ -84,7 +84,27 @@ Report it privately through [`SECURITY.md`](https://github.com/FadeHack/strypt/b
 
 ## Install
 
-**Homebrew**, on macOS or Linux:
+**The app**, if you would rather drop files onto a window. It calls the same library as the
+command line and shows what it removed.
+
+<img src="https://github.com/FadeHack/strypt/raw/HEAD/docs/assets/gui.png" alt="The strypt app after cleaning a photo: six kinds of hidden detail removed, among them which device made it and a hidden preview image, and one part kept with the reason" width="600">
+
+| Platform | File |
+|---|---|
+| macOS 11 or later, Apple Silicon or Intel | `strypt-gui-0.2.0-universal-apple-darwin.dmg` |
+| Linux x86_64 or arm64, Ubuntu 22.04, Debian 12 or newer | `strypt-gui-0.2.0-x86_64-unknown-linux-gnu.AppImage`, or `aarch64` in place of `x86_64` |
+| Windows x86_64 | `strypt-gui-0.2.0-x86_64-pc-windows-msvc.exe` |
+
+The first time you open it:
+
+- **macOS:** drag strypt into Applications and open it. When macOS says it could not verify it,
+  go to System Settings → Privacy & Security, scroll down, and click **Open Anyway**. Only once.
+- **Linux:** right-click the file, choose **Properties**, and allow it to run as a program
+  (**Allow executing file as program** on Ubuntu 22.04). Then double-click it.
+- **Windows:** at SmartScreen, click **More info**, then **Run anyway**. Smart App Control may
+  block it outright.
+
+**The command line, through Homebrew**, on macOS or Linux:
 
 ```sh
 brew install fadehack/strypt/strypt

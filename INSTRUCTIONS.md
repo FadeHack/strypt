@@ -330,7 +330,7 @@ gh workflow run perf.yml                              # musl against glibc on Li
 ## README images
 
 Re-run after any change to CLI output; it renders `docs/assets/demo.svg` from the release binary
-and strips both README images with strypt.
+and strips every README image with strypt, including the hand-taken app screenshot `gui.png`.
 
 ```sh
 python3 scripts/render-demo.py

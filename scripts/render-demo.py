@@ -2,7 +2,8 @@
 """Render docs/assets/demo.svg from the real binary run on a committed synthetic fixture.
 
 Re-run whenever the CLI's output changes, so the README never shows output strypt does not
-print. Both README images are then stripped by strypt itself (ROADMAP Phase 4).
+print. Every README image is then stripped by strypt itself (ROADMAP Phase 4). gui.png is a
+macOS screenshot, taken by hand and replaced whenever the app's look changes.
 """
 
 import html
@@ -71,12 +72,12 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         lines = session(pathlib.Path(tmp).resolve())
     (ASSETS / "demo.svg").write_text(svg(lines))
-    for name in ("banner.svg", "demo.svg"):
+    for name in ("banner.svg", "demo.svg", "gui.png"):
         run = subprocess.run([BIN, "strip", "--in-place", ASSETS / name], capture_output=True,
                              text=True)
         if run.returncode != 0:
             sys.exit(f"stripping {name} failed:\n{run.stderr}")
-    print(f"wrote {ASSETS / 'demo.svg'}; stripped banner.svg and demo.svg")
+    print(f"wrote {ASSETS / 'demo.svg'}; stripped banner.svg, demo.svg and gui.png")
 
 
 if __name__ == "__main__":

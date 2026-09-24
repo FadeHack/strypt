@@ -242,7 +242,7 @@ jobs:
             echo
             echo "| Target | Runner image | Linker |"
             echo "|---|---|---|"
-            cat ../meta/*.md
+            cat ../meta/[!g]*.md ../meta/gui-*.md
           } > ../notes.md
           cat SHA256SUMS ../notes.md
 
