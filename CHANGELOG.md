@@ -63,6 +63,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   architectures (ADR-0054). `KNOWN_LIMITATIONS.md` lists what the app cannot do, among them Linux
   older than glibc 2.35 and the Open files dialog's possible entry in recent files, and what was
   tried with a screen reader: VoiceOver on macOS reads the app, and no other screen reader was tried.
+  A screen reader now meets the app's content before its two caveats, and hears how sensitive each
+  removed detail is rather than its `!!` mark.
 - `strypt-gui.exe` shows strypt's mark in Explorer, drawn at build time from the code that draws
   the window icon, through `winresource` on a Windows host (ADR-0062).
 - `strypt-gui` opens without a console window on Windows, and if its window cannot open, it says so

@@ -3691,6 +3691,9 @@ licensing contradicts ADR-0012's permissive-licensing differentiator.
   and VoiceOver's navigation reads the results and Technical details. The caveats come first, since
   their panel is laid out first, and a first try heard only them. egui's tree was dumped headlessly
   and holds every widget with its role and label. Orca, NVDA, Narrator and WCAG are untested.
+  Fixed the same day: the caveats' nodes are moved after the main content's, and each removed
+  detail's sensitivity, until then a tooltip, is spoken in place of its painted `!!` mark. Both
+  are tested on the tree.
 - **Phase 7's deliverable 4 is unaffected.** An application describes this phase as its work plan.
 - **Exit criterion 1 is tested** by `crates/strypt-gui/tests/cli_identity.rs`, which runs the CLI
   binary over the corpus against the GUI's one entry into core; a planted byte fails it.

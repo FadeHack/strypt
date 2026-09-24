@@ -282,6 +282,12 @@ impl App {
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.show(ui);
+    }
+}
+
+impl App {
+    fn show(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         let now = ctx.input(|i| i.time);
         for file in ctx.input(|i| i.raw.dropped_files.clone()) {
@@ -305,6 +311,7 @@ impl eframe::App for App {
         }
 
         let p = theme::of(ui);
+        let before = children(ui);
         egui::Panel::bottom("caveats")
             .frame(
                 egui::Frame::new()
@@ -312,6 +319,7 @@ impl eframe::App for App {
                     .inner_margin(Margin::symmetric(24, 12)),
             )
             .show(ui, caveats);
+        let footer = before.zip(children(ui));
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::new()
@@ -367,6 +375,9 @@ impl eframe::App for App {
                         }
                     });
             });
+        if let Some(footer) = footer {
+            read_last(ui, footer);
+        }
 
         let animating = now < 1.2
             || self.rows.iter().any(|row| match &row.status {
@@ -810,17 +821,16 @@ fn struck(ui: &mut egui::Ui, group: &Group, t: f32) {
     let p = theme::of(ui);
     let colour = sensitivity_colour(group.sensitivity, p);
     ui.horizontal(|ui| {
-        ui.add_sized(
-            [22.0, 22.0],
-            egui::Label::new(RichText::new(group.mark).color(colour)),
-        );
+        mark(ui, vec2(22.0, 22.0), group.mark, colour);
+        let words = strypt_gui::sensitivity_words(group.sensitivity);
         let label = ui
             .label(
                 RichText::new(group.label)
                     .size(16.0)
                     .color(p.ink.lerp_to_gamma(p.muted, t * 0.35)),
             )
-            .on_hover_text(strypt_gui::sensitivity_words(group.sensitivity));
+            .on_hover_text(words);
+        spoken(&label, group.label, words);
         if t > 0.0 {
             let r = label.rect;
             let y = r.center().y + 1.0;
@@ -836,6 +846,45 @@ fn struck(ui: &mut egui::Ui, group: &Group, t: f32) {
             format!("{} fields", group.fields)
         };
         ui.label(RichText::new(fields).size(13.0).color(p.muted));
+    });
+}
+
+/// How many accessibility children `ui` has so far; `None` when no assistive technology asked.
+fn children(ui: &egui::Ui) -> Option<usize> {
+    ui.ctx()
+        .accesskit_node_builder(ui.unique_id(), |n| n.children().len())
+}
+
+/// Moves `ui`'s accessibility children `from..to` to the end. The caveats' panel must be laid out
+/// first to claim its space, and egui orders the tree by layout, so a screen reader started there.
+fn read_last(ui: &egui::Ui, (from, to): (usize, usize)) {
+    ui.ctx().accesskit_node_builder(ui.unique_id(), |n| {
+        let mut kids = n.children().to_vec();
+        if let Some(moved) = kids.get(from..to).map(<[_]>::to_vec) {
+            kids.drain(from..to);
+            kids.extend(moved);
+            n.set_children(kids);
+        }
+    });
+}
+
+/// The CLI's `!!`/`!`/`?`, painted so a screen reader skips it: [`spoken`] says it in words.
+fn mark(ui: &mut egui::Ui, size: egui::Vec2, text: &str, colour: Color32) {
+    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    ui.painter().text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        text,
+        font,
+        colour,
+    );
+}
+
+/// A tooltip never reaches a screen reader, so the sensitivity joins the label's spoken text.
+fn spoken(label: &egui::Response, text: &str, words: &str) {
+    label.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Label, true, format!("{text}. {words}."))
     });
 }
 
@@ -871,12 +920,11 @@ fn technical(ui: &mut egui::Ui, diff: &Diff) {
         }
         for line in section.lines {
             ui.horizontal_wrapped(|ui| {
-                ui.add_sized(
-                    [18.0, 0.0],
-                    egui::Label::new(RichText::new(line.mark).color(p.muted)),
-                );
-                let text = ui.label(RichText::new(line.text).size(13.0).color(p.muted));
+                let height = ui.text_style_height(&egui::TextStyle::Body);
+                mark(ui, vec2(18.0, height), line.mark, p.muted);
+                let text = ui.label(RichText::new(&line.text).size(13.0).color(p.muted));
                 if let Some(words) = line.sensitivity {
+                    spoken(&text, &line.text, words);
                     text.on_hover_text(words);
                 }
             });
@@ -955,4 +1003,73 @@ fn main() -> eframe::Result {
             .show();
     }
     run
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::accesskit::{NodeId, Role};
+    use std::collections::HashMap;
+
+    /// The label text a screen reader meets, in its reading order.
+    fn spoken_order(mut draw: impl FnMut(&mut egui::Ui)) -> Vec<String> {
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        theme::install(&ctx);
+        let input = || egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                vec2(720.0, 720.0),
+            )),
+            ..Default::default()
+        };
+        let mut update = None;
+        for _ in 0..2 {
+            let mut out = ctx.run_ui(input(), &mut draw);
+            out.textures_delta.clear();
+            update = out.platform_output.accesskit_update;
+        }
+        let Some(update) = update else {
+            return Vec::new();
+        };
+        let nodes: HashMap<NodeId, _> = update.nodes.into_iter().collect();
+        let mut stack: Vec<NodeId> = update.tree.map(|t| t.root).into_iter().collect();
+        let mut labels = Vec::new();
+        while let Some(id) = stack.pop() {
+            let Some(node) = nodes.get(&id) else { continue };
+            if node.role() == Role::Label
+                && let Some(value) = node.value()
+            {
+                labels.push(value.to_string());
+            }
+            stack.extend(node.children().iter().rev());
+        }
+        labels
+    }
+
+    #[test]
+    fn a_screen_reader_meets_the_title_first_and_the_caveats_last() {
+        let ctx = egui::Context::default();
+        let mut app = App::new(ctx, Backend::Default);
+        let labels = spoken_order(|ui| app.show(ui));
+        assert_eq!(labels.first().map(String::as_str), Some("strypt"));
+        assert_eq!(labels.last(), Diff::caveats().last());
+    }
+
+    #[test]
+    fn a_removed_kind_is_spoken_with_its_sensitivity_and_no_bare_mark() {
+        let group = Group {
+            sensitivity: Sensitivity::Direct,
+            mark: "!!",
+            label: "Which device made it",
+            fields: 3,
+        };
+        let labels = spoken_order(|ui| struck(ui, &group, 1.0));
+        let words = strypt_gui::sensitivity_words(Sensitivity::Direct);
+        assert!(
+            labels.contains(&format!("Which device made it. {words}.")),
+            "{labels:?}"
+        );
+        assert!(!labels.iter().any(|l| l.trim() == "!!"), "{labels:?}");
+    }
 }

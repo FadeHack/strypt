@@ -47,9 +47,8 @@ it knows to look for. No tool can promise more.
   runs there (ADR-0062).
 - **Not run on Tails** (ADR-0058 decision 5). The command line remains the Tails and Whonix path.
 - **Screen readers: tried with VoiceOver only.** On macOS 26.3 every control is reached by Tab, and
-  the results, Technical details included, are read with VoiceOver's own navigation. The two caveats
-  at the bottom are read first, and how sensitive each removed detail was is shown only on mouse
-  hover. Orca, NVDA and Narrator are untried, and no WCAG conformance is claimed (ADR-0058).
+  the results, Technical details included, are read with VoiceOver's own navigation. Orca, NVDA and
+  Narrator are untried, and no WCAG conformance is claimed (ADR-0058).
 - **Open files… may add what you picked to your desktop's recent files**, which would then name what
   you cleaned. Unchecked on every platform.
 - **Unsigned.** macOS blocks it once until you click Open Anyway, and this was measured on macOS 26.3
