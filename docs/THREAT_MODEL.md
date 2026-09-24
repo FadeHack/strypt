@@ -196,6 +196,15 @@ created by *documentation and UI*, not by code, and it is the reason for the ban
 - **Folder drops** (ADR-0061) write nothing until the user confirms counts and destination. Beside
   the originals, that is inside every subfolder. Links are never followed, and every entry not
   processed gets a row.
+- **The accessibility tree.** AccessKit publishes the window's text, file names and folders included
+  but never metadata values, to assistive technology; on Linux over the AT-SPI D-Bus bus, which
+  other programs in the session can read (§6 assumption 1).
+- **The packages** (ADR-0062) extend §5.3. The `.app`'s ad-hoc signature names no one and anyone can
+  re-sign, so authenticity rests on `SHA256SUMS` and the attestation, as for the CLI. The `.dmg` is
+  not reproducible, only the `.app` inside it. Each AppImage carries AppImage's `type2-runtime`,
+  third-party code pinned by digest, which mounts the image through FUSE before strypt runs. The
+  first-run steps teach a user to override Gatekeeper and SmartScreen for this download; the README
+  never suggests turning either off.
 
 ---
 

@@ -60,7 +60,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   icon file is committed.
 - Releases carry the GUI: the `.dmg`, both AppImages and the Windows `.exe`, each with its own SBOM,
   listed in `SHA256SUMS` and attested like the CLI binaries. The `.dmg`'s SBOM covers both Mac
-  architectures (ADR-0054).
+  architectures (ADR-0054). `KNOWN_LIMITATIONS.md` lists what the app cannot do, among them Linux
+  older than glibc 2.35 and the Open files dialog's possible entry in recent files.
 - `strypt-gui.exe` shows strypt's mark in Explorer, drawn at build time from the code that draws
   the window icon, through `winresource` on a Windows host (ADR-0062).
 - `strypt-gui` opens without a console window on Windows, and if its window cannot open, it says so

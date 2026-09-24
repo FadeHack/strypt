@@ -37,12 +37,21 @@ it knows to look for. No tool can promise more.
 - **Install steps were tested on GitHub's fresh runners, not on anyone's own machine**, and never on
   Tails itself (ADR-0053).
 
-## The desktop app (not yet released)
+## The desktop app
 
 - **Dragging files onto the window does not work on a Linux desktop running Wayland alone.** Where an
   X server runs beside it, the app uses that and dragging works; otherwise it says so, and
   Open files… still works (ADR-0059).
-- **Not run on Tails** (ADR-0058 decision 5).
+- **Linux needs glibc 2.35 or newer** (Ubuntu 22.04, Debian 12, Mint 21) and FUSE 3. On an older
+  system a double-clicked AppImage does nothing, without a message. The static command-line binary
+  runs there (ADR-0062).
+- **Not run on Tails** (ADR-0058 decision 5). The command line remains the Tails and Whonix path.
+- **Open files… may add what you picked to your desktop's recent files**, which would then name what
+  you cleaned. Unchecked on every platform.
+- **Unsigned.** macOS blocks it once until you click Open Anyway, and this was measured on macOS 26.3
+  only. On Windows, Smart App Control may block it outright, and no Windows user tried it
+  (ADR-0058 decision 4). The Linux "Allow executing" step has not been measured on a browser
+  download.
 
 ## Where mat2 is the better choice
 
