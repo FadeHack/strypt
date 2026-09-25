@@ -21,9 +21,31 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 [![cargo-deny](https://github.com/FadeHack/strypt/actions/workflows/deny.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/deny.yml)
 [![licence](https://img.shields.io/badge/licence-MIT_OR_Apache--2.0-blue)](#licence)
 
-<img src="https://github.com/FadeHack/strypt/raw/HEAD/docs/assets/demo.svg?sanitize=true" alt="strypt strip removes a photo's GPS, serial number and author, and strypt show then finds nothing">
+## The app
 
-<sub>A synthetic test photo from <code>corpus/</code>; its GPS, serial number and author are invented.</sub>
+Drop files onto the window, and strypt writes a cleaned copy beside each one and shows what it
+removed. It uses the same library as the command line.
+
+<img src="https://github.com/FadeHack/strypt/raw/HEAD/docs/assets/gui.png" alt="The strypt app after cleaning a photo: six kinds of hidden detail removed, among them which device made it and a hidden preview image, and one part kept with the reason" width="600">
+
+Download from the [latest release](https://github.com/FadeHack/strypt/releases/latest):
+
+| Platform | File |
+|---|---|
+| macOS 11 or later, Apple Silicon or Intel | `strypt-gui-0.2.0-universal-apple-darwin.dmg` |
+| Linux x86_64 or arm64, Ubuntu 22.04, Debian 12 or newer | `strypt-gui-0.2.0-x86_64-unknown-linux-gnu.AppImage`, or `aarch64` in place of `x86_64` |
+| Windows x86_64 | `strypt-gui-0.2.0-x86_64-pc-windows-msvc.exe` |
+
+The first time you open it:
+
+- **macOS:** drag strypt into Applications and open it. When macOS says it could not verify it,
+  go to System Settings → Privacy & Security, scroll down, and click **Open Anyway**. Only once.
+- **Linux:** right-click the file, choose **Properties**, and allow it to run as a program
+  (**Allow executing file as program** on Ubuntu 22.04). Then double-click it.
+- **Windows:** at SmartScreen, click **More info**, then **Run anyway**. Smart App Control may
+  block it outright.
+
+To check a download, use `SHA256SUMS` and `gh attestation verify` as in [the command line's steps](#install).
 
 ## Formats
 
@@ -42,36 +64,6 @@ as unsupported and never passed through. What each handler removes, keeps, and r
 formats. Where mat2 is the better tool for a file strypt does support,
 [`docs/KNOWN_LIMITATIONS.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/KNOWN_LIMITATIONS.md#where-mat2-is-the-better-choice) says so.
 
-## Why trust the output
-
-Evidence, not an audit: each point links to where it is checked.
-
-- **It fails closed.** A file strypt cannot fully process produces no output, and an unsupported
-  format is reported as unsupported, never passed through.
-- **It re-reads its own output.** Every stripped file is detected and inspected afresh, and
-  discarded (exit 5) if anything the handler recognises survived. That proves consistency, not
-  omniscience ([`docs/THREAT_MODEL.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/THREAT_MODEL.md) §4.8).
-- **It cannot phone home.** CI rejects any dependency that can open a network connection,
-  transitive ones included, and [proves that check fails](https://github.com/FadeHack/strypt/blob/HEAD/INSTRUCTIONS.md#proving-the-gates-fail)
-  on every push (ADR-0004).
-- **No `unsafe` in strypt's own code**, enforced by the compiler; dependencies are checked
-  against RustSec advisories on every push and weekly.
-- **Every parser is fuzzed.** 19 of 22 fuzz targets meet the bar of 24 CPU-hours with saturated
-  coverage (ADR-0044); `jxl`, `pdf` and `png` do not yet. All 22 run for a minute on every push.
-- **Every format is compared against mat2 and ExifTool**, and each difference is recorded as a
-  bug or a deliberate choice ([`docs/THREAT_MODEL.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/THREAT_MODEL.md) §7).
-
-## What strypt will *not* do
-
-- It does not redact. A PDF with a black box drawn over text still contains that text.
-- It does not change what your document *says*, or anonymise your writing style.
-- It does not clean filenames, and `budget_final_jsmith_home.pdf` identifies you regardless.
-- It does not protect against metadata a platform adds after you upload.
-- It cannot defeat fingerprinting. Encoder quirks and camera sensor noise can identify a
-  device from pixel data alone, with no metadata present at all.
-- **No tool can guarantee complete metadata removal from complex formats.** strypt will never
-  claim otherwise.
-
 ## Before you publish
 
 1. **Rename the file.** strypt keeps the name you gave it, plus `.stripped`.
@@ -83,29 +75,17 @@ Evidence, not an audit: each point links to where it is checked.
 **If strypt calls a file clean and it still carries metadata, that is a security vulnerability.**
 Report it privately through [`SECURITY.md`](https://github.com/FadeHack/strypt/blob/HEAD/SECURITY.md), not in a public issue.
 
-## Install
+## The command line
 
-**The app**, if you would rather drop files onto a window. It calls the same library as the
-command line and shows what it removed.
+For scripts, batches and servers, and on Tails and Qubes-Whonix.
 
-<img src="https://github.com/FadeHack/strypt/raw/HEAD/docs/assets/gui.png" alt="The strypt app after cleaning a photo: six kinds of hidden detail removed, among them which device made it and a hidden preview image, and one part kept with the reason" width="600">
+<img src="https://github.com/FadeHack/strypt/raw/HEAD/docs/assets/demo.svg?sanitize=true" alt="strypt strip removes a photo's GPS, serial number and author, and strypt show then finds nothing">
 
-| Platform | File |
-|---|---|
-| macOS 11 or later, Apple Silicon or Intel | `strypt-gui-0.2.0-universal-apple-darwin.dmg` |
-| Linux x86_64 or arm64, Ubuntu 22.04, Debian 12 or newer | `strypt-gui-0.2.0-x86_64-unknown-linux-gnu.AppImage`, or `aarch64` in place of `x86_64` |
-| Windows x86_64 | `strypt-gui-0.2.0-x86_64-pc-windows-msvc.exe` |
+<sub>A synthetic test photo from <code>corpus/</code>; its GPS, serial number and author are invented.</sub>
 
-The first time you open it:
+### Install
 
-- **macOS:** drag strypt into Applications and open it. When macOS says it could not verify it,
-  go to System Settings → Privacy & Security, scroll down, and click **Open Anyway**. Only once.
-- **Linux:** right-click the file, choose **Properties**, and allow it to run as a program
-  (**Allow executing file as program** on Ubuntu 22.04). Then double-click it.
-- **Windows:** at SmartScreen, click **More info**, then **Run anyway**. Smart App Control may
-  block it outright.
-
-**The command line, through Homebrew**, on macOS or Linux:
+**Through Homebrew**, on macOS or Linux:
 
 ```sh
 brew install fadehack/strypt/strypt
@@ -143,7 +123,7 @@ mat2 and Metadata Cleaner, which cover more formats than strypt.
 
 **From source:** `cargo install strypt`, with Rust 1.95 or later.
 
-## Usage
+### Usage
 
 ```sh
 strypt show photo.jpg                  # report what metadata is present; changes nothing
@@ -162,6 +142,36 @@ refuse to ship metadata:
 ```sh
 strypt show --recursive public/images > /dev/null   # 1: metadata found; 4: a file strypt cannot check
 ```
+
+## Why trust the output
+
+Evidence, not an audit: each point links to where it is checked.
+
+- **It fails closed.** A file strypt cannot fully process produces no output, and an unsupported
+  format is reported as unsupported, never passed through.
+- **It re-reads its own output.** Every stripped file is detected and inspected afresh, and
+  discarded (exit 5) if anything the handler recognises survived. That proves consistency, not
+  omniscience ([`docs/THREAT_MODEL.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/THREAT_MODEL.md) §4.8).
+- **It cannot phone home.** CI rejects any dependency that can open a network connection,
+  transitive ones included, and [proves that check fails](https://github.com/FadeHack/strypt/blob/HEAD/INSTRUCTIONS.md#proving-the-gates-fail)
+  on every push (ADR-0004).
+- **No `unsafe` in strypt's own code**, enforced by the compiler; dependencies are checked
+  against RustSec advisories on every push and weekly.
+- **Every parser is fuzzed.** 19 of 22 fuzz targets meet the bar of 24 CPU-hours with saturated
+  coverage (ADR-0044); `jxl`, `pdf` and `png` do not yet. All 22 run for a minute on every push.
+- **Every format is compared against mat2 and ExifTool**, and each difference is recorded as a
+  bug or a deliberate choice ([`docs/THREAT_MODEL.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/THREAT_MODEL.md) §7).
+
+## What strypt will *not* do
+
+- It does not redact. A PDF with a black box drawn over text still contains that text.
+- It does not change what your document *says*, or anonymise your writing style.
+- It does not clean filenames, and `budget_final_jsmith_home.pdf` identifies you regardless.
+- It does not protect against metadata a platform adds after you upload.
+- It cannot defeat fingerprinting. Encoder quirks and camera sensor noise can identify a
+  device from pixel data alone, with no metadata present at all.
+- **No tool can guarantee complete metadata removal from complex formats.** strypt will never
+  claim otherwise.
 
 ## Documentation
 

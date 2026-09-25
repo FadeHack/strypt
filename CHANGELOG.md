@@ -19,6 +19,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+### Changed
+
+- README leads with the desktop app; the command line's install and usage follow in their own
+  section.
+
 ## [0.2.0] - 2026-09-24
 
 ### Fixed
