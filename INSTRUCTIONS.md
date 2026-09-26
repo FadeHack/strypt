@@ -123,6 +123,7 @@ python3 scripts/fuzz-plateau.py [target...]       # saturated or PUNCTUATED, per
 - Read a `summary.md` from before 2026-09-11 with `fuzz-plateau.py`; its `plateau` column uses
   ADR-0014's superseded rule.
 - The runner's target list must include every target in `fuzz list`; check after adding one.
+- A target with `fuzz/dicts/<target>.dict` runs with it, and `summary.md` says which did.
 
 Each run writes `summary.md`, `cov-<target>.tsv` and `<target>.log` to `fuzz-runs/<timestamp>/`.
 That is deliberately outside `target/`, which `cargo clean` empties (2026-09-23).

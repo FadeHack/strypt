@@ -2930,6 +2930,9 @@ ADR-0014 was measuring a state this project's fuzzing does not enter.
   fuzzing is known to be weak, on a format that is rebuilt rather than edited. It stays on the
   roadmap until the structure-aware work happens, and `docs/THREAT_MODEL.md` §7's Ogg subsection
   records it when deliverable 9 is written.
+- **`jxl`, `png` and `pdf` get libFuzzer dictionaries (2026-09-26)**, not `ogg`'s mutator: `png`
+  checks no CRC, so a checksum is not what stalls it. Each lists the magic, box or chunk types and
+  names its handler matches, in `fuzz/dicts/`. Whether that saturates them is the next run's answer.
 - **The rule is falsifiable and cheap to re-run**, which matters more than its exact constants. Any
   future contributor can re-run `fuzz-plateau.py` over the whole archive and see whether the
   classification still holds, including against these numbers.

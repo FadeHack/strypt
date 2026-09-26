@@ -121,6 +121,9 @@ corpus_args() {
   esac
 }
 
+# A target with dicts/<target>.dict fuzzes with it (ADR-0044 decision 5: structure-aware input).
+dict_args() { if [ -f "dicts/$1.dict" ]; then echo "-dict=dicts/$1.dict"; fi; }
+
 cd "$FUZZ_DIR"
 for t in "${TARGETS[@]}"; do mkdir -p "corpus/$t"; done
 
@@ -147,7 +150,7 @@ for t in "${TARGETS[@]}"; do
   (
     start=$(date +%s)
     cargo +nightly fuzz run --fuzz-dir "$FUZZ_DIR" "$t" $(corpus_args "$t") -- \
-        -max_total_time="$DURATION" -print_final_stats=1 2>&1 \
+        -max_total_time="$DURATION" -print_final_stats=1 $(dict_args "$t") 2>&1 \
       | perl -ne 'BEGIN{$|=1; $s=shift} printf "%d %s", time()-$s, $_' "$start" \
       > "$OUT_DIR/$t.log"
   ) &
@@ -190,6 +193,7 @@ delivered_cpu_hours() {
   echo "- Targets: ${TARGETS[*]}"
   echo "- CPU-hours budgeted: $(awk -v d="$DURATION" -v n="${#TARGETS[@]}" 'BEGIN{printf "%.2f", d*n/3600}')"
   echo "- CPU-hours delivered: $(delivered_cpu_hours)"
+  echo "- Dictionaries: $(for t in "${TARGETS[@]}"; do [ -z "$(dict_args "$t")" ] || echo "$t"; done | xargs)"
   echo
   echo "| target | cov | ft | corpus | exec/s | last cov gain | plateau (ADR-0044) | crashes |"
   echo "|---|---|---|---|---|---|---|---|"

@@ -23,6 +23,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 - README leads with the desktop app; the command line's install and usage follow in their own
   section.
+- The `jxl`, `png` and `pdf` fuzz targets run with libFuzzer dictionaries of their format's
+  signatures and names, since more hours did not saturate them (ADR-0044).
 
 ## [0.2.0] - 2026-09-24
 
