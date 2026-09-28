@@ -17,9 +17,15 @@
 use libfuzzer_sys::fuzz_target;
 use strypt_core::formats::StripOptions;
 use strypt_core::report::InspectOptions;
-use strypt_core::{inspect_bytes, strip_bytes};
+use strypt_core::{Format, detect, inspect_bytes, strip_bytes};
 
 fuzz_target!(|data: &[u8]| {
+    // PDFs only. Unguarded, part of this target's 2026-09-28 breakthrough was ID3 input reaching
+    // the MP3 handler, which certifies under its own target (ADR-0044).
+    if !matches!(detect(data), Ok(Format::Pdf)) {
+        return;
+    }
+
     // Inspection must never modify anything and must never panic, whatever it is handed.
     let _ = inspect_bytes(data, &InspectOptions::names_only());
 

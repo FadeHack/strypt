@@ -26,6 +26,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - The `jxl`, `png` and `pdf` fuzz targets run with libFuzzer dictionaries of their format's
   signatures and names, since more hours did not saturate them (ADR-0044). `jxl` now certifies;
   `png` and `pdf` do not, and `ooxml` is punctuated on its first run since its reset.
+- The `png`, `pdf` and `ooxml` fuzz targets skip other formats, whose code caused their
+  punctuated runs, and `fuzz-tally.py` resets a target when its harness changes (ADR-0044).
 
 ## [0.2.0] - 2026-09-24
 

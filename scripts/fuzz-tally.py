@@ -7,7 +7,8 @@ fuzz-plateau.py classifies saturated.
 
 Two rules this encodes, both learned rather than assumed:
 
-  * A run counts only if it postdates the handler's last source change, shared modules included —
+  * A run counts only if it postdates the handler's last source change, shared modules and the
+    fuzz target itself included —
     a run against superseded code proves nothing about the code in the tree.
   * The most recent qualifying run decides, never "saturated once". png and jpeg both plateaued
     inside eight hours and then climbed again on larger corpora (docs/ROADMAP.md).
@@ -65,8 +66,9 @@ DURATION = re.compile(r"^- Duration:\s*(\d+)s", re.M)
 
 def last_change(target):
     newest = None
-    for rel in SRC.get(target, []):
-        path = BASE + rel
+    # The harness counts too: a run through a superseded target measured something else.
+    harness = f"crates/strypt-core/fuzz/fuzz_targets/{target}.rs"
+    for path in [BASE + rel for rel in SRC.get(target, [])] + [harness]:
         if not (REPO / path).exists():
             continue
         out = subprocess.run(

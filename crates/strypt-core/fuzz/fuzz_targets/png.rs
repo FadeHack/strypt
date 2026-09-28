@@ -30,6 +30,13 @@ use strypt_core::report::InspectOptions;
 use strypt_core::{Format, detect, inspect_bytes, strip_bytes};
 
 fuzz_target!(|data: &[u8]| {
+    // PNGs only. Unguarded, most of this target's corpus drifted into TIFF, and its 2026-09-28
+    // breakthrough was ISO-BMFF: coverage that certifies other handlers, not this one (ADR-0044).
+    // The guard also carries the size invariant, which TIFF's rebuild would break (ADR-0033).
+    if !matches!(detect(data), Ok(Format::Png)) {
+        return;
+    }
+
     // Inspection must never modify anything and must never panic, whatever it is handed.
     let _ = inspect_bytes(data, &InspectOptions::names_only());
 
@@ -38,17 +45,10 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    // Only for an input that really is a PNG. This target drives the whole pipeline, so a
-    // mutation that lands on another format's magic is dispatched to that format's handler —
-    // and TIFF is rebuilt rather than edited, so it may legitimately grow (ADR-0033). The
-    // assertion was unconditional and correct until TIFF landed, which is the first supported
-    // format that can grow; the GIF target hit the resulting false positive on 2026-08-26.
-    if matches!(detect(data), Ok(Format::Png)) {
-        assert!(
-            first.bytes.len() <= data.len(),
-            "stripping a PNG produced more bytes than it was given"
-        );
-    }
+    assert!(
+        first.bytes.len() <= data.len(),
+        "stripping a PNG produced more bytes than it was given"
+    );
 
     // Whatever strip claims to have removed, inspect must be unable to find.
     match inspect_bytes(&first.bytes, &InspectOptions::names_only()) {

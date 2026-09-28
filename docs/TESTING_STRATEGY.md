@@ -103,7 +103,7 @@ therefore runs on Linux (and optionally macOS) while Windows is covered by the o
   counts crashes measures the wrong thing.
 
 **Budget — ADR-0044, measured from 80 coverage curves.** A handler certifies on **one run of at
-least 24 CPU-hours** since its last substantive change, shared modules included, whose curve
+least 24 CPU-hours** since its last substantive change, shared modules and its own harness included, whose curve
 classifies **saturated** under `scripts/fuzz-plateau.py`: six equal windows, and no window after
 the first both gaining over 1% of final coverage and doubling its predecessor. `scripts/fuzz-tally.py`
 decides certification, from the most recent qualifying run.
