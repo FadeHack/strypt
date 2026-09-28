@@ -158,7 +158,7 @@ Evidence, not an audit: each point links to where it is checked.
 - **No `unsafe` in strypt's own code**, enforced by the compiler; dependencies are checked
   against RustSec advisories on every push and weekly.
 - **Every parser is fuzzed.** 19 of 22 fuzz targets meet the bar of 24 CPU-hours with saturated
-  coverage (ADR-0044); `jxl`, `pdf` and `png` do not yet. All 22 run for a minute on every push.
+  coverage (ADR-0044); `ooxml`, `pdf` and `png` do not yet. All 22 run for a minute on every push.
 - **Every format is compared against mat2 and ExifTool**, and each difference is recorded as a
   bug or a deliberate choice ([`docs/THREAT_MODEL.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/THREAT_MODEL.md) §7).
 

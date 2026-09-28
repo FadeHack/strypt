@@ -2932,7 +2932,8 @@ ADR-0014 was measuring a state this project's fuzzing does not enter.
   records it when deliverable 9 is written.
 - **`jxl`, `png` and `pdf` get libFuzzer dictionaries (2026-09-26)**, not `ogg`'s mutator: `png`
   checks no CRC, so a checksum is not what stalls it. Each lists the magic, box or chunk types and
-  names its handler matches, in `fuzz/dicts/`. Whether that saturates them is the next run's answer.
+  names its handler matches, in `fuzz/dicts/`. On the 2026-09-28 run `jxl` saturated; `png` and
+  `pdf` stayed punctuated, so a dictionary alone is not their remedy.
 - **The rule is falsifiable and cheap to re-run**, which matters more than its exact constants. Any
   future contributor can re-run `fuzz-plateau.py` over the whole archive and see whether the
   classification still holds, including against these numbers.
