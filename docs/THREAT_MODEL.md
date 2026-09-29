@@ -139,8 +139,9 @@ crashes.
 *Phase 3 finding:* no hang or OOM has been found. Four of the five PDF findings were wrong output
 caught by the idempotence assertion, not crashes, so correctness assertions in the harness earn
 more than crash-only fuzzing. Hours do not replace structure: `ogg` did not certify in 84
-CPU-hours, then certified in 24 once its mutator repaired page CRCs (ADR-0044). `jxl` and `png`
-still do not certify (`scripts/fuzz-tally.py`).
+CPU-hours, then certified in 24 once its mutator repaired page CRCs (ADR-0044). Every target
+certifies as of 2026-09-30: `jxl` needed a dictionary, and `png`, `pdf` and `ooxml` a guard
+against other formats' code (`scripts/fuzz-tally.py`).
 
 **5.2 Supply-chain compromise.** A malicious or compromised dependency runs with full access
 to the user's most sensitive documents, and is the attack path least visible to users.
@@ -536,7 +537,6 @@ is written in this repository, under the crate's panic-freedom lints, over the s
 checked-reading primitive. CRCs are copied rather than recomputed, so there is no checksum
 code either. The residual risks are the ones safe Rust still has — a hang or unbounded
 allocation on a hostile file — which is what the `png` fuzz target exists to find.
-It is punctuated under ADR-0044 (KNOWN_LIMITATIONS).
 
 ---
 
@@ -1386,7 +1386,7 @@ is fair in both directions. The **reverse direction is the interesting one**: Ex
 `Exif`, `xml ` and `brob`, and leaves `jumb`, `jbrd`, `jxli`, `free` and `skip`. A **C2PA manifest
 naming the capture device and the signing identity survives mat2 and does not survive strypt**.
 
-**Fuzzing.** `jxl`, clean but punctuated under ADR-0044 (KNOWN_LIMITATIONS). It asserts
+**Fuzzing.** `jxl`, certified under ADR-0044 with a dictionary. It asserts
 re-inspect-clean, idempotence, and — guarded by `detect()` — that stripping never grows a file.
 
 ### 7.13 FLAC (Phase 2)

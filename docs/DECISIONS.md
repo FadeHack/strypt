@@ -2937,7 +2937,8 @@ ADR-0014 was measuring a state this project's fuzzing does not enter.
 - **The punctuation was another handler's code (2026-09-28).** Those runs' breakthroughs were
   inputs mutated onto a foreign magic: ISO-BMFF in `png`, JPEG in `ooxml`, ID3 in `pdf`. Each of
   the three now returns early on any other format, which cut `png`'s coverage from 2,265 to
-  1,070, and `fuzz-tally.py` resets a target's clock when its harness changes, so each owes a run.
+  1,070, and `fuzz-tally.py` resets a target's clock when its harness changes. All three saturated
+  on their next 24-hour run (2026-09-30), so every target certifies.
 - **The rule is falsifiable and cheap to re-run**, which matters more than its exact constants. Any
   future contributor can re-run `fuzz-plateau.py` over the whole archive and see whether the
   classification still holds, including against these numbers.
