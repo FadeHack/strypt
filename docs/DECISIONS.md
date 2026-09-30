@@ -3937,3 +3937,77 @@ Closes ROADMAP Phase 5, opened by ADR-0058.
   `eframe` to be re-verified at each release.
 
 ---
+
+## ADR-0064 — Phase 6 opens: the menu entry opens the app, and nothing loads into a file manager
+
+**Status:** Accepted (2026-09-30)
+
+Opens ROADMAP Phase 6, and settles its third deliverable.
+
+**Context.** Checked 2026-09-30:
+
+- **GNOME Files 51** (GNOME 51, 2026-09-16) has two routes. Extensions load into its process through
+  `libnautilus-extension` API 4.0, in C or through nautilus-python; since Nautilus 43 they are GTK 4
+  and may not create widgets or dialogs. Scripts in `~/.local/share/nautilus/scripts` run as their own
+  process, sit under a Scripts submenu named by file, and get the selection as arguments. Scripts are
+  still in `nautilus-files-view.c` on `main`. mat2 removed its Nautilus extension in 0.13.1 (2023-01-07).
+- **Dolphin 26.08** (KDE Gear, 2026-08-20) on Plasma 6.7, with 6.8 due in October. A service menu is a
+  `Type=Service` `.desktop` file in `~/.local/share/kio/servicemenus`, and it is authorised only if it
+  is executable. `X-KDE-ServiceTypes` is deprecated. The in-process route, `KFileItemAction`, is a
+  C++ Qt plugin.
+- **Nemo, Cinnamon 6.6** (Mint 22.3, 2026-01-13); Mint 23 with 6.7 is due in December 2026. A
+  `.nemo_action` in `~/.local/share/nemo/actions` takes `%F`, and `Dependencies=` hides the action
+  when a named program is missing.
+- **Windows 11 25H2**; 26H2 is in controlled rollout, and Insider build 26340 redesigns the menu, with
+  details unpublished. Windows 11's top-level menu takes only `IExplorerCommand` handlers. Those are
+  in-process COM DLLs, and they need package identity from an MSIX package signed by a certificate
+  the user's machine trusts. A registry verb under `HKCU\Software\Classes` or a Send To entry needs
+  neither and appears under Show more options. A command-line verb starts one process per selected
+  file, and it is hidden when more than 15 files are selected.
+- **mat2 0.15.0's Dolphin and Nemo entries** run its CLI. The Nemo action reports the exit status
+  through `zenity`. The Dolphin entry asks through `kdialog` before it cleans and shows nothing
+  afterwards.
+
+Every in-process route needs C FFI, a Python interpreter or a COM DLL. Each of those means `unsafe`
+code or an interpreter chain, and in an in-process route a panic takes the file manager down with it.
+
+**Decision.**
+
+1. **Phase 6 is open**, and its deliverables and exit criteria stand. No formats are added (ADR-0043).
+2. **Nothing loads into a file manager.** The integrations are a Nautilus script, a Dolphin service
+   menu, a Nemo action, and on Windows a registry verb or Send To (decision 6). nautilus-python,
+   `KFileItemAction` and `IExplorerCommand` are not used. On Windows 11 the entry therefore sits
+   under Show more options, and the README says so.
+3. **The entry opens the app with the selection.** `strypt-gui` takes paths as arguments and treats
+   them as a drop: the same results screen, the same copy-out and the same folder confirmation
+   (ADR-0061). The app's results screen is the only failure path. `zenity`, `kdialog` and
+   notifications are not used, because a missing one makes a failure silent. `cli_identity.rs` also
+   covers paths given as arguments. Rejected: the CLI plus a dialog tool, because Windows has no
+   such tool and on Linux it may be missing; a separate reporter binary, because that would be a
+   third front-end.
+4. **A failure to start is a tested case.** Each entry names the app by absolute path. What each file
+   manager shows when the app has been moved or deleted is measured under exit criterion 3, and an
+   entry that fails silently there does not ship. The Nemo action names the app in `Dependencies=`.
+5. **The app installs the entries, per user, and can remove them.** A setting writes an entry for
+   each supported file manager it finds, only in the user's own directories, and never as root. An
+   AppImage records `$APPIMAGE` as its path. The CLI installs nothing.
+6. **Order: the failure path first.** Paths as arguments and decision 4's cases come first, then
+   Nemo, Dolphin and Nautilus. Windows is last, and a spike on 25H2 chooses between Send To (one
+   process for any number of files) and a verb (one process per file, at most 15). Windows usability
+   stays unjudged while the app is unsigned (ADR-0058 decision 4).
+7. **"Current stable" (exit criterion 2) is checked again when each integration is tested.** On
+   2026-09-30 it was GNOME 51, Dolphin 26.08, Cinnamon 6.6 and Windows 11 25H2. Finder is not part of
+   this phase.
+
+**Consequences.**
+
+- **No new dependency and no `unsafe` are planned.** If Windows needs a registry crate, that crate
+  gets its own ADR.
+- **The GUI gains an input, paths on its command line.** Those paths go through `strypt_core::walk`,
+  like a drop.
+- **The Tails and Whonix path gets no menu entry**, since the GUI is unverified there (ADR-0058
+  decision 5).
+- **Nautilus shows the entry one level down**, as Scripts ▸ the script's file name.
+- **A menu entry is only as trustworthy as the user's home directory**, which can already replace it.
+  THREAT_MODEL §8 is triggered because this is a new front-end.
+- **These mechanisms move.** Each is re-verified at each release, as `eframe` is.

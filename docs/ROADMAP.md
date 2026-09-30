@@ -1,7 +1,7 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–5 complete; no phase open; four Phase 7 deliverables in progress (ADR-0055)
-· **Last updated:** 2026-09-24
+**Status:** Phases 0–5 complete; Phase 6 open (ADR-0064); four Phase 7 deliverables in progress (ADR-0055)
+· **Last updated:** 2026-09-30
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -154,7 +154,10 @@ Whonix path stays with the CLI.
 
 ---
 
-## Phase 6 — File-manager integration
+## Phase 6 — File-manager integration *(open since 2026-09-30)*
+
+Opened by ADR-0064: each entry opens the GUI with the selection, nothing loads into a file manager,
+and the GUI installs the entries per user. Windows's entry sits under Show more options.
 
 **Goal.** Match the reach mat2 achieved through file-manager extensions, which is how much of
 this tool's audience actually encounters and uses it.
