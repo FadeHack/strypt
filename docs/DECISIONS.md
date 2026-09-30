@@ -4007,7 +4007,7 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
   like a drop.
 - **The Tails and Whonix path gets no menu entry**, since the GUI is unverified there (ADR-0058
   decision 5).
-- **Nautilus shows the entry one level down**, as Scripts ▸ the script's file name.
+- **Nautilus shows the entry one level down**, under Open With (the last bullet replaces the script).
 - **A menu entry is only as trustworthy as the user's home directory**, which can already replace it.
   THREAT_MODEL §8 is triggered because this is a new front-end.
 - **These mechanisms move.** Each is re-verified at each release, as `eframe` is.
@@ -4018,3 +4018,10 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
   failed. Send To opened one window for 5 and for 18, and with the app deleted Explorer named the
   missing `strypt-gui.exe`. The spike's shortcut had no icon; the real one names the app's. A
   folder's verb gave one window and the confirmation. Exit criterion 2 still needs 25H2.
+- **Decision 4 replaces the Nautilus script with an Open With entry** (2026-09-30, the arm64 Ubuntu
+  VM, the same run's AppImage). The script cleaned 1 file, 5 files in one window and a folder, but
+  with the app deleted the menu item did nothing, so it does not ship. A `.desktop` file in
+  `~/.local/share/applications` whose `TryExec=` names the app cleaned 1 file and 5 in one window,
+  and with the app deleted it left the Open With list. Its `MimeType=` lists the supported formats
+  only: it adds no folder entry, so strypt can never become a folder's default, and a folder is
+  dropped on the app instead. GNOME 51 is still to test.
