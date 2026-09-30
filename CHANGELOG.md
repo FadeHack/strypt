@@ -23,6 +23,9 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 - The app opens files and folders given on its command line, as if they were dropped on it.
   File-manager menu entries will use this (ADR-0064).
+- The app can add itself to the file manager's right-click menu, and remove itself again: a
+  Nemo action, a Dolphin service menu and Open With on Linux, and Send To on Windows. Each
+  opens the app with the selection. Untested on the desktops' current releases (ADR-0064).
 
 ### Changed
 

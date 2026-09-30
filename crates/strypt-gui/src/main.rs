@@ -11,6 +11,7 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use eframe::egui::{self, Align, Color32, Layout, Margin, RichText, Sense, Stroke, vec2};
 use strypt_core::Walk;
 use strypt_core::report::Sensitivity;
+use strypt_gui::menu::{self, State};
 use strypt_gui::{Backend, Diff, Group, Status, Tone};
 
 mod icon;
@@ -50,6 +51,41 @@ enum Picked {
 
 type Job = (usize, PathBuf, Option<PathBuf>);
 
+/// The file-manager entries for this copy of the app (ADR-0064), or why there can be none.
+struct Menu {
+    dir: PathBuf,
+    all: &'static [&'static str],
+    entries: Vec<menu::Entry>,
+    state: State,
+    failed: Option<String>,
+}
+
+impl Menu {
+    fn load() -> Result<Self, String> {
+        let (dir, all, entries) = menu::here().map_err(|r| r.0)?;
+        let state = menu::state(&dir, all, &entries);
+        Ok(Self {
+            dir,
+            all,
+            entries,
+            state,
+            failed: None,
+        })
+    }
+
+    fn change(&mut self, add: bool) {
+        let done = if add {
+            menu::install(&self.dir, self.all, &self.entries)
+        } else {
+            menu::remove(&self.dir, self.all)
+        };
+        self.failed = done
+            .err()
+            .map(|e| format!("The menu entries could not be changed: {e}"));
+        self.state = menu::state(&self.dir, self.all, &self.entries);
+    }
+}
+
 struct App {
     rows: Vec<Row>,
     jobs: Sender<Job>,
@@ -68,6 +104,7 @@ struct App {
     asking: VecDeque<Survey>,
     /// Paths from the command line, added on the first frame.
     opened: Vec<PathBuf>,
+    menu: Result<Menu, String>,
 }
 
 impl App {
@@ -97,6 +134,7 @@ impl App {
             looking: Vec::new(),
             asking: VecDeque::new(),
             opened,
+            menu: Menu::load(),
         }
     }
 
@@ -627,6 +665,67 @@ impl App {
                 }
             }
         });
+        self.menu_setting(ui);
+    }
+
+    /// Adds or removes the right-click entries; Finder has none (ADR-0064 decision 7).
+    fn menu_setting(&mut self, ui: &mut egui::Ui) {
+        if !cfg!(any(target_os = "linux", windows)) {
+            return;
+        }
+        let p = theme::of(ui);
+        let (place, added) = if cfg!(windows) {
+            (
+                "Send To menu",
+                "Added, under Show more options ▸ Send to ▸ strypt.",
+            )
+        } else {
+            (
+                "Right-click menu",
+                "Added. Right-click files or a folder, or use Open With.",
+            )
+        };
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(place).color(p.muted));
+            let menu = match &mut self.menu {
+                Ok(menu) => menu,
+                Err(why) => {
+                    ui.label(RichText::new(why.as_str()).color(p.caution));
+                    return;
+                }
+            };
+            match menu.state {
+                State::Absent => {
+                    if ui.button("Add strypt").clicked() {
+                        menu.change(true);
+                    }
+                }
+                State::Current => {
+                    ui.label(RichText::new(added).color(p.ink));
+                    if ui.link("Remove").clicked() {
+                        menu.change(false);
+                    }
+                }
+                State::Stale => {
+                    ui.label(
+                        RichText::new("The entries open a copy of strypt that has moved.")
+                            .color(p.caution),
+                    );
+                    if ui.button("Update").clicked() {
+                        menu.change(true);
+                    }
+                    if ui.link("Remove").clicked() {
+                        menu.change(false);
+                    }
+                }
+            }
+        });
+        if let Ok(Menu {
+            failed: Some(why), ..
+        }) = &self.menu
+        {
+            ui.colored_label(p.failure, why.as_str());
+        }
     }
 
     fn summary(&mut self, ui: &mut egui::Ui) {

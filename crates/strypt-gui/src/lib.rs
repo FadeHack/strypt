@@ -18,6 +18,8 @@ use strypt_core::{
 #[path = "../../strypt/src/wording.rs"]
 mod wording;
 
+pub mod menu;
+
 /// Strip `input` into core's `*.stripped.*` copy, beside it or in `output_dir`, under the CLI's
 /// defaults: its size limit, refusing to overwrite, owner-only permissions. Returns where the copy
 /// went and what was found beforehand.
