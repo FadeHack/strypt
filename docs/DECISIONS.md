@@ -4011,3 +4011,10 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
 - **A menu entry is only as trustworthy as the user's home directory**, which can already replace it.
   THREAT_MODEL §8 is triggered because this is a new front-end.
 - **These mechanisms move.** Each is re-verified at each release, as `eframe` is.
+- **Decision 6's Windows spike chose Send To** (2026-09-30, Windows 11 24H2 build 26100.9457, the
+  0.2.0 `.exe` from [run 36680225559](https://github.com/FadeHack/strypt/actions/runs/36680225559)).
+  Both routes sat under Show more options. The verb opened one window per file (5 for 5, 18 for 18),
+  and with the app deleted Explorer offered to open the photo in another app, which never says strypt
+  failed. Send To opened one window for 5 and for 18, and with the app deleted Explorer named the
+  missing `strypt-gui.exe`. The spike's shortcut had no icon; the real one names the app's. A
+  folder's verb gave one window and the confirmation. Exit criterion 2 still needs 25H2.
