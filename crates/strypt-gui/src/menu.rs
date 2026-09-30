@@ -402,39 +402,41 @@ mod tests {
         dir
     }
 
+    /// Absolute on the host: Windows needs a drive for `is_absolute`.
+    fn abs(path: &str) -> PathBuf {
+        PathBuf::from(if cfg!(windows) {
+            format!("C:{path}")
+        } else {
+            path.into()
+        })
+    }
+
     #[test]
     fn an_entry_refuses_a_path_its_quoting_would_change() {
-        assert!(plain(Path::new("/home/u/My Apps/strypt.AppImage")).is_ok());
-        for bad in [
-            "/a\"b",
-            "/a`b",
-            "/a$b",
-            "/a\\b",
-            "/a%b",
-            "/a;b",
-            "/a\nb",
-            "rel/strypt",
-        ] {
-            assert!(plain(Path::new(bad)).is_err(), "{bad:?}");
+        assert!(plain(&abs("/home/u/My Apps/strypt.AppImage")).is_ok());
+        for bad in ["/a\"b", "/a`b", "/a$b", "/a\\b", "/a%b", "/a;b", "/a\nb"] {
+            assert!(plain(&abs(bad)).is_err(), "{bad:?}");
         }
+        assert!(plain(Path::new("rel/strypt")).is_err());
     }
 
     #[test]
     fn linux_entries_name_the_app_and_only_the_found_file_managers() {
-        let app = Path::new("/home/u/Apps/strypt 0.2.AppImage");
-        let only = linux(app, false, false).unwrap();
+        let app = abs("/home/u/Apps/strypt 0.2.AppImage");
+        let text = app.to_str().unwrap();
+        let only = linux(&app, false, false).unwrap();
         assert_eq!(only.len(), 2);
         let desktop = String::from_utf8(only[0].contents.clone()).unwrap();
-        assert!(desktop.contains("Exec=\"/home/u/Apps/strypt 0.2.AppImage\" %F\n"));
-        assert!(desktop.contains("TryExec=/home/u/Apps/strypt 0.2.AppImage\n"));
+        assert!(desktop.contains(&format!("Exec=\"{text}\" %F\n")));
+        assert!(desktop.contains(&format!("TryExec={text}\n")));
         assert!(
             !desktop.contains("inode/directory"),
             "never a folder's default"
         );
 
-        let all = linux(app, true, true).unwrap();
+        let all = linux(&app, true, true).unwrap();
         let nemo = String::from_utf8(all[2].contents.clone()).unwrap();
-        assert!(nemo.contains("Dependencies=/home/u/Apps/strypt 0.2.AppImage;\n"));
+        assert!(nemo.contains(&format!("Dependencies={text};\n")));
         assert!(nemo.contains("inode/directory;"));
         assert!(all[3].executable && all[3].path == LINUX_PATHS[3]);
     }
@@ -484,8 +486,8 @@ mod tests {
     #[test]
     fn install_writes_state_tells_and_remove_clears() {
         let dir = scratch("install");
-        let here = linux(Path::new("/opt/strypt"), true, true).unwrap();
-        let moved = linux(Path::new("/opt/moved/strypt"), true, true).unwrap();
+        let here = linux(&abs("/opt/strypt"), true, true).unwrap();
+        let moved = linux(&abs("/opt/moved/strypt"), true, true).unwrap();
         assert_eq!(state(&dir, &LINUX_PATHS, &here), State::Absent);
         install(&dir, &LINUX_PATHS, &here).unwrap();
         assert_eq!(state(&dir, &LINUX_PATHS, &here), State::Current);
