@@ -29,6 +29,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 - The `png`, `pdf` and `ooxml` fuzz targets skip other formats, whose code caused their
   punctuated runs, and `fuzz-tally.py` resets a target when its harness changes (ADR-0044).
   All three then saturated, so all 22 fuzz targets certify.
+- Known limitations name `libxkbcommon-x11` as a Linux requirement of the desktop app; without it
+  the AppImage exits before showing a window.
 
 ## [0.2.0] - 2026-09-24
 

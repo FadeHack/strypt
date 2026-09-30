@@ -43,6 +43,9 @@ it knows to look for. No tool can promise more.
 - **Linux needs glibc 2.35 or newer** (Ubuntu 22.04, Debian 12, Mint 21) and FUSE 3. On an older
   system a double-clicked AppImage does nothing, without a message. The static command-line binary
   runs there (ADR-0062).
+- **Linux also needs `libxkbcommon-x11`** (Debian and Ubuntu: `libxkbcommon-x11-0`), which desktop
+  installs include but the AppImage does not bundle. Without it the app exits before showing a
+  window, without a message.
 - **Not run on Tails** (ADR-0058 decision 5). The command line remains the Tails and Whonix path.
 - **Screen readers: tried with VoiceOver only.** On macOS 26.3 every control is reached by Tab, and
   the results, Technical details included, are read with VoiceOver's own navigation. Orca, NVDA and
