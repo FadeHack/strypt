@@ -161,6 +161,46 @@ fn a_folder_drop_matches_cli_recursive() {
     let _ = std::fs::remove_dir_all(&gui_out);
 }
 
+/// A file-manager entry passes names relative to the folder it runs in (ADR-0064), and the CLI
+/// run from that folder with the same names must write the same files.
+#[test]
+fn paths_on_the_command_line_match_the_cli() {
+    let cli = cli();
+    let (cli_out, gui_out) = (scratch("args-cli"), scratch("args-gui"));
+    let names = [
+        "jpeg/exif-gps.jpg",
+        "png/text-chunks.png",
+        "no-such-file.jpg",
+    ];
+    let status = Command::new(&cli)
+        .current_dir(corpus())
+        .args(["strip", "--output-dir"])
+        .arg(&cli_out)
+        .args(names)
+        .output()
+        .unwrap()
+        .status;
+    assert_eq!(status.code(), Some(3), "one missing file fails the batch");
+
+    let opened = strypt_gui::opened_paths(names.map(Into::into), &corpus());
+    let statuses: Vec<_> = opened
+        .iter()
+        .map(|path| strypt_gui::process(path, Some(&gui_out)))
+        .collect();
+    assert!(matches!(statuses[2], strypt_gui::Status::Refused(_)));
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|s| matches!(s, strypt_gui::Status::Cleaned { .. }))
+            .count(),
+        2
+    );
+    let diff = differences(&cli_out, &gui_out);
+    assert!(diff.is_empty(), "{diff:?}");
+    let _ = std::fs::remove_dir_all(&cli_out);
+    let _ = std::fs::remove_dir_all(&gui_out);
+}
+
 /// A comparison that cannot fail proves nothing, so plant each kind of difference.
 #[test]
 fn a_planted_difference_fails_the_comparison() {

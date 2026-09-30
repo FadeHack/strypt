@@ -353,6 +353,20 @@ pub fn skipped(entry: &Skipped) -> Status {
     }))
 }
 
+/// Paths a file-manager entry passes on the command line, each treated as a drop (ADR-0064).
+/// Nautilus runs a script in the selection's folder and passes bare names, so each is made
+/// absolute against `cwd` at launch.
+#[must_use]
+pub fn opened_paths(
+    args: impl IntoIterator<Item = std::ffi::OsString>,
+    cwd: &Path,
+) -> Vec<PathBuf> {
+    args.into_iter()
+        .filter(|arg| !arg.is_empty())
+        .map(|arg| cwd.join(arg))
+        .collect()
+}
+
 /// What a dropped folder holds, asked before anything is written.
 #[must_use]
 pub fn folder_summary(walk: &Walk) -> String {
@@ -411,6 +425,20 @@ impl Backend {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opened_paths_resolve_against_the_launch_folder() {
+        let cwd = Path::new("/home/u/Pictures");
+        let args = ["a.jpg", "", "/tmp/b.png", "-x.pdf"].map(std::ffi::OsString::from);
+        assert_eq!(
+            opened_paths(args, cwd),
+            [
+                cwd.join("a.jpg"),
+                PathBuf::from("/tmp/b.png"),
+                cwd.join("-x.pdf")
+            ]
+        );
+    }
 
     #[test]
     fn x11_is_chosen_only_under_wayland_with_xwayland() {

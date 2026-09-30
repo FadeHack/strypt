@@ -19,6 +19,11 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+### Added
+
+- The app opens files and folders given on its command line, as if they were dropped on it.
+  File-manager menu entries will use this (ADR-0064).
+
 ### Changed
 
 - Phase 6, file-manager integration, is open (ADR-0064). Nothing is shipped yet.

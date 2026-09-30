@@ -66,11 +66,13 @@ struct App {
     looking: Vec<String>,
     /// Walked folders waiting for the user's yes, first shown first.
     asking: VecDeque<Survey>,
+    /// Paths from the command line, added on the first frame.
+    opened: Vec<PathBuf>,
 }
 
 impl App {
     /// One worker, files in arrival order: overlapping batches never race for an output name.
-    fn new(ctx: egui::Context, backend: Backend) -> Self {
+    fn new(ctx: egui::Context, backend: Backend, opened: Vec<PathBuf>) -> Self {
         let (jobs, inbox) = channel::<Job>();
         let (outbox, results) = channel();
         std::thread::spawn(move || {
@@ -94,6 +96,7 @@ impl App {
             surveys: channel(),
             looking: Vec::new(),
             asking: VecDeque::new(),
+            opened,
         }
     }
 
@@ -290,6 +293,9 @@ impl App {
     fn show(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         let now = ctx.input(|i| i.time);
+        for path in std::mem::take(&mut self.opened) {
+            self.add(&ctx, path);
+        }
         for file in ctx.input(|i| i.raw.dropped_files.clone()) {
             self.add(&ctx, file.path().to_path_buf());
         }
@@ -972,6 +978,10 @@ fn event_loop(_: Backend) -> Option<eframe::EventLoopBuilderHook> {
 
 fn main() -> eframe::Result {
     let backend = backend();
+    let opened = strypt_gui::opened_paths(
+        std::env::args_os().skip(1),
+        &std::env::current_dir().unwrap_or_default(),
+    );
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("strypt")
@@ -991,7 +1001,7 @@ fn main() -> eframe::Result {
             cc.egui_ctx
                 .options_mut(|o| o.fallback_theme = egui::Theme::Light);
             theme::install(&cc.egui_ctx);
-            Ok(Box::new(App::new(cc.egui_ctx.clone(), backend)))
+            Ok(Box::new(App::new(cc.egui_ctx.clone(), backend, opened)))
         }),
     );
     // Launched from Finder, Explorer or a desktop menu, there is no terminal to show stderr.
@@ -1050,7 +1060,7 @@ mod tests {
     #[test]
     fn a_screen_reader_meets_the_title_first_and_the_caveats_last() {
         let ctx = egui::Context::default();
-        let mut app = App::new(ctx, Backend::Default);
+        let mut app = App::new(ctx, Backend::Default, Vec::new());
         let labels = spoken_order(|ui| app.show(ui));
         assert_eq!(labels.first().map(String::as_str), Some("strypt"));
         assert_eq!(labels.last(), Diff::caveats().last());
