@@ -195,12 +195,26 @@ pub fn linux(app: &Path, nemo: bool, dolphin: bool) -> Result<Vec<Entry>, Refusa
 ///
 /// # Errors
 ///
-/// A path that is not absolute or not Unicode.
+/// A path not on a lettered drive, or one outside ASCII, which the shortcut's item ID list
+/// carries in the system code page.
 pub fn windows(app: &Path) -> Result<Vec<Entry>, Refusal> {
     let text = app
         .to_str()
-        .filter(|_| app.is_absolute())
         .ok_or_else(|| Refusal("strypt could not find its own location.".into()))?;
+    let text = text.strip_prefix(r"\\?\").unwrap_or(text);
+    let lettered = matches!(text.as_bytes(), [d, b':', b'\\', ..] if d.is_ascii_alphabetic());
+    if !lettered {
+        return Err(Refusal(
+            "strypt must be on a lettered drive, such as C:\\, to add a Send To entry.".into(),
+        ));
+    }
+    if !text.is_ascii() {
+        return Err(Refusal(
+            "strypt's location has a letter outside plain English, which its Send To entry \
+             cannot carry yet. Move strypt to a folder such as C:\\strypt."
+                .into(),
+        ));
+    }
     let contents =
         shortcut(text).ok_or_else(|| Refusal("strypt's location is too long.".into()))?;
     Ok(vec![Entry {
@@ -217,31 +231,60 @@ fn utf16z(s: &str) -> Vec<u8> {
         .collect()
 }
 
-/// A shell link to `target` with its icon (MS-SHLLINK): no item ID list, the path in `LinkInfo`
-/// in both spellings, and `ICON_LOCATION`. `None` if a length overflows its field.
+fn push_item(list: &mut Vec<u8>, data: &[u8]) -> Option<()> {
+    list.extend(u16::try_from(data.len() + 2).ok()?.to_le_bytes());
+    list.extend(data);
+    Some(())
+}
+
+/// A shell link to `target`, an ASCII path on a lettered drive, with its icon (MS-SHLLINK).
+/// Explorer leaves a link out of Send To unless its item ID list resolves, so the list is
+/// Computer, the drive, then the rest of the path as one file item, as `mslink` writes it.
+/// `LinkInfo` carries the path too. `None` if a length overflows its field.
 fn shortcut(target: &str) -> Option<Vec<u8>> {
+    const HAS_ID_LIST: u32 = 0x01;
     const HAS_LINK_INFO: u32 = 0x02;
     const HAS_ICON_LOCATION: u32 = 0x40;
     const IS_UNICODE: u32 = 0x80;
     const SW_SHOWNORMAL: u32 = 1;
     const DRIVE_FIXED: u32 = 3;
     let u32_of = |n: usize| u32::try_from(n).ok();
+    let (drive, rest) = target.split_at_checked(3)?;
 
     let mut link = Vec::new();
     link.extend(0x4C_u32.to_le_bytes());
     // CLSID 00021401-0000-0000-C000-000000000046
     link.extend([1, 0x14, 2, 0, 0, 0, 0, 0, 0xC0, 0, 0, 0, 0, 0, 0, 0x46]);
-    link.extend((HAS_LINK_INFO | HAS_ICON_LOCATION | IS_UNICODE).to_le_bytes());
+    link.extend((HAS_ID_LIST | HAS_LINK_INFO | HAS_ICON_LOCATION | IS_UNICODE).to_le_bytes());
     link.extend([0; 4 + 24 + 4 + 4]); // attributes, three times, size, icon index
     link.extend(SW_SHOWNORMAL.to_le_bytes());
     link.extend([0; 2 + 2 + 4 + 4]); // hot key, reserved
 
+    let mut ids = Vec::new();
+    // Computer, {20D04FE0-3AEA-1069-A2D8-08002B30309D}
+    push_item(
+        &mut ids,
+        &[
+            0x1F, 0x50, 0xE0, 0x4F, 0xD0, 0x20, 0xEA, 0x3A, 0x69, 0x10, 0xA2, 0xD8, 0x08, 0x00,
+            0x2B, 0x30, 0x30, 0x9D,
+        ],
+    )?;
+    let mut root = vec![0x2F];
+    root.extend(drive.as_bytes());
+    root.resize(23, 0);
+    push_item(&mut ids, &root)?;
+    // Type, a pad byte, then size, date and attributes left zero.
+    let mut file = vec![0x32; 1];
+    file.extend([0; 11]);
+    file.extend(rest.as_bytes());
+    file.push(0);
+    push_item(&mut ids, &file)?;
+    link.extend(u16::try_from(ids.len() + 2).ok()?.to_le_bytes());
+    link.extend(ids);
+    link.extend([0, 0]);
+
     // LinkInfo with a 0x24-byte header, so the Unicode path offsets are present.
-    let ansi: Vec<u8> = target
-        .chars()
-        .map(|c| u8::try_from(c).ok().filter(u8::is_ascii).unwrap_or(b'?'))
-        .chain([0])
-        .collect();
+    let ansi: Vec<u8> = target.bytes().chain([0]).collect();
     let volume: Vec<u8> = [17_u32, DRIVE_FIXED, 0, 0x10]
         .iter()
         .flat_map(|n| n.to_le_bytes())
@@ -300,7 +343,13 @@ pub fn state(dir: &Path, all: &[&str], entries: &[Entry]) -> State {
     let current = entries
         .iter()
         .all(|e| std::fs::read(dir.join(e.path)).is_ok_and(|c| c == e.contents));
-    if current {
+    let cached = !entries.iter().any(|e| e.path == LINUX_PATHS[0])
+        || std::fs::read_to_string(dir.join(MIME_CACHE)).is_ok_and(|cache| {
+            cache
+                .lines()
+                .any(|l| l.starts_with("image/jpeg=") && l.contains("strypt.desktop"))
+        });
+    if current && cached {
         State::Current
     } else {
         State::Stale
@@ -314,11 +363,88 @@ pub fn state(dir: &Path, all: &[&str], entries: &[Entry]) -> State {
 /// The first write that failed.
 pub fn install(dir: &Path, all: &[&str], entries: &[Entry]) -> io::Result<()> {
     remove(dir, all)?;
-    let written = entries.iter().try_for_each(|e| write(&dir.join(e.path), e));
+    let written = entries
+        .iter()
+        .try_for_each(|e| write(&dir.join(e.path), e))
+        .and_then(|()| refresh_mime_cache(dir, all));
     if written.is_err() {
         let _ = remove(dir, all);
     }
     written
+}
+
+const MIME_CACHE: &str = "applications/mimeinfo.cache";
+
+/// `GLib` takes Open With from this cache, not from the entries (seen on Ubuntu, ADR-0064), so it
+/// is rebuilt from every entry in the folder, as `update-desktop-database` builds it.
+fn refresh_mime_cache(dir: &Path, all: &[&str]) -> io::Result<()> {
+    use std::fmt::Write as _;
+    if !all.contains(&LINUX_PATHS[0]) {
+        return Ok(());
+    }
+    let apps = dir.join("applications");
+    let mut by_type = std::collections::BTreeMap::<String, Vec<String>>::new();
+    collect_mime_types(&apps, "", &mut by_type)?;
+    let mut cache = String::from("[MIME Cache]\n");
+    for (mime, ids) in by_type {
+        let _ = writeln!(cache, "{mime}={};", ids.join(";"));
+    }
+    std::fs::create_dir_all(&apps)?;
+    std::fs::write(apps.join("mimeinfo.cache"), cache)
+}
+
+/// A subfolder's entries take its name as a prefix: `kde/a.desktop` is `kde-a.desktop`.
+fn collect_mime_types(
+    dir: &Path,
+    prefix: &str,
+    by_type: &mut std::collections::BTreeMap<String, Vec<String>>,
+) -> io::Result<()> {
+    let mut names: Vec<_> = match std::fs::read_dir(dir) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+        listing => listing?.filter_map(Result::ok).map(|e| e.path()).collect(),
+    };
+    names.sort();
+    for path in names {
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if path.is_dir() {
+            collect_mime_types(&path, &format!("{prefix}{name}-"), by_type)?;
+        } else if name.ends_with(".desktop")
+            && let Ok(text) = std::fs::read_to_string(&path)
+        {
+            for mime in desktop_mime_types(&text) {
+                by_type
+                    .entry(mime.to_owned())
+                    .or_default()
+                    .push(format!("{prefix}{name}"));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The `MimeType` list of a desktop entry's main group, or none if the entry is hidden.
+fn desktop_mime_types(text: &str) -> Vec<&str> {
+    let (mut main, mut hidden, mut types) = (false, false, Vec::new());
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('[') {
+            main = line == "[Desktop Entry]";
+        } else if main && let Some((key, value)) = line.split_once('=') {
+            match key.trim() {
+                "MimeType" => {
+                    types = value
+                        .split(';')
+                        .map(str::trim)
+                        .filter(|m| !m.is_empty())
+                        .collect();
+                }
+                "Hidden" => hidden = value.trim() == "true",
+                _ => {}
+            }
+        }
+    }
+    if hidden { Vec::new() } else { types }
 }
 
 fn write(path: &Path, entry: &Entry) -> io::Result<()> {
@@ -346,7 +472,7 @@ pub fn remove(dir: &Path, all: &[&str]) -> io::Result<()> {
             _ => {}
         }
     }
-    Ok(())
+    refresh_mime_cache(dir, all)
 }
 
 /// Whether `name` is an executable on `PATH`.
@@ -464,16 +590,36 @@ mod tests {
     }
 
     #[test]
-    fn a_shortcut_carries_the_path_in_both_spellings_and_as_its_icon() {
-        let target = r"C:\Users\Zoë\AppData\Local\strypt\strypt-gui.exe";
+    fn a_shortcut_carries_the_path_in_its_id_list_link_info_and_icon() {
+        let target = r"C:\Users\zoe\Downloads\strypt-gui.exe";
         let lnk = shortcut(target).unwrap();
         assert_eq!(lnk[..4], [0x4C, 0, 0, 0]);
         let header_flags = u32::from_le_bytes(lnk[20..24].try_into().unwrap());
-        assert_eq!(header_flags, 0xC2);
-        let info = &lnk[76..];
+        assert_eq!(header_flags, 0xC3);
+
+        let ids_size = usize::from(u16::from_le_bytes([lnk[76], lnk[77]]));
+        let ids = &lnk[78..78 + ids_size];
+        let mut items = Vec::new();
+        let mut rest = ids;
+        while let [lo, hi, ..] = rest {
+            let len = usize::from(u16::from_le_bytes([*lo, *hi]));
+            if len == 0 {
+                break;
+            }
+            items.push(&rest[2..len]);
+            rest = &rest[len..];
+        }
+        assert_eq!(rest, [0, 0], "terminated");
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0][..2], [0x1F, 0x50]);
+        assert!(items[1].starts_with(b"/C:\\\0"));
+        assert_eq!(items[2][0], 0x32);
+        assert_eq!(items[2][12..], *b"Users\\zoe\\Downloads\\strypt-gui.exe\0");
+
+        let info = &lnk[78 + ids_size..];
         let info_size = u32::from_le_bytes(info[..4].try_into().unwrap()) as usize;
         let at = |i: usize| u32::from_le_bytes(info[i..i + 4].try_into().unwrap()) as usize;
-        assert!(info[at(16)..].starts_with(b"C:\\Users\\Zo?\\"));
+        assert!(info[at(16)..].starts_with(target.as_bytes()));
         assert!(info[at(28)..].starts_with(&utf16z(target)));
         assert_eq!(at(32) + 2, info_size);
         let strings = &info[info_size..];
@@ -481,6 +627,49 @@ mod tests {
         assert_eq!(chars, target.encode_utf16().count());
         assert_eq!(strings[2..2 + chars * 2], utf16z(target)[..chars * 2]);
         assert_eq!(strings[2 + chars * 2..], [0; 4]);
+    }
+
+    #[test]
+    fn send_to_refuses_what_its_id_list_cannot_carry() {
+        assert!(windows(Path::new(r"C:\Apps\strypt-gui.exe")).is_ok());
+        assert!(windows(Path::new(r"\\?\D:\strypt-gui.exe")).is_ok());
+        for bad in [
+            r"\\server\share\strypt-gui.exe",
+            r"C:\Users\Zoë\strypt-gui.exe",
+            "rel",
+        ] {
+            assert!(windows(Path::new(bad)).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn the_mime_cache_lists_every_entry_and_drops_ours_on_remove() {
+        let dir = scratch("cache");
+        let apps = dir.join("applications");
+        std::fs::create_dir_all(apps.join("kde")).unwrap();
+        let other = "[Desktop Entry]\nName=Viewer\nMimeType=image/jpeg;image/x-raw;\n";
+        std::fs::write(apps.join("viewer.desktop"), other).unwrap();
+        std::fs::write(apps.join("kde/k.desktop"), other).unwrap();
+        let gone = "[Desktop Entry]\nHidden=true\nMimeType=image/jpeg;\n";
+        std::fs::write(apps.join("gone.desktop"), gone).unwrap();
+
+        let here = linux(&abs("/opt/strypt"), false, false).unwrap();
+        install(&dir, &LINUX_PATHS, &here).unwrap();
+        let cache = std::fs::read_to_string(dir.join(MIME_CACHE)).unwrap();
+        assert!(cache.starts_with("[MIME Cache]\n"));
+        assert!(cache.contains("\nimage/jpeg=kde-k.desktop;strypt.desktop;viewer.desktop;\n"));
+        assert!(cache.contains("\nimage/x-raw=kde-k.desktop;viewer.desktop;\n"));
+        assert_eq!(state(&dir, &LINUX_PATHS, &here), State::Current);
+
+        // Another tool rebuilt the cache without us: the entries no longer show.
+        std::fs::write(dir.join(MIME_CACHE), "[MIME Cache]\n").unwrap();
+        assert_eq!(state(&dir, &LINUX_PATHS, &here), State::Stale);
+
+        remove(&dir, &LINUX_PATHS).unwrap();
+        let cache = std::fs::read_to_string(dir.join(MIME_CACHE)).unwrap();
+        assert!(!cache.contains("strypt"));
+        assert!(cache.contains("\nimage/jpeg=kde-k.desktop;viewer.desktop;\n"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
