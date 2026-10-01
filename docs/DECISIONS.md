@@ -4025,3 +4025,8 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
   and with the app deleted it left the Open With list. Its `MimeType=` lists the supported formats
   only: it adds no folder entry, so strypt can never become a folder's default, and a folder is
   dropped on the app instead. GNOME 51 is still to test.
+- **The GUI's entries passed on both VMs** (2026-10-01, [run 36827074105](https://github.com/FadeHack/strypt/actions/runs/36827074105)).
+  Send To and Open With each opened one window for 1 file and for 5, and Send To for a folder. Both
+  first failed unseen: Explorer hides a link whose item ID list does not resolve, and GLib reads Open
+  With from `mimeinfo.cache`, which the app now rebuilds. Explorer rewrites a link it has resolved,
+  so the app compares a link by target, not bytes.

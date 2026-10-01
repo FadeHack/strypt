@@ -323,6 +323,43 @@ fn shortcut(target: &str) -> Option<Vec<u8>> {
     Some(link)
 }
 
+/// The `LinkInfo` local path of a shell link, Unicode if present (MS-SHLLINK 2.3).
+fn link_target(lnk: &[u8]) -> Option<String> {
+    let u16_at = |b: &[u8], i: usize| Some(u16::from_le_bytes([*b.get(i)?, *b.get(i + 1)?]));
+    let u32_at = |b: &[u8], i: usize| {
+        let bytes = b.get(i..i.checked_add(4)?)?;
+        usize::try_from(u32::from_le_bytes(bytes.try_into().ok()?)).ok()
+    };
+    let flags = u32_at(lnk, 0x14)?;
+    // Without an ID list Explorer hides the link, so it is not ours however it reads.
+    if flags & 0x03 != 0x03 {
+        return None;
+    }
+    let at = 0x4C + 2 + usize::from(u16_at(lnk, 0x4C)?);
+    let info = lnk.get(at..)?;
+    let info = info.get(..u32_at(info, 0)?)?;
+    if u32_at(info, 8)? & 0x01 == 0 {
+        return None;
+    }
+    let wide = if u32_at(info, 4)? >= 0x24 {
+        u32_at(info, 0x1C)?
+    } else {
+        0
+    };
+    if wide != 0 {
+        let units: Vec<u16> = info
+            .get(wide..)?
+            .chunks_exact(2)
+            .map(|c| c.try_into().map_or(0, u16::from_le_bytes))
+            .take_while(|&u| u != 0)
+            .collect();
+        return String::from_utf16(&units).ok();
+    }
+    let ansi = info.get(u32_at(info, 0x10)?..)?;
+    let end = ansi.iter().position(|&b| b == 0)?;
+    String::from_utf8(ansi.get(..end)?.to_vec()).ok()
+}
+
 /// Whether the entries in `dir` are absent, the ones `entries` would write, or another copy's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -335,14 +372,24 @@ pub enum State {
 }
 
 /// Compares the files in `dir` against `entries`; any of `all` present counts as installed.
+/// A shortcut is compared by target, since Explorer rewrites one it has resolved.
 #[must_use]
 pub fn state(dir: &Path, all: &[&str], entries: &[Entry]) -> State {
     if !all.iter().any(|p| dir.join(p).exists()) {
         return State::Absent;
     }
+    let same = |e: &Entry, c: &[u8]| {
+        if e.path == WINDOWS_PATHS[0] {
+            link_target(c).is_some_and(|t| {
+                link_target(&e.contents).is_some_and(|ours| t.eq_ignore_ascii_case(&ours))
+            })
+        } else {
+            c == e.contents
+        }
+    };
     let current = entries
         .iter()
-        .all(|e| std::fs::read(dir.join(e.path)).is_ok_and(|c| c == e.contents));
+        .all(|e| std::fs::read(dir.join(e.path)).is_ok_and(|c| same(e, &c)));
     let cached = !entries.iter().any(|e| e.path == LINUX_PATHS[0])
         || std::fs::read_to_string(dir.join(MIME_CACHE)).is_ok_and(|cache| {
             cache
@@ -640,6 +687,41 @@ mod tests {
         ] {
             assert!(windows(Path::new(bad)).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn a_shortcut_explorer_rewrote_still_reads_as_current() {
+        let dir = scratch("lnk");
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = |t: &str| Entry {
+            path: WINDOWS_PATHS[0],
+            contents: shortcut(t).unwrap(),
+            executable: false,
+        };
+        let here = [entry(r"C:\strypt\strypt-gui.exe")];
+        let moved = [entry(r"C:\old\strypt-gui.exe")];
+
+        // Explorer fills in the file item's size and appends a tracker block.
+        let mut lnk = here[0].contents.clone();
+        lnk[78 + 2 + 18 + 2 + 23 + 2 + 2] = 0x55;
+        let end = lnk.len() - 4;
+        lnk.splice(
+            end..end,
+            [0x60, 0, 0, 0, 2, 0, 0, 0xA0].into_iter().chain([7; 0x58]),
+        );
+        assert_eq!(link_target(&lnk).unwrap(), r"C:\strypt\strypt-gui.exe");
+        std::fs::write(dir.join(WINDOWS_PATHS[0]), &lnk).unwrap();
+        assert_eq!(state(&dir, &WINDOWS_PATHS, &here), State::Current);
+        assert_eq!(state(&dir, &WINDOWS_PATHS, &moved), State::Stale);
+
+        // The first build's link had no ID list; Explorer hid it, so it must read as stale.
+        lnk[0x14] &= !0x01;
+        std::fs::write(dir.join(WINDOWS_PATHS[0]), &lnk).unwrap();
+        assert_eq!(state(&dir, &WINDOWS_PATHS, &here), State::Stale);
+        for cut in 0..lnk.len() {
+            let _ = link_target(&lnk[..cut]);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
