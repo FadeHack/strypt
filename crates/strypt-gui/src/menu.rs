@@ -323,41 +323,68 @@ fn shortcut(target: &str) -> Option<Vec<u8>> {
     Some(link)
 }
 
-/// The `LinkInfo` local path of a shell link, Unicode if present (MS-SHLLINK 2.3).
-fn link_target(lnk: &[u8]) -> Option<String> {
+/// The target of a shell link in `dir` (MS-SHLLINK 2.3, 2.4): the `LinkInfo` local path, or
+/// the relative path Explorer may leave in its place when it rewrites a link it resolved.
+fn link_target(lnk: &[u8], dir: &str) -> Option<String> {
     let u16_at = |b: &[u8], i: usize| Some(u16::from_le_bytes([*b.get(i)?, *b.get(i + 1)?]));
     let u32_at = |b: &[u8], i: usize| {
         let bytes = b.get(i..i.checked_add(4)?)?;
         usize::try_from(u32::from_le_bytes(bytes.try_into().ok()?)).ok()
     };
-    let flags = u32_at(lnk, 0x14)?;
-    // Without an ID list Explorer hides the link, so it is not ours however it reads.
-    if flags & 0x03 != 0x03 {
-        return None;
-    }
-    let at = 0x4C + 2 + usize::from(u16_at(lnk, 0x4C)?);
-    let info = lnk.get(at..)?;
-    let info = info.get(..u32_at(info, 0)?)?;
-    if u32_at(info, 8)? & 0x01 == 0 {
-        return None;
-    }
-    let wide = if u32_at(info, 4)? >= 0x24 {
-        u32_at(info, 0x1C)?
-    } else {
-        0
-    };
-    if wide != 0 {
-        let units: Vec<u16> = info
-            .get(wide..)?
+    let wide = |b: &[u8]| {
+        let units: Vec<u16> = b
             .chunks_exact(2)
             .map(|c| c.try_into().map_or(0, u16::from_le_bytes))
             .take_while(|&u| u != 0)
             .collect();
-        return String::from_utf16(&units).ok();
+        String::from_utf16(&units).ok()
+    };
+    let flags = u32_at(lnk, 0x14)?;
+    // Without an ID list Explorer hides the link, so it is not ours however it reads.
+    if flags & 0x01 == 0 {
+        return None;
     }
-    let ansi = info.get(u32_at(info, 0x10)?..)?;
-    let end = ansi.iter().position(|&b| b == 0)?;
-    String::from_utf8(ansi.get(..end)?.to_vec()).ok()
+    let mut at = 0x4C + 2 + usize::from(u16_at(lnk, 0x4C)?);
+    if flags & 0x02 != 0 {
+        let info = lnk.get(at..)?;
+        let info = info.get(..u32_at(info, 0)?)?;
+        at += info.len();
+        if u32_at(info, 8)? & 0x01 != 0 {
+            let unicode = if u32_at(info, 4)? >= 0x24 {
+                u32_at(info, 0x1C)?
+            } else {
+                0
+            };
+            if unicode != 0 {
+                return wide(info.get(unicode..)?);
+            }
+            let ansi = info.get(u32_at(info, 0x10)?..)?;
+            let end = ansi.iter().position(|&b| b == 0)?;
+            return String::from_utf8(ansi.get(..end)?.to_vec()).ok();
+        }
+    }
+    if flags & 0x08 == 0 {
+        return None;
+    }
+    if flags & 0x04 != 0 {
+        at += 2 + 2 * usize::from(u16_at(lnk, at)?);
+    }
+    let units = 2 * usize::from(u16_at(lnk, at)?);
+    let relative = wide(lnk.get(at + 2..at + 2 + units)?)?;
+    let mut path: Vec<&str> = dir.split(['\\', '/']).filter(|c| !c.is_empty()).collect();
+    for part in relative.split('\\') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                path.pop()?;
+                if path.is_empty() {
+                    return None;
+                }
+            }
+            _ => path.push(part),
+        }
+    }
+    Some(path.join("\\"))
 }
 
 /// Whether the entries in `dir` are absent, the ones `entries` would write, or another copy's.
@@ -378,10 +405,11 @@ pub fn state(dir: &Path, all: &[&str], entries: &[Entry]) -> State {
     if !all.iter().any(|p| dir.join(p).exists()) {
         return State::Absent;
     }
+    let base = dir.to_str().unwrap_or_default();
     let same = |e: &Entry, c: &[u8]| {
         if e.path == WINDOWS_PATHS[0] {
-            link_target(c).is_some_and(|t| {
-                link_target(&e.contents).is_some_and(|ours| t.eq_ignore_ascii_case(&ours))
+            link_target(c, base).is_some_and(|t| {
+                link_target(&e.contents, base).is_some_and(|ours| t.eq_ignore_ascii_case(&ours))
             })
         } else {
             c == e.contents
@@ -709,7 +737,7 @@ mod tests {
             end..end,
             [0x60, 0, 0, 0, 2, 0, 0, 0xA0].into_iter().chain([7; 0x58]),
         );
-        assert_eq!(link_target(&lnk).unwrap(), r"C:\strypt\strypt-gui.exe");
+        assert_eq!(link_target(&lnk, "").unwrap(), r"C:\strypt\strypt-gui.exe");
         std::fs::write(dir.join(WINDOWS_PATHS[0]), &lnk).unwrap();
         assert_eq!(state(&dir, &WINDOWS_PATHS, &here), State::Current);
         assert_eq!(state(&dir, &WINDOWS_PATHS, &moved), State::Stale);
@@ -719,9 +747,22 @@ mod tests {
         std::fs::write(dir.join(WINDOWS_PATHS[0]), &lnk).unwrap();
         assert_eq!(state(&dir, &WINDOWS_PATHS, &here), State::Stale);
         for cut in 0..lnk.len() {
-            let _ = link_target(&lnk[..cut]);
+            let _ = link_target(&lnk[..cut], "");
         }
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_rewritten_shortcut_without_link_info_resolves_its_relative_path() {
+        // Explorer on Windows 11 24H2 dropped LinkInfo for a target in Downloads (2026-10-08).
+        let lnk = include_bytes!("../tests/data/send-to-rewritten.lnk");
+        let send_to = r"C:\Users\fadehack\AppData\Roaming\Microsoft\Windows\SendTo";
+        let target = r"C:\Users\fadehack\Downloads\gui-x86_64-pc-windows-msvc (1)\strypt-gui-0.2.0-x86_64-pc-windows-msvc.exe";
+        assert_eq!(link_target(lnk, send_to).unwrap(), target);
+        assert_eq!(link_target(lnk, "C:"), None, "climbs past the drive");
+        for cut in 0..lnk.len() {
+            let _ = link_target(&lnk[..cut], send_to);
+        }
     }
 
     #[test]

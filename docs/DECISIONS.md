@@ -4029,4 +4029,5 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
   Send To and Open With each opened one window for 1 file and for 5, and Send To for a folder. Both
   first failed unseen: Explorer hides a link whose item ID list does not resolve, and GLib reads Open
   With from `mimeinfo.cache`, which the app now rebuilds. Explorer rewrites a link it has resolved,
-  so the app compares a link by target, not bytes.
+  for a target in Downloads dropping `LinkInfo` for a relative path, so the app compares a link by
+  target, not bytes.
