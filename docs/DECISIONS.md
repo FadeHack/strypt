@@ -4030,4 +4030,5 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
   first failed unseen: Explorer hides a link whose item ID list does not resolve, and GLib reads Open
   With from `mimeinfo.cache`, which the app now rebuilds. Explorer rewrites a link it has resolved,
   for a target in Downloads dropping `LinkInfo` for a relative path, so the app compares a link by
-  target, not bytes.
+  target, not bytes ([run 37777914389](https://github.com/FadeHack/strypt/actions/runs/37777914389),
+  2026-10-09).
