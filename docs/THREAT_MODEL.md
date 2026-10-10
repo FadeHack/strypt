@@ -207,6 +207,24 @@ created by *documentation and UI*, not by code, and it is the reason for the ban
   first-run steps teach a user to override Gatekeeper and SmartScreen for this download; the README
   never suggests turning either off.
 
+**5.8 What the menu entries add** (ADR-0064). Nothing loads into a file manager: each entry starts
+`strypt-gui` with the selection as arguments, which go through `strypt_core::walk` like a drop, so
+§5.7 applies and a folder still waits for confirmation.
+
+- **The entries are files in the user's own directories**, written per user and never as root:
+  `~/.local/share` on Linux, the Send To folder on Windows. Anything able to write there could
+  already replace them (§6 assumption 1).
+- **Each names the app by absolute path.** A path the entry's quoting would change is refused, and
+  on Windows only an ASCII path on a lettered drive is accepted. If the app moves, the entry
+  disappears or the file manager names the missing file, and the app offers Update; whatever is
+  planted at the old path runs as the user.
+- **Linux rebuilds `applications/mimeinfo.cache`** as `update-desktop-database` does, reading the
+  `MimeType=` lines of the user's other `.desktop` files. Another tool's rebuild can drop strypt,
+  and the app then offers Update.
+- **Explorer rewrites a Send To link it has resolved**, so the app compares a link by its target,
+  never trusting bytes it did not write. Whether Open With or Send To adds the selection to the
+  desktop's recent files is unchecked; if it does, that list names what was cleaned.
+
 ---
 
 ## 6. Assumptions

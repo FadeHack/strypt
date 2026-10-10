@@ -25,7 +25,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   File-manager menu entries will use this (ADR-0064).
 - The app can add itself to the file manager's right-click menu, and remove itself again: a
   Nemo action, a Dolphin service menu and Open With on Linux, and Send To on Windows. Each
-  opens the app with the selection. Untested on the desktops' current releases (ADR-0064).
+  opens the app with the selection. Tried on Cinnamon 6.6, Dolphin 26.08 and Windows 11 25H2;
+  GNOME 51 is untested (ADR-0064).
 
 ### Changed
 

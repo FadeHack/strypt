@@ -45,6 +45,9 @@ The first time you open it:
 - **Windows:** at SmartScreen, click **More info**, then **Run anyway**. Smart App Control may
   block it outright.
 
+On Linux and Windows, **Add strypt** under "Save cleaned copies" puts it in the file manager's
+right-click menu, and **Remove** takes it out; see [the limits](docs/KNOWN_LIMITATIONS.md#the-desktop-app).
+
 To check a download, use `SHA256SUMS` and `gh attestation verify` as in [the command line's steps](#install).
 
 ## Formats

@@ -52,6 +52,14 @@ it knows to look for. No tool can promise more.
   Narrator are untried, and no WCAG conformance is claimed (ADR-0058).
 - **Open files… may add what you picked to your desktop's recent files**, which would then name what
   you cleaned. Unchecked on every platform.
+- **Right-click entries** (ADR-0064):
+  - **Windows** puts strypt under Show more options ▸ Send to, and only when the app sits on a
+    lettered drive in a folder whose name is plain English letters, such as `C:\strypt`.
+  - **GNOME Files** lists strypt under Open With, for supported files only: there is no entry for
+    a folder, which is dropped on the window instead. Tried on GNOME 42.9, not yet 51.
+  - **Nemo and Dolphin** get an entry only if they were installed when you clicked Add strypt.
+  - **Finder** has no entry.
+  - **Moving the app breaks the entries** until you open it again and click Update.
 - **Unsigned.** macOS blocks it once until you click Open Anyway, and this was measured on macOS 26.3
   only. On Windows, Smart App Control may block it outright, and no Windows user tried it
   (ADR-0058 decision 4). The Linux "Allow executing" step has not been measured on a browser
