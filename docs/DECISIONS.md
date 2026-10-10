@@ -4032,3 +4032,7 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
   for a target in Downloads dropping `LinkInfo` for a relative path, so the app compares a link by
   target, not bytes ([run 37777914389](https://github.com/FadeHack/strypt/actions/runs/37777914389),
   2026-10-09).
+- **Nemo and Dolphin passed on their current releases** (2026-10-10, run 37777914389's AppImage):
+  Linux Mint 22.3 with Cinnamon 6.6.9, and Plasma 6.7.5 with Dolphin 26.08.2. Each cleaned 1 file,
+  5 in one window and a folder, and with the AppImage moved neither failed silently, as the owner
+  reports.
