@@ -1,7 +1,7 @@
 # strypt — Roadmap
 
-**Status:** Phases 0–5 complete; Phase 6 open (ADR-0064); four Phase 7 deliverables in progress (ADR-0055)
-· **Last updated:** 2026-09-30
+**Status:** Phases 0–6 complete; no phase open; four Phase 7 deliverables in progress (ADR-0055)
+· **Last updated:** 2026-10-10
 
 Every open phase states **Goal**, **Deliverables**, **Exit criteria**, and **Risks**. A phase is
 done when its exit criteria are met — not when its deliverables have been attempted. Closed phases
@@ -154,34 +154,22 @@ Whonix path stays with the CLI.
 
 ---
 
-## Phase 6 — File-manager integration *(open since 2026-09-30)*
+## Phase 6 — File-manager integration *(complete; opened 2026-09-30, closed 2026-10-10)*
 
-Opened by ADR-0064: each entry opens the GUI with the selection, nothing loads into a file manager,
-and the GUI installs the entries per user. Windows's entry sits under Show more options.
+Opened by ADR-0064, closed by ADR-0065. Each entry starts the GUI with the selection; nothing loads
+into a file manager, and the GUI adds and removes the entries per user. **These mechanisms move:
+re-verify each at each release.**
 
-**Goal.** Match the reach mat2 achieved through file-manager extensions, which is how much of
-this tool's audience actually encounters and uses it.
+| Desktop | Entry | Tried on |
+|---|---|---|
+| GNOME Files | Open With, files only | GNOME 42.9; 51 untested |
+| Cinnamon Nemo | A Nemo action | Cinnamon 6.6.9 |
+| KDE Dolphin | A service menu | Dolphin 26.08.2 |
+| Windows Explorer | Send To, under Show more options | Windows 11 25H2 |
 
-**Deliverables.**
-- Right-click "strip metadata" for GNOME Files (Nautilus), KDE Dolphin, and Windows Explorer.
-  mat2 also added Cinnamon Nemo support in v0.15.0 — worth considering.
-- Each integration calls `strypt-core` or the CLI binary; no third implementation of
-  stripping logic.
-- Verify the **current** recommended extension mechanism for each desktop environment at
-  phase start. These APIs shift more than anything else in this roadmap.
-
-**Exit criteria.**
-1. Each integration installs and works independently of the others — a Linux user needs
-   nothing Windows-specific present, and vice versa.
-2. Each is tested against the **current stable release** of its target desktop environment.
-3. Each surfaces failures visibly. A silent no-op in a right-click menu is worse than no
-   integration, because the user believes the file was cleaned.
-
-**Risks.**
-- *Desktop extension APIs are the most volatile surface in this project* — budget extra time
-  for platform-specific breakage and expect ongoing maintenance, not a one-time delivery.
-- *Error reporting through a file-manager context menu is genuinely hard.* Design the failure
-  path first, not last.
+**Exit criteria — met 2026-10-10 except GNOME 51** (ADR-0065 decision 1): each integration installs
+alone; each tried on its desktop's current release, as the owner reports; each fails visibly when
+the app has moved. Finder is not covered, and the Tails and Whonix path stays with the CLI.
 
 ---
 

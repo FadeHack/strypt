@@ -4038,3 +4038,29 @@ code or an interpreter chain, and in an in-process route a panic takes the file 
   reports.
 - **Send To passed on Windows 11 25H2** (2026-10-10, the same run), as the owner reports. The
   Ubuntu runs above were on GNOME 42.9, so GNOME 51 is the one release exit criterion 2 still lacks.
+
+---
+
+## ADR-0065 — Phase 6 closes without GNOME 51
+
+**Status:** Accepted (2026-10-10)
+
+Closes ROADMAP Phase 6, opened by ADR-0064.
+
+**Decision.**
+
+1. **Phase 6 closes.** Its exit criteria:
+   1. Met. `menu::here` writes Linux or Windows entries only, and adds a Nemo or Dolphin entry only
+      when that file manager is found.
+   2. Met for Cinnamon 6.6.9, Dolphin 26.08.2 and Windows 11 25H2, as the owner reports (ADR-0064).
+      **Not met for GNOME 51**: Open With was tried on GNOME 42.9, and the owner closes the phase
+      without waiting for Ubuntu 26.10, due 2026-10-15.
+   3. Met. With the app moved, every entry disappeared or named the missing file, and the Nautilus
+      script that did nothing was replaced (ADR-0064 decision 4).
+2. **No release is cut here.** The entries reach users in the next tagged release.
+
+**Consequences.**
+
+- **Carried, not holding the phase open:** Open With on GNOME 51; whether Open With or Send To adds
+  the selection to recent files (THREAT_MODEL §5.8); Send To from a non-ASCII path; Finder; Tails.
+- **No phase is open.** Phase 7 opens only by ADR, and its ADR-0055 deliverables continue.

@@ -30,7 +30,7 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ### Changed
 
-- Phase 6, file-manager integration, is open (ADR-0064). Nothing is shipped yet.
+- Phase 6, file-manager integration, closed (ADR-0065). GNOME 51 is untested.
 - README leads with the desktop app; the command line's install and usage follow in their own
   section.
 - The `jxl`, `png` and `pdf` fuzz targets run with libFuzzer dictionaries of their format's

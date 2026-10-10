@@ -12,9 +12,9 @@ A single self-contained binary. Memory-safe Rust. **No network access in any cod
 > page tree named one object twice, and 0.1.0 left the Exif of photos inside PDFs; see
 > [`CHANGELOG.md`](https://github.com/FadeHack/strypt/blob/HEAD/CHANGELOG.md). Read
 > [`docs/KNOWN_LIMITATIONS.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/KNOWN_LIMITATIONS.md) before relying on strypt.
-> Phases 0–5 are complete: binaries, a Homebrew tap and crates.io, with install steps tested on
-> fresh CI runners, and a desktop app tried by non-technical people on macOS and Linux
-> ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
+> Phases 0–6 are complete: binaries, a Homebrew tap and crates.io, with install steps tested on
+> fresh CI runners, a desktop app tried by non-technical people on macOS and Linux, and right-click
+> entries not yet in a release ([`docs/ROADMAP.md`](https://github.com/FadeHack/strypt/blob/HEAD/docs/ROADMAP.md)).
 
 [![CI](https://github.com/FadeHack/strypt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/ci.yml)
 [![no-network](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml/badge.svg?branch=main)](https://github.com/FadeHack/strypt/actions/workflows/no-network.yml)
@@ -45,8 +45,8 @@ The first time you open it:
 - **Windows:** at SmartScreen, click **More info**, then **Run anyway**. Smart App Control may
   block it outright.
 
-On Linux and Windows, **Add strypt** under "Save cleaned copies" puts it in the file manager's
-right-click menu, and **Remove** takes it out; see [the limits](docs/KNOWN_LIMITATIONS.md#the-desktop-app).
+After 0.2.0, on Linux and Windows, **Add strypt** under "Save cleaned copies" puts it in the file
+manager's right-click menu, and **Remove** takes it out; see [the limits](docs/KNOWN_LIMITATIONS.md#the-desktop-app).
 
 To check a download, use `SHA256SUMS` and `gh attestation verify` as in [the command line's steps](#install).
 

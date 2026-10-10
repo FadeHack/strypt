@@ -18,9 +18,10 @@ strypt is **not** an encryption tool, a secure-deletion tool, a forensics suite,
 tool, or a steganography detector. Requests to widen scope in those directions are declined
 by default.
 
-## 2. Current phase: **Phase 6, file-manager integration** (opened 2026-09-30, ADR-0064)
+## 2. Current phase: **none open** (Phase 6 closed 2026-10-10, ADR-0065)
 
-Phases 0–5 are complete. Read ADR-0064 before writing a menu entry: nothing loads into a file manager. The GUI is `eframe`/`egui`, **not Tauri** — read ADR-0058 before touching
+Phases 0–6 are complete. Phase 7 is not open until an ADR opens it. Read ADR-0064 before touching
+a menu entry: nothing loads into a file manager. The GUI is `eframe`/`egui`, **not Tauri** — read ADR-0058 before touching
 `strypt-gui` or `scripts/check-no-network.sh`, which the same ADR makes per-crate.
 [`docs/ROADMAP.md`](docs/ROADMAP.md) has the status, and
 [`README.md`](README.md) the format list. Every other format is reported as unsupported, never
