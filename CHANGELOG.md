@@ -19,10 +19,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+
 ### Added
 
 - The app opens files and folders given on its command line, as if they were dropped on it.
-  File-manager menu entries will use this (ADR-0064).
+  The file-manager menu entries use this (ADR-0064).
 - The app can add itself to the file manager's right-click menu, and remove itself again: a
   Nemo action, a Dolphin service menu and Open With on Linux, and Send To on Windows. Each
   opens the app with the selection. Tried on GNOME 51, Cinnamon 6.6, Dolphin 26.08 and Windows 11
@@ -31,6 +33,8 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
 ### Changed
 
 - Phase 6, file-manager integration, is complete (ADR-0065).
+- `cargo-deny` ignores three crates the app reaches on Linux through its screen-reader support,
+  marked unmaintained because they were merged into `zbus` 6 (ADR-0066).
 - README leads with the desktop app; the command line's install and usage follow in their own
   section.
 - The `jxl`, `png` and `pdf` fuzz targets run with libFuzzer dictionaries of their format's
@@ -1186,7 +1190,8 @@ Read these before relying on the tool. They are limitations, not bugs, and each 
   unpublishable to crates.io. Now versioned explicitly.
 - Bumped `actions/checkout` to v5; v4 targets a deprecated Node runtime.
 
-[Unreleased]: https://github.com/FadeHack/strypt/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/FadeHack/strypt/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/FadeHack/strypt/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/FadeHack/strypt/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/FadeHack/strypt/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/FadeHack/strypt/compare/v0.1.0...v0.1.1

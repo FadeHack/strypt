@@ -156,7 +156,7 @@ Whonix path stays with the CLI.
 
 ## Phase 6 — File-manager integration *(complete; opened 2026-09-30, closed 2026-10-10)*
 
-Opened by ADR-0064, closed by ADR-0065. Each entry starts the GUI with the selection; nothing loads
+Opened by ADR-0064, closed by ADR-0065; 0.3.0 is the first release carrying the entries. Each entry starts the GUI with the selection; nothing loads
 into a file manager, and the GUI adds and removes the entries per user. **These mechanisms move:
 re-verify each at each release.**
 

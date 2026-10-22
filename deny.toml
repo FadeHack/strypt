@@ -6,7 +6,13 @@
 [advisories]
 # Security advisories from the RustSec database. Any `ignore` entry needs a comment
 # explaining why the advisory does not apply and when it will be revisited.
-ignore = []
+ignore = [
+    # ADR-0066: unmaintained only, merged into zbus 6; reached through eframe's AT-SPI path on Linux.
+    # Revisit when AccessKit moves to zbus 6.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant: merged into zbus 6 (ADR-0066)" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names: merged into zbus 6 (ADR-0066)" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: merged into zbus 6 (ADR-0066)" },
+]
 # Set explicitly because defaults have moved between releases. `unsound` defaults to the
 # workspace only, which would ignore a soundness advisory against lopdf.
 yanked = "deny"

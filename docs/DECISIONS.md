@@ -4066,3 +4066,23 @@ Closes ROADMAP Phase 6, opened by ADR-0064.
 - **No phase is open.** Phase 7 opens only by ADR, and its ADR-0055 deliverables continue.
 - **Open With passed on GNOME 51** (2026-10-22), as the owner reports, so exit criterion 2 is now met
   on every desktop.
+- **0.3.0 carries the entries** (2026-10-22), the whole workspace moving with it.
+
+---
+
+## ADR-0066 — Three unmaintained zbus crates are ignored
+
+**Status:** Accepted (2026-10-22)
+
+**Context.** RUSTSEC-2026-0370, -0371 and -0372 mark `zvariant`, `zbus_names` and `zvariant_derive`
+unmaintained: they were merged into `zbus` 6. They reach the tree only through `strypt-gui` on
+Linux, by `eframe` → `accesskit_winit` → `accesskit_unix` → `atspi`, which still require `zbus` 5.
+`eframe` 0.37.0 does too (checked 2026-10-22). No vulnerability is reported against them.
+
+**Decision.** `deny.toml` ignores the three IDs. Rejected: dropping `accesskit`, which removes
+screen-reader support (ADR-0058); holding 0.3.0 for an upgrade with no date.
+
+**Consequences.**
+
+- **The ignore is lifted when AccessKit moves to `zbus` 6**, checked at each release with `eframe`.
+- **A vulnerability or `unsound` advisory against these crates is not covered** and fails the gate.
