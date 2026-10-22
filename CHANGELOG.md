@@ -25,12 +25,12 @@ The format follows [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/
   File-manager menu entries will use this (ADR-0064).
 - The app can add itself to the file manager's right-click menu, and remove itself again: a
   Nemo action, a Dolphin service menu and Open With on Linux, and Send To on Windows. Each
-  opens the app with the selection. Tried on Cinnamon 6.6, Dolphin 26.08 and Windows 11 25H2;
-  GNOME 51 is untested (ADR-0064).
+  opens the app with the selection. Tried on GNOME 51, Cinnamon 6.6, Dolphin 26.08 and Windows 11
+  25H2 (ADR-0064).
 
 ### Changed
 
-- Phase 6, file-manager integration, closed (ADR-0065). GNOME 51 is untested.
+- Phase 6, file-manager integration, is complete (ADR-0065).
 - README leads with the desktop app; the command line's install and usage follow in their own
   section.
 - The `jxl`, `png` and `pdf` fuzz targets run with libFuzzer dictionaries of their format's

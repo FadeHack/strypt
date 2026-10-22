@@ -4064,3 +4064,5 @@ Closes ROADMAP Phase 6, opened by ADR-0064.
 - **Carried, not holding the phase open:** Open With on GNOME 51; whether Open With or Send To adds
   the selection to recent files (THREAT_MODEL §5.8); Send To from a non-ASCII path; Finder; Tails.
 - **No phase is open.** Phase 7 opens only by ADR, and its ADR-0055 deliverables continue.
+- **Open With passed on GNOME 51** (2026-10-22), as the owner reports, so exit criterion 2 is now met
+  on every desktop.

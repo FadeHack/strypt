@@ -56,7 +56,7 @@ it knows to look for. No tool can promise more.
   - **Windows** puts strypt under Show more options ▸ Send to, and only when the app sits on a
     lettered drive in a folder whose name is plain English letters, such as `C:\strypt`.
   - **GNOME Files** lists strypt under Open With, for supported files only: there is no entry for
-    a folder, which is dropped on the window instead. Tried on GNOME 42.9, not yet 51.
+    a folder, which is dropped on the window instead. Tried on GNOME 42.9 and 51.
   - **Nemo and Dolphin** get an entry only if they were installed when you clicked Add strypt.
   - **Finder** has no entry.
   - **Moving the app breaks the entries** until you open it again and click Update.

@@ -162,12 +162,12 @@ re-verify each at each release.**
 
 | Desktop | Entry | Tried on |
 |---|---|---|
-| GNOME Files | Open With, files only | GNOME 42.9; 51 untested |
+| GNOME Files | Open With, files only | GNOME 42.9 and 51 |
 | Cinnamon Nemo | A Nemo action | Cinnamon 6.6.9 |
 | KDE Dolphin | A service menu | Dolphin 26.08.2 |
 | Windows Explorer | Send To, under Show more options | Windows 11 25H2 |
 
-**Exit criteria — met 2026-10-10 except GNOME 51** (ADR-0065 decision 1): each integration installs
+**Exit criteria — met 2026-10-10, GNOME 51 on 2026-10-22** (ADR-0065): each integration installs
 alone; each tried on its desktop's current release, as the owner reports; each fails visibly when
 the app has moved. Finder is not covered, and the Tails and Whonix path stays with the CLI.
 
